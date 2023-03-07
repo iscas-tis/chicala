@@ -1,0 +1,4 @@
+<plugin>
+    <name>chicala</name>
+    <classname>chicala.Chicala</classname>
+</plugin>

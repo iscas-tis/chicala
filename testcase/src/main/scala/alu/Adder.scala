@@ -10,5 +10,5 @@ class Adder extends Module {
   })
 
   io.out := io.in1 + io.in2
-  val a = 1/0;
+  val a = 1 / 0;
 }

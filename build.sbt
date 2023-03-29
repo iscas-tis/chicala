@@ -8,7 +8,11 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.scala-lang" % "scala-compiler" % "2.13.10"
     ),
-    sbtPlugin := false
+    scalacOptions ++= Seq(
+      "-deprecation",
+      "-feature",
+      "-Xcheckinit"
+    )
   )
 
 val chiselVersion     = "3.5.6"

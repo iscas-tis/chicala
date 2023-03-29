@@ -1,4 +1,4 @@
 <plugin>
     <name>chicala</name>
-    <classname>chicala.Chicala</classname>
+    <classname>chicala.ChicalaPlugin</classname>
 </plugin>

@@ -8,7 +8,11 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "org.scala-lang" % "scala-compiler" % "2.13.10"
     ),
-    sbtPlugin := false
+    scalacOptions ++= Seq(
+      "-deprecation",
+      "-feature",
+      "-Xcheckinit"
+    )
   )
 
 val chiselVersion     = "3.5.6"
@@ -25,9 +29,7 @@ lazy val testcase = (project in file("testcase"))
       "-language:reflectiveCalls",
       "-deprecation",
       "-feature",
-      "-Xcheckinit",
-      "-P:chiselplugin:genBundleElements"
+      "-Xcheckinit"
     ),
-    addCompilerPlugin("edu.berkeley.cs" %% "chisel3-plugin" % chiselVersion cross CrossVersion.full),
-    addCompilerPlugin("com.liuyic00"    %% "chicala"        % "0.1.0-SNAPSHOT")
+    addCompilerPlugin("com.liuyic00" %% "chicala" % "0.1.0-SNAPSHOT")
   )

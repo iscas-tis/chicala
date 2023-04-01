@@ -2,13 +2,17 @@ package alu
 
 import chisel3._
 
-class Adder extends Module {
+class Adder(width: Int) extends Module {
   val io = IO(new Bundle {
-    val in1 = Input(UInt(16.W))
-    val in2 = Input(UInt(16.W))
-    val out = Output(UInt(16.W))
+    val valid = Input(Bool())
+    val in1   = Input(UInt(width.W))
+    val in2   = Input(UInt(width.W))
+    val out   = Output(UInt(width.W))
   })
 
-  io.out := io.in1 + io.in2
-  val a = 1 / 0;
+  when(io.valid) {
+    io.out := io.in1 + io.in2
+  } otherwise {
+    io.out := 0.U
+  }
 }

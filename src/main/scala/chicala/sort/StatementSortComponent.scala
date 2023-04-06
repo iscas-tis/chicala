@@ -14,7 +14,7 @@ object StatementSortComponent {
 }
 
 class StatementSortComponent(val global: Global) extends PluginComponent {
-  implicit private val implicitGlobal = global
+  implicit private val implicitGlobal: global.type = global
   import global._
 
   private val fmt = new Format
@@ -41,8 +41,8 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
       val packageName = packageDef.pid.toString()
 
       for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- packageDef.stats) {
-        val sorter = new TopologicalSort
-        import sorter._
+        val sorter = new TopologicalSort[global.type]
+        import sorter.{global => _, _}
 
         // Filter chisel statements
         // TODO: Analysis signal dependency

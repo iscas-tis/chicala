@@ -5,7 +5,7 @@ import nsc.Global
 
 import chicala.util.Format
 
-class TopologicalSort(implicit global: Global) {
+class TopologicalSort[G <: Global]()(implicit val global: G) {
   import global._
 
   private val fmt = new Format
@@ -18,14 +18,14 @@ class TopologicalSort(implicit global: Global) {
     * @param tree
     *   AST statement
     */
-  case class Statement(val id: List[Int], val tree: Global#Tree) {
+  case class Statement(val id: List[Int], val tree: Tree) {
 
     val (fullyConnectedSignals, partiallyConnectedSignals, dependencySignals) = getSignals(tree)
     println(fullyConnectedSignals)
     println(partiallyConnectedSignals)
     println(dependencySignals)
 
-    private def getSignals(tree: Global#Tree): (Set[String], Set[String], Set[String]) = {
+    private def getSignals(tree: Tree): (Set[String], Set[String], Set[String]) = {
       tree match {
         // :=
         case Apply(Select(left, TermName("$colon$eq")), rights) => {
@@ -76,15 +76,15 @@ class TopologicalSort(implicit global: Global) {
     }
   }
   object Statement {
-    def formTree(tree: Global#Tree): Option[Statement] = {
+    def formTree(tree: Tree): Option[Statement] = {
       if (check(tree)) Some(Statement(List.empty, tree))
       else None
     }
-    def filter(tree: Global#Tree): Option[Global#Tree] = {
+    def filter(tree: Tree): Option[Tree] = {
       if (check(tree)) Some(tree)
       else None
     }
-    def check(tree: Global#Tree): Boolean = {
+    def check(tree: Tree): Boolean = {
       tree.exists {
         case select: Select =>
           select.toString() == "chisel3.internal.sourceinfo.SourceLine.apply"
@@ -111,7 +111,7 @@ class TopologicalSort(implicit global: Global) {
     }
   }
   object Statements {
-    def fromTreeList(treeList: List[Global#Tree]): Statements = {
+    def fromTreeList(treeList: List[Tree]): Statements = {
       val flitered = treeList.map(Statement.filter(_)).flatten
       new Statements(
         (0 until flitered.length)

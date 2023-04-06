@@ -15,7 +15,7 @@ object ChiselToScalaComponent {
 }
 
 class ChiselToScalaComponent(val global: Global) extends PluginComponent {
-  implicit private val implicitGlobal = global
+  implicit private val implicitGlobal: global.type = global
   import global._
 
   private val fmt = new Format

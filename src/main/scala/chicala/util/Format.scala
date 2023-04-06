@@ -3,7 +3,7 @@ package chicala.util
 import scala.tools.nsc
 import nsc.Global
 
-class Format(implicit global: Global) {
+class Format()(implicit global: Global) {
   import Format._
   import global._
 

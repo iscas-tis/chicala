@@ -7,14 +7,18 @@ import nsc.plugins.PluginComponent
 
 import java.io._
 
-import chicala.util.Format._
+import chicala.util.Format
 
 object StatementSortComponent {
   val phaseName = "statementSort"
 }
 
 class StatementSortComponent(val global: Global) extends PluginComponent {
+  implicit private val implicitGlobal = global
   import global._
+
+  private val fmt = new Format
+  import fmt._
 
   val runsAfter: List[String] = List("typer")
   // to keep recursive structure
@@ -32,18 +36,32 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
       global.computePhaseAssembly().foreach(s => chicalaLog.write(s.toString + "\n"))
 
       val fw = new BufferedWriter(new PrintWriter(testRunDir.getPath() + "/test.scala"))
-      for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- unit.body) {
-        fw.write(show(tree))
-        fw.write("\n")
 
-        for (bodytree <- body) {
-          fw.write("bodytree:\n")
-          fw.write(show(bodytree) + "\n")
-          fw.write(formatAst(showRaw(bodytree)) + "\n")
+      val packageDef  = unit.body.asInstanceOf[PackageDef]
+      val packageName = packageDef.pid.toString()
+
+      for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- packageDef.stats) {
+        val sorter = new TopologicalSort
+        import sorter._
+
+        // Filter chisel statements
+        // TODO: Analysis signal dependency
+        val statements = Statements.fromTreeList(body)
+        global.reporter.echo(
+          s"flitered ${statements.body.length} statements form ${body.length} in ${packageName}.${name}"
+        )
+        statements.body.foreach(x => {
+          fw.write(show(x.tree) + "\n")
+          fw.write(showFormattedRaw(x.tree) + "\n")
           fw.write("\n")
-        }
+        })
 
-        fw.write("\n")
+        // TODO: Mark invalid connetion (couse by last connect semantics)
+        // TODO: Expand blocks
+        // TODO: Export dependency graph
+        // TODO: Topological sort
+        // TODO: Merge
+        // TODO: Return new AST
       }
 
       fw.close()
@@ -51,5 +69,4 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
       chicalaLog.close()
     }
   }
-
 }

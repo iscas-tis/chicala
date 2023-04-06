@@ -7,15 +7,19 @@ import nsc.plugins.PluginComponent
 
 import java.io._
 
-import chicala.util.Format._
 import chicala.sort.StatementSortComponent
+import chicala.util.Format
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
 }
 
 class ChiselToScalaComponent(val global: Global) extends PluginComponent {
+  implicit private val implicitGlobal = global
   import global._
+
+  private val fmt = new Format
+  import fmt._
 
   val runsAfter: List[String] = List(StatementSortComponent.phaseName)
   // to keep recursive structure
@@ -40,7 +44,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
         for (bodytree <- body) {
           fw.write("bodytree:\n")
           fw.write(show(bodytree) + "\n")
-          fw.write(formatAst(showRaw(bodytree)) + "\n")
+          fw.write(showFormattedRaw(bodytree) + "\n")
           fw.write("\n")
         }
 

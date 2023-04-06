@@ -1,5 +1,17 @@
 package chicala.util
 
+import scala.tools.nsc
+import nsc.Global
+
+class Format(implicit global: Global) {
+  import Format._
+  import global._
+
+  def showFormattedRaw(any: Any) = {
+    formatAst(showRaw(any))
+  }
+}
+
 object Format {
 
   /** Format raw AST string.

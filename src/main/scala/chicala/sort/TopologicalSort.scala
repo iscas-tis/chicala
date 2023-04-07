@@ -20,45 +20,60 @@ class TopologicalSort[G <: Global]()(implicit val global: G) {
     */
   case class Statement(val id: List[Int], val tree: Tree) {
 
-    val (fullyConnectedSignals, partiallyConnectedSignals, dependencySignals) = getSignals(tree)
-    println(fullyConnectedSignals)
-    println(partiallyConnectedSignals)
-    println(dependencySignals)
+    case class ConnectedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
+      def ++(that: ConnectedSignals): ConnectedSignals = {
+        ConnectedSignals(
+          this.fully ++ that.fully,
+          this.partially ++ that.partially,
+          this.dependency ++ that.dependency
+        )
+      }
+    }
+    object ConnectedSignals {
+      def empty = ConnectedSignals(Set.empty, Set.empty, Set.empty)
+    }
 
-    private def getSignals(tree: Tree): (Set[String], Set[String], Set[String]) = {
+    val connectedSignals = getSignals(tree)
+    println(connectedSignals)
+
+    private def getSignals(tree: Tree, hasOtherwise: Boolean = false): ConnectedSignals = {
       tree match {
         // :=
         case Apply(Select(left, TermName("$colon$eq")), rights) => {
           assert(rights.length == 1, "':=' should have only 1 operand on the right")
 
-          val deps = rights.map(getSignals(_)._3).flatten.toSet
-          (Set(left.toString()), Set(), deps)
+          val sigs = rights.map(getSignals(_)).reduce(_ ++ _)
+          ConnectedSignals(Set(left.toString()), Set(), sigs.dependency)
         }
         // otherwise
         case Apply(Select(when, TermName("otherwise")), body) => {
           // TODO: get otherwise body and fullyConnectedSignals
-          getSignals(when)
+          getSignals(when, hasOtherwise = true)
         }
         // when
         case Apply(
-              Apply(Select(Select(Ident(TermName("chisel3")), TermName("when")), TermName("apply")), condition),
+              Apply(
+                Select(Select(Ident(TermName("chisel3")), TermName("when")), TermName("apply")),
+                condition
+              ),
               body
             ) => {
           assert(condition.length == 1, "`when` should have only 1 condition")
 
           val tmpls = condition ++ body
-          tmpls.map(getSignals(_)).reduceLeft((a, b) => (a._1 ++ b._1, a._2 ++ b._2, a._3 ++ b._3))
-          // TODO: what if no otherwise?
+          val sigs  = tmpls.map(getSignals(_)).reduce(_ ++ _)
+
+          if (hasOtherwise) sigs
+          else ConnectedSignals(Set.empty, sigs.fully ++ sigs.partially, sigs.dependency)
         }
         // TODO: more statement
         case Apply(fun, args) => {
-          val tmpls = fun :: args
-          tmpls.map(getSignals(_)).reduceLeft((a, b) => (a._1 ++ b._1, a._2 ++ b._2, a._3 ++ b._3))
+          (fun :: args).map(getSignals(_)).reduce(_ ++ _)
         }
         case Select(qualifier, name) => {
           getSignals(qualifier)
         }
-        case _ => (Set(), Set(), Set())
+        case _ => ConnectedSignals.empty
       }
     }
 

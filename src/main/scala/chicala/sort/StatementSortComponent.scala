@@ -35,12 +35,21 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
       val chicalaLog = new BufferedWriter(new PrintWriter(testRunDir.getPath() + "/chicala_log.txt"))
       global.computePhaseAssembly().foreach(s => chicalaLog.write(s.toString + "\n"))
 
-      val fw = new BufferedWriter(new PrintWriter(testRunDir.getPath() + "/test.scala"))
-
       val packageDef  = unit.body.asInstanceOf[PackageDef]
       val packageName = packageDef.pid.toString()
 
       for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- packageDef.stats) {
+        val fw = new BufferedWriter(new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.scala"))
+        fw.write(show(tree) + "\n")
+        fw.write("\n")
+        for (bodytree <- body) {
+          fw.write("bodytree:\n")
+          fw.write(show(bodytree) + "\n")
+          fw.write(showFormattedRaw(bodytree) + "\n")
+          fw.write("\n")
+        }
+        fw.close()
+
         val sorter = new TopologicalSort[global.type]
         import sorter.{global => _, _}
 
@@ -50,11 +59,6 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         global.reporter.echo(
           s"flitered ${statements.body.length} statements form ${body.length} in ${packageName}.${name}"
         )
-        statements.body.foreach(x => {
-          fw.write(show(x.tree) + "\n")
-          fw.write(showFormattedRaw(x.tree) + "\n")
-          fw.write("\n")
-        })
 
         // TODO: Mark invalid connetion (couse by last connect semantics)
         // TODO: Expand blocks
@@ -63,8 +67,6 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         // TODO: Merge
         // TODO: Return new AST
       }
-
-      fw.close()
 
       chicalaLog.close()
     }

@@ -33,24 +33,74 @@ class TopologicalSort[G <: Global]()(implicit val global: G) {
       def empty = ConnectedSignals(Set.empty, Set.empty, Set.empty)
     }
 
-    val connectedSignals = getSignals(tree)
+    val connectedSignals = getConnectedSignals(tree)
     println(connectedSignals)
 
-    private def getSignals(tree: Tree, hasOtherwise: Boolean = false): ConnectedSignals = {
+    private def processExpression(tree: Tree): Set[String] = {
       tree match {
-        // :=
-        case Apply(Select(left, TermName("$colon$eq")), rights) => {
-          assert(rights.length == 1, "':=' should have only 1 operand on the right")
+        // SourceInfo
+        case Apply(fun, args)
+            if (fun.tpe.toString().startsWith("(implicit sourceInfo: chisel3.internal.sourceinfo.SourceInfo")) => {
+          processExpression(fun) // pass through
+        }
+        case Typed(expr, tpt) => {
+          processExpression(expr) // pass through
+        }
+        // literal
+        case Select(
+              Apply(Select(Select(Ident(TermName("chisel3")), TermName("package")), TermName("fromIntToLiteral")), _),
+              _
+            ) => {
+          Set.empty
+        }
+        // signal
+        case s: Select if (List("chisel3.Bool", "chisel3.UInt").contains(tree.tpe.toString())) => {
+          Set(s.toString())
+        }
+        // operator
+        case Apply(Select(left: Select, op), rights) if (List("do_$plus").contains(op.toString())) => {
+          assert(rights.length == 1, "'do_+' should have only 1 operand on the right")
 
-          val sigs = rights.map(getSignals(_)).reduce(_ ++ _)
-          ConnectedSignals(Set(left.toString()), Set(), sigs.dependency)
+          val sigs = rights.map(processExpression(_)).reduce(_ ++ _)
+          Set(left.toString()) ++ sigs
+        }
+        case _: Tree => {
+          println()
+          println(tree.tpe)
+          println(tree)
+          println()
+          println(showRaw(tree))
+          println("processExpression")
+          println("**********")
+          Set.empty
+        }
+      }
+    }
+
+    private def getConnectedSignals(tree: Tree, hasOtherwise: Boolean = false): ConnectedSignals = {
+      tree match {
+        // SourceInfo
+        case Apply(fun, args)
+            if (fun.tpe.toString().startsWith("(implicit sourceInfo: chisel3.internal.sourceinfo.SourceInfo")) => {
+          getConnectedSignals(fun, hasOtherwise) // pass through
+        }
+        case Typed(expr, tpt) => {
+          getConnectedSignals(expr, hasOtherwise) // pass through
+        }
+        case Block(stats, expr) => {
+          (stats :+ expr).map(getConnectedSignals(_)).reduce(_ ++ _)
         }
         // otherwise
         case Apply(Select(when, TermName("otherwise")), body) => {
-          // TODO: get otherwise body and fullyConnectedSignals
-          getSignals(when, hasOtherwise = true)
+          val whenSigs  = getConnectedSignals(when, hasOtherwise = true)
+          val otherSigs = body.map(getConnectedSignals(_)).reduce(_ ++ _)
+
+          val fully = whenSigs.fully.intersect(otherSigs.fully)
+
+          val tmp = whenSigs ++ otherSigs
+          ConnectedSignals(fully, tmp.partially ++ tmp.fully -- fully, tmp.dependency)
         }
-        // when
+        // when only
         case Apply(
               Apply(
                 Select(Select(Ident(TermName("chisel3")), TermName("when")), TermName("apply")),
@@ -60,20 +110,39 @@ class TopologicalSort[G <: Global]()(implicit val global: G) {
             ) => {
           assert(condition.length == 1, "`when` should have only 1 condition")
 
-          val tmpls = condition ++ body
-          val sigs  = tmpls.map(getSignals(_)).reduce(_ ++ _)
+          val conditionDeps                                  = processExpression(condition(0))
+          val ConnectedSignals(fully, partially, dependency) = body.map(getConnectedSignals(_)).reduce(_ ++ _)
 
-          if (hasOtherwise) sigs
-          else ConnectedSignals(Set.empty, sigs.fully ++ sigs.partially, sigs.dependency)
+          if (hasOtherwise)
+            ConnectedSignals(fully, partially, conditionDeps ++ dependency)
+          else
+            ConnectedSignals(Set.empty, fully ++ partially, dependency ++ conditionDeps)
         }
-        // TODO: more statement
+        // :=
+        case Apply(Select(left: Select, TermName("$colon$eq")), rights) => {
+          assert(rights.length == 1, "':=' should have only 1 operand on the right")
+
+          val deps = rights.map(processExpression(_)).reduce(_ ++ _)
+          ConnectedSignals(Set(left.toString()), Set(), deps)
+        }
         case Apply(fun, args) => {
-          (fun :: args).map(getSignals(_)).reduce(_ ++ _)
+          println()
+          println(tree)
+          println()
+          println(fun.tpe.toString())
+          println("-------------")
+
+          ConnectedSignals.empty
         }
-        case Select(qualifier, name) => {
-          getSignals(qualifier)
+
+        case ValDef(_, _, _, _) => {
+          // pass for now
+          ConnectedSignals.empty
         }
-        case _ => ConnectedSignals.empty
+        case _: Tree => {
+          global.reporter.error(tree.pos, s"unknown AST:\n${tree.tpe}\n\n${tree}\n\n${showRaw(tree)}**********")
+          ConnectedSignals.empty
+        }
       }
     }
 
@@ -101,8 +170,8 @@ class TopologicalSort[G <: Global]()(implicit val global: G) {
     }
     def check(tree: Tree): Boolean = {
       tree.exists {
-        case select: Select =>
-          select.toString() == "chisel3.internal.sourceinfo.SourceLine.apply"
+        case Apply(fun, args) =>
+          fun.tpe.toString().startsWith("(implicit sourceInfo: chisel3.internal.sourceinfo.SourceInfo")
         case _ => false
       }
     }

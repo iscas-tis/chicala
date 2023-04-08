@@ -34,13 +34,13 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
       override val tree: Tree,
       override val signals: ConnectedSignals,
       val condition: Tree,
-      val body: List[Statement]
+      val content: Statements
   ) extends Statement(tree, signals)
   case class WhenOtherwise(
       override val tree: Tree,
       override val signals: ConnectedSignals,
       val when: When,
-      val body: List[Statement]
+      val content: Statements
   ) extends Statement(tree, signals)
 
   object Statement {
@@ -62,17 +62,17 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
         }
         // otherwise
         case Apply(Select(whenTree, TermName("otherwise")), bodyList) => {
-          val when = analysis(whenTree).get.asInstanceOf[When]
-          val body = analysisList(bodyList)
+          val when    = analysis(whenTree).get.asInstanceOf[When]
+          val content = analysisList(bodyList)
 
           val whenSigs = when.signals
-          val bodySigs = body.map(_.signals).reduce(_ ++ _)
+          val bodySigs = content.signals
           val fully    = whenSigs.fully.intersect(bodySigs.fully) // fully connected in both side
           val tmp      = whenSigs ++ bodySigs
 
           val signals = ConnectedSignals(fully, tmp.partially ++ tmp.fully -- fully, tmp.dependency)
 
-          Some(WhenOtherwise(treeRoot, signals, when, body))
+          Some(WhenOtherwise(treeRoot, signals, when, content))
         }
         // when only
         case Apply(
@@ -87,11 +87,11 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
 
           val conditionDeps = processExpression(conditionTree)
 
-          val body     = analysisList(bodyList)
-          val bodySigs = body.map(_.signals).reduce(_ ++ _)
+          val content  = analysisList(bodyList)
+          val bodySigs = content.signals
           val signals  = ConnectedSignals(bodySigs.fully, bodySigs.partially, bodySigs.dependency ++ conditionDeps)
 
-          Some(When(treeRoot, signals, conditionTree, body))
+          Some(When(treeRoot, signals, conditionTree, content))
         }
         // :=
         case Apply(Select(left: Select, TermName("$colon$eq")), rights) => {
@@ -122,18 +122,20 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
       }
 
     }
-    def analysisList(treeList: List[Tree]): List[Statement] = {
-      treeList
-        .map({
-          case Block(stats, expr) => {
-            (stats :+ expr).map(analysis(_))
-          }
-          case t: Tree => {
-            List(analysis(t))
-          }
-        })
-        .flatten
-        .flatten
+    def analysisList(treeList: List[Tree]): Statements = {
+      Statements(
+        treeList
+          .map({
+            case Block(stats, expr) => {
+              (stats :+ expr).map(analysis(_))
+            }
+            case t: Tree => {
+              List(analysis(t))
+            }
+          })
+          .flatten
+          .flatten
+      )
     }
 
     private def processExpression(tree: Tree): Set[String] = {
@@ -195,10 +197,12 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
     * @param body
     *   list of statement
     */
-  case class Statements(val body: List[Statement])
+  case class Statements(val body: List[Statement], val signals: ConnectedSignals)
   object Statements {
+    def apply(body: List[Statement]): Statements = Statements(body, body.map(_.signals).reduce(_ ++ _))
+
     def fromTreeList(treeList: List[Tree]): Statements = {
-      new Statements(treeList.map(Statement.formTree(_)).flatten)
+      Statements(treeList.map(Statement.formTree(_)).flatten)
     }
   }
 }

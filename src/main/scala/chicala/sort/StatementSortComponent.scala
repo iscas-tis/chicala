@@ -50,11 +50,11 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         }
         fw.close()
 
-        val sorter = new TopologicalSort[global.type]
-        import sorter.{global => _, _}
+        val processor = new StatementProcess[global.type]
+        import processor.{global => _, _}
 
         // Filter chisel statements
-        // TODO: Analysis signal dependency
+        // Analysis signal dependency
         val statements = Statements.fromTreeList(body)
         global.reporter.echo(
           s"flitered ${statements.body.length} statements form ${body.length} in ${packageName}.${name}"

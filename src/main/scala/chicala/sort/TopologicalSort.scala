@@ -28,7 +28,7 @@ case class Vertex(val id: Id) extends Ordered[Vertex] {
 }
 case class DirectedEdge(val from: Vertex, val to: Vertex)
 case class DirectedGraph(val vertexs: Set[Vertex], edges: Set[DirectedEdge]) {
-  def toplogicalSort(): List[Vertex] = {
+  def toplogicalSort(layer: Boolean = false): List[Vertex] = {
     import scala.collection.mutable
 
     val incoming        = mutable.Map.from(vertexs.map(_ -> mutable.Set.empty[Vertex]))
@@ -41,12 +41,14 @@ case class DirectedGraph(val vertexs: Set[Vertex], edges: Set[DirectedEdge]) {
     val queue   = mutable.PriorityQueue.from(vertexs.filter(dependencyCount(_) == 0)).reverse
     var revList = List.empty[Vertex] // store reversed toplogical order
     while (queue.nonEmpty) {
-      val v = queue.dequeue()
-      revList = v :: revList
-      incoming(v).foreach { u =>
-        dependencyCount(u) -= 1
-        if (dependencyCount(u) == 0)
-          queue += u
+      val thisLayer = if (layer) queue.dequeueAll else List(queue.dequeue())
+      thisLayer.foreach { v =>
+        revList = v :: revList
+        incoming(v).foreach { u =>
+          dependencyCount(u) -= 1
+          if (dependencyCount(u) == 0)
+            queue += u
+        }
       }
     }
 

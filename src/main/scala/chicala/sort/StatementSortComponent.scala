@@ -65,7 +65,7 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         // Export dependency graph
         // Topological sort
         val dependencyGraph  = markedStatements.dependencyGraph
-        val topologicalOrder = dependencyGraph.toplogicalSort()
+        val topologicalOrder = dependencyGraph.toplogicalSort(layer = true)
 
         // TODO: Merge
         // TODO: Return new AST

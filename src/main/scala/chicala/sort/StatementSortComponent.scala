@@ -62,8 +62,11 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         // Mark invalid connect (couse by last connect semantics)
         val markedStatements = statements.markInvalidConnect()
 
-        // TODO: Export dependency graph
-        // TODO: Topological sort
+        // Export dependency graph
+        // Topological sort
+        val dependencyGraph  = markedStatements.dependencyGraph
+        val topologicalOrder = dependencyGraph.toplogicalSort()
+
         // TODO: Merge
         // TODO: Return new AST
       }

@@ -1,11 +1,55 @@
 package chicala.sort
 
-import scala.tools.nsc
-import nsc.Global
+import scala.math.Ordered
 
 import chicala.util.Format
 
-class TopologicalSort[G <: Global]()(implicit val global: G) {
-  import global._
+case class Id(val seq: List[Int]) extends Ordered[Id] {
+  def compare(that: Id): Int = compareSeq(this.seq, that.seq)
 
+  private def compareSeq(seqA: List[Int], seqB: List[Int]): Int = {
+    (seqA, seqB) match {
+      case (Nil, Nil) => 0
+      case (_, Nil)   => 1
+      case (Nil, _)   => -1
+      case (_, _) =>
+        if (seqA.head == seqB.head) compareSeq(seqA.tail, seqB.tail)
+        else seqA.head compare seqB.head
+    }
+  }
+
+  def :+(number: Int): Id = Id(seq :+ number)
+}
+object Id {
+  def empty = Id(List.empty)
+}
+case class Vertex(val id: Id) extends Ordered[Vertex] {
+  def compare(that: Vertex): Int = id.compare(that.id)
+}
+case class DirectedEdge(val from: Vertex, val to: Vertex)
+case class DirectedGraph(val vertexs: Set[Vertex], edges: Set[DirectedEdge]) {
+  def toplogicalSort(): List[Vertex] = {
+    import scala.collection.mutable
+
+    val incoming        = mutable.Map.from(vertexs.map(_ -> mutable.Set.empty[Vertex]))
+    val dependencyCount = mutable.Map.from(vertexs.map(_ -> 0))
+    edges.foreach { case DirectedEdge(from, to) =>
+      incoming(to) += from
+      dependencyCount(from) += 1
+    }
+
+    val queue   = mutable.PriorityQueue.from(vertexs.filter(dependencyCount(_) == 0)).reverse
+    var revList = List.empty[Vertex] // store reversed toplogical order
+    while (queue.nonEmpty) {
+      val v = queue.dequeue()
+      revList = v :: revList
+      incoming(v).foreach { u =>
+        dependencyCount(u) -= 1
+        if (dependencyCount(u) == 0)
+          queue += u
+      }
+    }
+
+    revList.reverse
+  }
 }

@@ -15,17 +15,17 @@ class InvalidConnect1(width: Int) extends Module {
   val c = Wire(UInt(width.W))
 
   // here is a invalid connect, overwrite by connect in `when`
-  c := io.in
+  c := io.in // 1
 
   when(io.valid) {
-    c := a
+    c := a // 2.1.1
   }.otherwise {
-    c := b
+    c := b // 2.2.1
   }
-  a := io.in
-  b := io.in
+  a := io.in // 3
+  b := io.in // 4
 
-  io.out := c
+  io.out := c // 5
 }
 /* this should be:
   val a = Wire(UInt(width.W))

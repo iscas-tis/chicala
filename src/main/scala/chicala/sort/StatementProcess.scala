@@ -231,13 +231,75 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
       */
     def markInvalidConnect(connected: Set[String] = Set.empty): Statements = {
       var connectedForNow = connected
-      val newBody = for (s <- body.reverse) yield {
+      val newBody = (for (s <- body.reverse) yield {
         val newStatement = s.markInvalidConnect(connectedForNow)
         connectedForNow = connectedForNow ++ s.signals.fully
         newStatement
-      }
+      }).reverse
       Statements(newBody, signals)
     }
+
+    lazy val dependencyGraph: DirectedGraph = {
+      import scala.collection.mutable
+
+      val lastConnect = mutable.Map.empty[String, Id]
+      val vertexs     = mutable.Set.empty[Vertex]
+      val edges       = mutable.Set.empty[DirectedEdge]
+
+      def getVertexAndLastConnectDependcy(idPrefix: Id, statements: Statements): Unit = {
+        val b = statements.body
+        (1 to b.length).map(idPrefix :+ _).zip(b).foreach { case (id, statement) =>
+          statement match {
+            case Connect(tree, signals, valid) => {
+              vertexs += Vertex(id)
+
+              val left = signals.fully.head
+              if (lastConnect.contains(left)) {
+                edges += DirectedEdge(Vertex(id), Vertex(lastConnect(left)))
+              }
+              lastConnect(left) = id
+            }
+            case When(tree, signals, condition, content) => {
+              getVertexAndLastConnectDependcy(id, content)
+            }
+            case WhenOtherwise(tree, signals, when, content) => {
+              getVertexAndLastConnectDependcy(id :+ 1, when.content)
+              getVertexAndLastConnectDependcy(id :+ 2, content)
+            }
+          }
+        }
+      }
+
+      def getConnectDependcy(idPrefix: Id, statements: Statements, depSigalPrefix: Set[String]): Unit = {
+        val b = statements.body
+        (1 to b.length).map(idPrefix :+ _).zip(b).foreach { case (id, statement) =>
+          statement match {
+            case Connect(tree, signals, valid) => {
+              if (valid) {
+                (signals.dependency ++ depSigalPrefix).foreach { sig =>
+                  if (lastConnect.contains(sig)) {
+                    edges += DirectedEdge(Vertex(id), Vertex(lastConnect(sig)))
+                  } // else, sig is never been connected or is an input
+                }
+              }
+            }
+            case When(tree, signals, condition, content) => {
+              getConnectDependcy(id, content, depSigalPrefix + condition.toString())
+            }
+            case WhenOtherwise(tree, signals, when, content) => {
+              getConnectDependcy(id :+ 1, when.content, depSigalPrefix + when.condition.toString())
+              getConnectDependcy(id :+ 2, content, depSigalPrefix + when.condition.toString())
+            }
+          }
+        }
+      }
+
+      getVertexAndLastConnectDependcy(Id.empty, this)
+      getConnectDependcy(Id.empty, this, Set.empty)
+
+      DirectedGraph(vertexs.toSet, edges.toSet)
+    }
+
   }
   object Statements {
     def apply(body: List[Statement]): Statements = Statements(body, body.map(_.signals).reduce(_ ++ _))

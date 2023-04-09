@@ -24,24 +24,47 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
     def empty = ConnectedSignals(Set.empty, Set.empty, Set.empty)
   }
 
-  sealed abstract class Statement(val tree: Tree, val signals: ConnectedSignals)
+  sealed abstract class Statement(val tree: Tree, val signals: ConnectedSignals) {
+    def markInvalidConnect(connected: Set[String]): Statement
+  }
 
   case class Connect(
       override val tree: Tree,
-      override val signals: ConnectedSignals
-  ) extends Statement(tree, signals)
+      override val signals: ConnectedSignals,
+      val valid: Boolean
+  ) extends Statement(tree, signals) {
+    def markInvalidConnect(connected: Set[String]): Connect = {
+      assert(signals.fully.size == 1, s"Connect should only has 1 fully connected signal:\n${this}")
+
+      if (connected.contains(signals.fully.head))
+        Connect(tree, signals, false)
+      else
+        this
+    }
+  }
   case class When(
       override val tree: Tree,
       override val signals: ConnectedSignals,
       val condition: Tree,
       val content: Statements
-  ) extends Statement(tree, signals)
+  ) extends Statement(tree, signals) {
+    def markInvalidConnect(connected: Set[String]): When = {
+      val newContent = content.markInvalidConnect(connected)
+      When(tree, signals, condition, newContent)
+    }
+  }
   case class WhenOtherwise(
       override val tree: Tree,
       override val signals: ConnectedSignals,
       val when: When,
       val content: Statements
-  ) extends Statement(tree, signals)
+  ) extends Statement(tree, signals) {
+    def markInvalidConnect(connected: Set[String]): WhenOtherwise = {
+      val newWhen    = when.markInvalidConnect(connected)
+      val newContent = content.markInvalidConnect(connected)
+      WhenOtherwise(tree, signals, newWhen, newContent)
+    }
+  }
 
   object Statement {
     def formTree(tree: Tree): Option[Statement] = {
@@ -100,7 +123,7 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
           val deps    = rights.map(processExpression(_)).reduce(_ ++ _)
           val signals = ConnectedSignals(Set(left.toString()), Set(), deps)
 
-          Some(Connect(treeRoot, signals))
+          Some(Connect(treeRoot, signals, true))
         }
         case Apply(fun, args) => {
           println()
@@ -197,12 +220,31 @@ class StatementProcess[G <: Global]()(implicit val global: G) {
     * @param body
     *   list of statement
     */
-  case class Statements(val body: List[Statement], val signals: ConnectedSignals)
+  case class Statements(val body: List[Statement], val signals: ConnectedSignals) {
+
+    /** Mark invalid connect couse by last connect semantics
+      *
+      * @param connected
+      *   signal names that have already been fully connected
+      * @return
+      *   new Statements
+      */
+    def markInvalidConnect(connected: Set[String] = Set.empty): Statements = {
+      var connectedForNow = connected
+      val newBody = for (s <- body.reverse) yield {
+        val newStatement = s.markInvalidConnect(connectedForNow)
+        connectedForNow = connectedForNow ++ s.signals.fully
+        newStatement
+      }
+      Statements(newBody, signals)
+    }
+  }
   object Statements {
     def apply(body: List[Statement]): Statements = Statements(body, body.map(_.signals).reduce(_ ++ _))
 
     def fromTreeList(treeList: List[Tree]): Statements = {
       Statements(treeList.map(Statement.formTree(_)).flatten)
     }
+    def empty = Statements(List.empty)
   }
 }

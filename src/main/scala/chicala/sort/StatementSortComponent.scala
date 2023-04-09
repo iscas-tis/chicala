@@ -54,14 +54,14 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         import processor.{global => _, _}
 
         // Filter chisel statements
-        // Analysis signal dependency
+        // Analysis signal dependency for every statements
         val statements = Statements.fromTreeList(body)
         global.reporter.echo(
           s"flitered ${statements.body.length} statements form ${body.length} in ${packageName}.${name}"
         )
+        // Mark invalid connect (couse by last connect semantics)
+        val markedStatements = statements.markInvalidConnect()
 
-        // TODO: Mark invalid connetion (couse by last connect semantics)
-        // TODO: Expand blocks
         // TODO: Export dependency graph
         // TODO: Topological sort
         // TODO: Merge

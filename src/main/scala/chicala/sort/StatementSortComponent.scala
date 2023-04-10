@@ -14,11 +14,7 @@ object StatementSortComponent {
 }
 
 class StatementSortComponent(val global: Global) extends PluginComponent {
-  implicit private val implicitGlobal: global.type = global
   import global._
-
-  private val fmt = new Format
-  import fmt._
 
   val runsAfter: List[String] = List("typer")
   // to keep recursive structure
@@ -27,7 +23,10 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
   val phaseName: String      = StatementSortComponent.phaseName
   def newPhase(_prev: Phase) = new StatementSortPhase(_prev)
 
-  class StatementSortPhase(prev: Phase) extends StdPhase(prev) {
+  class StatementSortPhase(prev: Phase) extends StdPhase(prev) with StatementProcess with Format {
+    lazy val global: StatementSortComponent.this.global.type = StatementSortComponent.this.global
+    import global._
+
     def apply(unit: CompilationUnit): Unit = {
       val testRunDir = new File("test_run_dir/" + phaseName)
       testRunDir.mkdirs()
@@ -49,9 +48,6 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
           fw.write("\n")
         }
         fw.close()
-
-        val processor = new StatementProcess[global.type]
-        import processor.{global => _, _}
 
         // Filter chisel statements
         // Analysis signal dependency for every statements

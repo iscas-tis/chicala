@@ -3,8 +3,10 @@ package chicala.util
 import scala.tools.nsc
 import nsc.Global
 
-class Format()(implicit global: Global) {
+trait Format {
   import Format._
+
+  val global: Global
   import global._
 
   def showFormattedRaw(any: Any) = {

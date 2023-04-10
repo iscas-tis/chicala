@@ -5,11 +5,9 @@ import nsc.Global
 
 import chicala.util.Format
 
-class StatementProcess[G <: Global]()(implicit val global: G) {
+trait StatementProcess extends Format {
+  val global: Global
   import global._
-
-  private val fmt = new Format
-  import fmt._
 
   case class ConnectedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
     def ++(that: ConnectedSignals): ConnectedSignals = {

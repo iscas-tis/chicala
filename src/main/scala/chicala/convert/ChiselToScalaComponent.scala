@@ -18,9 +18,6 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
   implicit private val implicitGlobal: global.type = global
   import global._
 
-  private val fmt = new Format
-  import fmt._
-
   val runsAfter: List[String] = List(StatementSortComponent.phaseName)
   // to keep recursive structure
   override val runsBefore: List[String] = List("tailcalls")
@@ -28,7 +25,8 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
   val phaseName: String      = ChiselToScalaComponent.phaseName
   def newPhase(_prev: Phase) = new ChiselToScalaPhase(_prev)
 
-  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) {
+  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) with Format {
+    lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
     def apply(unit: CompilationUnit): Unit = {
       val testRunDir = new File("test_run_dir/" + phaseName)
       testRunDir.mkdirs()

@@ -4,6 +4,7 @@ import scala.tools.nsc
 import nsc.Global
 import nsc.Phase
 import nsc.plugins.PluginComponent
+import nsc.transform.TypingTransformers
 
 import java.io._
 
@@ -13,41 +14,47 @@ object StatementSortComponent {
   val phaseName = "statementSort"
 }
 
-class StatementSortComponent(val global: Global) extends PluginComponent {
+class StatementSortComponent(val global: Global) extends PluginComponent with TypingTransformers {
   import global._
 
   val runsAfter: List[String] = List("typer")
   // to keep recursive structure
   override val runsBefore: List[String] = List("tailcalls")
 
-  val phaseName: String      = StatementSortComponent.phaseName
-  def newPhase(_prev: Phase) = new StatementSortPhase(_prev)
+  val phaseName: String = StatementSortComponent.phaseName
 
-  class StatementSortPhase(prev: Phase) extends StdPhase(prev) with StatementProcess with Format {
-    lazy val global: StatementSortComponent.this.global.type = StatementSortComponent.this.global
-    import global._
+  def newPhase(_prev: Phase)                = new StatementSortPhase(_prev)
+  def newTransformer(unit: CompilationUnit) = new StatementSortTransformer(unit)
 
+  class StatementSortPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit): Unit = {
-      val testRunDir = new File("test_run_dir/" + phaseName)
-      testRunDir.mkdirs()
+      unit.body = newTransformer(unit).transform(unit.body)
+    }
+  }
 
-      val chicalaLog = new BufferedWriter(new PrintWriter(testRunDir.getPath() + "/chicala_log.txt"))
-      global.computePhaseAssembly().foreach(s => chicalaLog.write(s.toString + "\n"))
+  class StatementSortTransformer(unit: CompilationUnit)
+      extends TypingTransformer(unit)
+      with StatementProcess
+      with Format {
+    lazy val global: StatementSortComponent.this.global.type = StatementSortComponent.this.global
 
-      val packageDef  = unit.body.asInstanceOf[PackageDef]
-      val packageName = packageDef.pid.toString()
+    val testRunDir = new File("test_run_dir/" + phaseName)
+    testRunDir.mkdirs()
 
-      for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- packageDef.stats) {
-        val fw = new BufferedWriter(new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.scala"))
-        fw.write(show(tree) + "\n")
-        fw.write("\n")
-        for (bodytree <- body) {
-          fw.write("bodytree:\n")
-          fw.write(show(bodytree) + "\n")
-          fw.write(showFormattedRaw(bodytree) + "\n")
-          fw.write("\n")
-        }
-        fw.close()
+    val chicalaLog = new BufferedWriter(new PrintWriter(testRunDir.getPath() + "/chicala_log.txt"))
+    global.computePhaseAssembly().foreach(s => chicalaLog.write(s.toString + "\n"))
+    chicalaLog.close()
+
+    val packageDef  = unit.body.asInstanceOf[PackageDef]
+    val packageName = packageDef.pid.toString()
+
+    override def transform(tree: Tree): Tree = tree match {
+      case ClassDef(mods, name, tparams, Template(parents, self, body)) => {
+        val classDefFile = new BufferedWriter(new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.scala"))
+        classDefFile.write(show(tree) + "\n")
+        classDefFile.write("\n")
+        classDefFile.write(showFormattedRaw(tree) + "\n")
+        classDefFile.close()
 
         // Filter chisel statements
         // Analysis signal dependency for every statements
@@ -63,11 +70,26 @@ class StatementSortComponent(val global: Global) extends PluginComponent {
         val dependencyGraph  = markedStatements.dependencyGraph
         val topologicalOrder = dependencyGraph.toplogicalSort(layer = true)
 
-        // TODO: Merge
-        // TODO: Return new AST
-      }
+        // Reaplace AST
+        val removeTrees = markedStatements.trees
+        val insertTrees = markedStatements.generate(topologicalOrder.map(_.id))
 
-      chicalaLog.close()
+        val newBody = body.filter(!removeTrees.contains(_)) ::: insertTrees
+        val impl    = tree.asInstanceOf[ClassDef].impl
+
+        val newClassDef = treeCopy.ClassDef(tree, mods, name, tparams, treeCopy.Template(impl, parents, self, newBody))
+
+        val newClassDefFile = new BufferedWriter(
+          new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}-sorted.scala")
+        )
+        newClassDefFile.write(show(newClassDef) + "\n")
+        newClassDefFile.write("\n")
+        newClassDefFile.write(showFormattedRaw(newClassDef) + "\n")
+        newClassDefFile.close()
+
+        newClassDef
+      }
+      case _ => super.transform(tree)
     }
   }
 }

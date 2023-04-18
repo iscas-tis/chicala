@@ -19,6 +19,9 @@ case class Id(val seq: List[Int]) extends Ordered[Id] {
   }
 
   def :+(number: Int): Id = Id(seq :+ number)
+
+  def top: Int = seq.head
+  def rest: Id = Id(seq.tail)
 }
 object Id {
   def empty = Id(List.empty)

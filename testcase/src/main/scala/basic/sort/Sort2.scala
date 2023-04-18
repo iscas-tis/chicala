@@ -2,9 +2,9 @@ package basic.sort
 
 import chisel3._
 
-/** Invalid connect couse by last connect semantics
+/** Split when-oterwise
   */
-class InvalidConnect1(width: Int) extends Module {
+class Sort2(width: Int) extends Module {
   val io = IO(new Bundle {
     val valid = Input(Bool())
     val in    = Input(UInt(width.W))
@@ -16,16 +16,15 @@ class InvalidConnect1(width: Int) extends Module {
   val b = Wire(UInt(width.W))
   val c = Wire(UInt(width.W))
 
-  // here is a invalid connect, overwrite by connect in `when`
-  c := io.in // 1
+  a := 0.U // 1
+  b := a   // 2
+  c := 0.U // 3
 
   when(io.valid) {
-    c := a // 2.1.1
+    a := io.in // 4.1.1
   }.otherwise {
-    c := b // 2.2.1
+    c := b // 4.2.1
   }
-  a := io.in // 3
-  b := io.in // 4
 
   io.out := c // 5
 }
@@ -34,16 +33,16 @@ class InvalidConnect1(width: Int) extends Module {
   val b = Wire(UInt(width.W))
   val c = Wire(UInt(width.W))
 
-  c := io.in
-
-  a := io.in
-  b := io.in
+  a := 0.U // 1
+  c := 0.U // 3
 
   when(io.valid) {
-    c := a
-  }.otherwise {
-    c := b
+    a := io.in // 4.1.1
+  }
+  b := a   // 2
+  when(io.valid) {}.otherwise {
+    c := b // 4.2.1
   }
 
-  io.out := c
+  io.out := c // 5
  */

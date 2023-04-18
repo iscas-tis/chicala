@@ -2,6 +2,8 @@ package basic.sort
 
 import chisel3._
 
+/** Split when body
+  */
 class Sort1(width: Int) extends Module {
   val io = IO(new Bundle {
     val valid = Input(Bool())

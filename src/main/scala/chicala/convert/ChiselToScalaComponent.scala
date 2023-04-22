@@ -7,14 +7,15 @@ import nsc.plugins.PluginComponent
 
 import java.io._
 
-import chicala.util.Format._
 import chicala.sort.StatementSortComponent
+import chicala.util.Format
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
 }
 
 class ChiselToScalaComponent(val global: Global) extends PluginComponent {
+  implicit private val implicitGlobal: global.type = global
   import global._
 
   val runsAfter: List[String] = List(StatementSortComponent.phaseName)
@@ -24,7 +25,8 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
   val phaseName: String      = ChiselToScalaComponent.phaseName
   def newPhase(_prev: Phase) = new ChiselToScalaPhase(_prev)
 
-  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) {
+  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) with Format {
+    lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
     def apply(unit: CompilationUnit): Unit = {
       val testRunDir = new File("test_run_dir/" + phaseName)
       testRunDir.mkdirs()
@@ -40,7 +42,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
         for (bodytree <- body) {
           fw.write("bodytree:\n")
           fw.write(show(bodytree) + "\n")
-          fw.write(formatAst(showRaw(bodytree)) + "\n")
+          fw.write(showFormattedRaw(bodytree) + "\n")
           fw.write("\n")
         }
 

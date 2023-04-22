@@ -11,8 +11,10 @@ class Adder(width: Int) extends Module {
   })
 
   when(io.valid) {
-    io.out := io.in1 + io.in2
+    io.out := io.in1 + io.in2 // 1.1.1
   } otherwise {
-    io.out := 0.U
+    io.out := 0.U // 1.2.1
   }
+
+  assert((io.valid && io.out === io.in1 + io.in2) || (!io.valid && io.out === 0.U))
 }

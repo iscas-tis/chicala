@@ -98,6 +98,11 @@ trait StatementProcess extends Format {
         case Typed(expr, tpt) => {
           analysis(expr, treeRoot, x => gen(treeCopy.Typed(tree, x, tpt))) // pass through
         }
+        // assert
+        case _: Apply if (tree.tpe.toString().endsWith(": chisel3.assert.Assert")) => {
+          // not process
+          None
+        }
         // otherwise
         case Apply(Select(whenTree, TermName("otherwise")), bodyList) => {
           val when    = analysis(whenTree).get.asInstanceOf[When]
@@ -151,11 +156,17 @@ trait StatementProcess extends Format {
           Some(Connect(treeRoot, signals, true))
         }
         case Apply(fun, args) => {
-          println()
-          println(tree)
-          println()
-          println(fun.tpe.toString())
-          println("-------------")
+          global.reporter.error(
+            tree.pos,
+            s"""chicala-sort: unknown AST `Apply` in analysis:
+              |tree.tpe:
+              |  ${tree.tpe}
+              |tree:
+              |  ${tree}
+              |tree AST:
+              |  ${showRaw(tree)}
+              |source code:""".stripMargin
+          )
           None
         }
 

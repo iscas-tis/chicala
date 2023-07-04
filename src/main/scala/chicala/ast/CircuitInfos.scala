@@ -1,0 +1,51 @@
+package chicala.ast
+
+import scala.tools.nsc.Global
+
+trait CircuitInfos { self: ChicalaAst =>
+  val global: Global
+  import global._
+
+  case class CircuitInfo(
+      val name: TypeName,
+      val signal: Map[TermName, SignalInfo] = Map.empty,
+      val param: Map[TermName, TypeTree] = Map.empty
+  ) {
+    def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
+      new CircuitInfo(name, signal + (termName -> signalInfo), param)
+    def updatedSignals(signals: List[(TermName, SignalInfo)]): CircuitInfo =
+      new CircuitInfo(name, signal ++ signals, param)
+
+    def updatedParam(termName: TermName, typeTree: TypeTree): CircuitInfo =
+      new CircuitInfo(name, signal, param + (termName -> typeTree))
+    def updatedParams(params: List[(TermName, TypeTree)]): CircuitInfo =
+      new CircuitInfo(name, signal, param ++ params)
+
+    def getSignalInfo(tree: Tree): SignalInfo = {
+      def select(signalInfo: SignalInfo, termName: TermName): SignalInfo = signalInfo match {
+        case SignalInfo(physicalType, dataType) =>
+          dataType match {
+            case Bundle(signals) if signals.contains(termName) =>
+              SignalInfo(physicalType, signals(termName))
+            case _ => {
+              reporter.error(tree.pos, s"TermName ${termName} not found in ${dataType}")
+              SignalInfo.empty
+            }
+          }
+      }
+      tree match {
+        case Select(This(this.name), termName: TermName) => signal(termName)
+        case Select(qualifier, termName: TermName)       => select(getSignalInfo(qualifier), termName)
+        case _ => {
+          unprocessedTree(tree, "CircuitInfo.getSignalInfo")
+          reporter.error(tree.pos, s"CircuitInfo.getSignalInfo not process")
+          SignalInfo.empty
+        }
+      }
+    }
+  }
+
+  object CircuitInfo {
+    def empty: CircuitInfo = new CircuitInfo(TypeName(""))
+  }
+}

@@ -51,23 +51,21 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
 
     override def transform(tree: Tree): Tree = tree match {
       case ClassDef(mods, name, tparams, Template(parents, self, body)) => {
-        val classDefFile = new BufferedWriter(new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.scala"))
-        classDefFile.write(show(tree) + "\n")
-        classDefFile.close()
-
-        val classDefAstFile = new BufferedWriter(
-          new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.AST.scala")
+        Format.saveToFile(
+          testRunDir.getPath() + s"/${packageName}.${name}.scala",
+          show(tree) + "\n"
         )
-        classDefAstFile.write(showFormattedRaw(tree) + "\n")
-        classDefAstFile.close()
+        Format.saveToFile(
+          testRunDir.getPath() + s"/${packageName}.${name}.AST.scala",
+          showFormattedRaw(tree) + "\n"
+        )
 
         val cClassDef = CClassDef.fromTree(tree)
 
-        val cClassDefFile = new BufferedWriter(
-          new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala")
+        Format.saveToFile(
+          testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
+          Format.formatAst(cClassDef.toString) + "\n"
         )
-        cClassDefFile.write(Format.formatAst(cClassDef.toString) + "\n")
-        cClassDefFile.close()
 
         tree // for now
       }

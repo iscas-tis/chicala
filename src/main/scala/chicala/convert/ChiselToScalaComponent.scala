@@ -67,6 +67,15 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
           Format.formatAst(cClassDef.toString) + "\n"
         )
 
+        cClassDef match {
+          case Some(ModuleDef(name, info, body)) =>
+            Format.saveToFile(
+              testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
+              body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
+            )
+          case _ => None
+        }
+
         tree // for now
       }
       case _ => super.transform(tree)

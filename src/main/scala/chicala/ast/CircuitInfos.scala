@@ -48,4 +48,17 @@ trait CircuitInfos { self: ChicalaAst =>
   object CircuitInfo {
     def empty: CircuitInfo = new CircuitInfo(TypeName(""))
   }
+
+  case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
+    def ++(that: RelatedSignals): RelatedSignals = {
+      RelatedSignals(
+        this.fully ++ that.fully,
+        this.partially ++ that.partially,
+        this.dependency ++ that.dependency
+      )
+    }
+  }
+  object RelatedSignals {
+    def empty = RelatedSignals(Set.empty, Set.empty, Set.empty)
+  }
 }

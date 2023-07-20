@@ -82,8 +82,17 @@ trait CStatements { self: ChicalaAst =>
 
   }
 
-  case class IoDef(name: TermName, info: SignalInfo) extends CStatement {
-    val relatedSignals: RelatedSignals = RelatedSignals.empty
+  sealed abstract class SignalDef extends CStatement
+
+  case class IoDef(name: TermName, info: SignalInfo, circuitName: TypeName) extends SignalDef {
+    val relatedSignals: RelatedSignals = RelatedSignals(
+      info.dataType match {
+        case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
+        case _         => Set(name.toString())
+      },
+      Set.empty,
+      Set.empty
+    )
   }
   object IoDef extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[IoDef])] = {
@@ -98,7 +107,7 @@ trait CStatements { self: ChicalaAst =>
 
           val bundle  = someBundleDef.get.bundle
           val newInfo = cInfo.updatedSignal(name, SignalInfo(Io, bundle))
-          val ioDef   = IoDef(name, SignalInfo(Io, bundle))
+          val ioDef   = IoDef(name, SignalInfo(Io, bundle), cInfo.name)
 
           Some((newInfo, Some(ioDef)))
         }
@@ -107,9 +116,9 @@ trait CStatements { self: ChicalaAst =>
     }
   }
 
-  case class WireDef(name: TermName, info: SignalInfo) extends CStatement {
+  case class WireDef(name: TermName, info: SignalInfo, circuitName: TypeName) extends SignalDef {
     // not empty when WireDef with init val
-    val relatedSignals: RelatedSignals = RelatedSignals.empty
+    val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
   }
   object WireDef extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[WireDef])] = {
@@ -127,7 +136,7 @@ trait CStatements { self: ChicalaAst =>
               val dataType   = CDataType.fromTree(args.head)
               val signalInfo = SignalInfo(Wire, dataType)
               val newInfo    = cInfo.updatedSignal(name, signalInfo)
-              Some(newInfo, Some(WireDef(name, signalInfo)))
+              Some(newInfo, Some(WireDef(name, signalInfo, cInfo.name)))
             case _ => None
           }
         case _ => None
@@ -136,11 +145,11 @@ trait CStatements { self: ChicalaAst =>
     }
   }
 
-  case class RegDef() extends CStatement {
+  case class RegDef() extends SignalDef {
     // not empty when RegDef with init val
     val relatedSignals: RelatedSignals = RelatedSignals.empty
   }
-  case class NodeDef() extends CStatement {
+  case class NodeDef() extends SignalDef {
     // for now
     val relatedSignals: RelatedSignals = RelatedSignals.empty
   }

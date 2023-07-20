@@ -8,7 +8,6 @@ import nsc.transform.TypingTransformers
 
 import java.io._
 
-import chicala.sort.StatementSortComponent
 import chicala.util.Format
 import chicala.ast.ChicalaAst
 
@@ -19,8 +18,7 @@ object ChiselToScalaComponent {
 class ChiselToScalaComponent(val global: Global) extends PluginComponent with TypingTransformers {
   import global._
 
-  val runsAfter: List[String]                 = List(StatementSortComponent.phaseName)
-  override val runsRightAfter: Option[String] = Some(StatementSortComponent.phaseName)
+  val runsAfter: List[String] = List("typer")
 
   // to keep recursive structure
   override val runsBefore: List[String] = List("tailcalls")
@@ -36,7 +34,11 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
     }
   }
 
-  class ChiselToScalaTransformer(unit: CompilationUnit) extends TypingTransformer(unit) with ChicalaAst with Format {
+  class ChiselToScalaTransformer(unit: CompilationUnit)
+      extends TypingTransformer(unit)
+      with ChicalaAst
+      with ToplogicalSort
+      with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
 
     val testRunDir = new File("test_run_dir/" + phaseName)
@@ -67,13 +69,20 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
           Format.formatAst(cClassDef.toString) + "\n"
         )
 
-        cClassDef match {
-          case Some(ModuleDef(name, info, body)) =>
+        val sortedCClassDef = cClassDef match {
+          case Some(m @ ModuleDef(name, info, body)) =>
             Format.saveToFile(
               testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
               body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
             )
-          case _ => None
+            val sorted = Some(dependencySort(m))
+            Format.saveToFile(
+              testRunDir.getPath() + s"/${packageName}.${name}.sorted.scala",
+              sorted.get.toString
+            )
+            sorted
+          case Some(BundleDef(_, _)) => cClassDef
+          case None                  => None
         }
 
         tree // for now

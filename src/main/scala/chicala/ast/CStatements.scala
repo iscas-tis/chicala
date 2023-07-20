@@ -7,7 +7,9 @@ trait CStatements { self: ChicalaAst =>
   val global: Global
   import global._
 
-  sealed abstract class CStatement
+  sealed abstract class CStatement {
+    val relatedSignals: RelatedSignals
+  }
   trait CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CStatement])]
   }
@@ -80,7 +82,18 @@ trait CStatements { self: ChicalaAst =>
 
   }
 
-  case class IoDef(name: TermName, info: SignalInfo) extends CStatement
+  sealed abstract class SignalDef extends CStatement
+
+  case class IoDef(name: TermName, info: SignalInfo, circuitName: TypeName) extends SignalDef {
+    val relatedSignals: RelatedSignals = RelatedSignals(
+      info.dataType match {
+        case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
+        case _         => Set(name.toString())
+      },
+      Set.empty,
+      Set.empty
+    )
+  }
   object IoDef extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[IoDef])] = {
       val (tree, _) = passThrough(tr)
@@ -94,7 +107,7 @@ trait CStatements { self: ChicalaAst =>
 
           val bundle  = someBundleDef.get.bundle
           val newInfo = cInfo.updatedSignal(name, SignalInfo(Io, bundle))
-          val ioDef   = IoDef(name, SignalInfo(Io, bundle))
+          val ioDef   = IoDef(name, SignalInfo(Io, bundle), cInfo.name)
 
           Some((newInfo, Some(ioDef)))
         }
@@ -103,7 +116,10 @@ trait CStatements { self: ChicalaAst =>
     }
   }
 
-  case class WireDef(name: TermName, info: SignalInfo) extends CStatement
+  case class WireDef(name: TermName, info: SignalInfo, circuitName: TypeName) extends SignalDef {
+    // not empty when WireDef with init val
+    val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
+  }
   object WireDef extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[WireDef])] = {
       val (tree, _) = passThrough(tr)
@@ -120,7 +136,7 @@ trait CStatements { self: ChicalaAst =>
               val dataType   = CDataType.fromTree(args.head)
               val signalInfo = SignalInfo(Wire, dataType)
               val newInfo    = cInfo.updatedSignal(name, signalInfo)
-              Some(newInfo, Some(WireDef(name, signalInfo)))
+              Some(newInfo, Some(WireDef(name, signalInfo, cInfo.name)))
             case _ => None
           }
         case _ => None
@@ -129,10 +145,19 @@ trait CStatements { self: ChicalaAst =>
     }
   }
 
-  case class RegDef()  extends CStatement
-  case class NodeDef() extends CStatement
+  case class RegDef() extends SignalDef {
+    // not empty when RegDef with init val
+    val relatedSignals: RelatedSignals = RelatedSignals.empty
+  }
+  case class NodeDef() extends SignalDef {
+    // for now
+    val relatedSignals: RelatedSignals = RelatedSignals.empty
+  }
 
-  case class Connect(left: SignalRef, expr: CExp) extends CStatement
+  case class Connect(left: SignalRef, expr: CExp) extends CStatement {
+    val relatedSignals: RelatedSignals =
+      RelatedSignals(Set(left.name.toString()), Set.empty, expr.signals)
+  }
   object Connect extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Connect])] = {
       val (tree, _) = passThrough(tr)
@@ -151,9 +176,21 @@ trait CStatements { self: ChicalaAst =>
       }
     }
   }
-  case class BulkConnect() extends CStatement
+  case class BulkConnect() extends CStatement {
+    // for now
+    val relatedSignals: RelatedSignals = RelatedSignals.empty
+  }
 
-  case class When(cond: CExp, whenBody: List[CStatement], otherBody: List[CStatement]) extends CStatement
+  case class When(cond: CExp, whenBody: List[CStatement], otherBody: List[CStatement]) extends CStatement {
+    val relatedSignals: RelatedSignals = {
+      val whenRS     = whenBody.map(_.relatedSignals).fold(RelatedSignals.empty)(_ ++ _)
+      val otherRS    = otherBody.map(_.relatedSignals).fold(RelatedSignals.empty)(_ ++ _)
+      val fully      = whenRS.fully.intersect(otherRS.fully)
+      val partially  = whenRS.partially ++ otherRS.partially ++ (whenRS.fully ++ otherRS.fully -- fully)
+      val dependency = whenRS.dependency ++ otherRS.dependency ++ cond.signals
+      RelatedSignals(fully, partially, dependency)
+    }
+  }
   object When extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[When])] = {
       def whenFromTree(cInfo: CircuitInfo, tr: Tree): (CExp, List[CStatement]) = {
@@ -195,7 +232,9 @@ trait CStatements { self: ChicalaAst =>
     }
   }
 
-  case class Assert(exp: CExp) extends CStatement
+  case class Assert(exp: CExp) extends CStatement {
+    val relatedSignals: RelatedSignals = RelatedSignals(Set.empty, Set.empty, exp.signals)
+  }
   object Assert extends CStatementObj {
     def fromTree(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Assert])] = {
       val (tree, _) = passThrough(tr)

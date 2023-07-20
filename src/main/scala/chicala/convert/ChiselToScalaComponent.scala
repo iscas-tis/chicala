@@ -8,7 +8,6 @@ import nsc.transform.TypingTransformers
 
 import java.io._
 
-import chicala.sort.StatementSortComponent
 import chicala.util.Format
 import chicala.ast.ChicalaAst
 
@@ -19,8 +18,7 @@ object ChiselToScalaComponent {
 class ChiselToScalaComponent(val global: Global) extends PluginComponent with TypingTransformers {
   import global._
 
-  val runsAfter: List[String]                 = List(StatementSortComponent.phaseName)
-  override val runsRightAfter: Option[String] = Some(StatementSortComponent.phaseName)
+  val runsAfter: List[String] = List("typer")
 
   // to keep recursive structure
   override val runsBefore: List[String] = List("tailcalls")
@@ -36,7 +34,11 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
     }
   }
 
-  class ChiselToScalaTransformer(unit: CompilationUnit) extends TypingTransformer(unit) with ChicalaAst with Format {
+  class ChiselToScalaTransformer(unit: CompilationUnit)
+      extends TypingTransformer(unit)
+      with ChicalaAst
+      with ToplogicalSort
+      with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
 
     val testRunDir = new File("test_run_dir/" + phaseName)
@@ -51,23 +53,37 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
 
     override def transform(tree: Tree): Tree = tree match {
       case ClassDef(mods, name, tparams, Template(parents, self, body)) => {
-        val classDefFile = new BufferedWriter(new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.scala"))
-        classDefFile.write(show(tree) + "\n")
-        classDefFile.close()
-
-        val classDefAstFile = new BufferedWriter(
-          new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.AST.scala")
+        Format.saveToFile(
+          testRunDir.getPath() + s"/${packageName}.${name}.scala",
+          show(tree) + "\n"
         )
-        classDefAstFile.write(showFormattedRaw(tree) + "\n")
-        classDefAstFile.close()
+        Format.saveToFile(
+          testRunDir.getPath() + s"/${packageName}.${name}.AST.scala",
+          showFormattedRaw(tree) + "\n"
+        )
 
         val cClassDef = CClassDef.fromTree(tree)
 
-        val cClassDefFile = new BufferedWriter(
-          new PrintWriter(testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala")
+        Format.saveToFile(
+          testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
+          Format.formatAst(cClassDef.toString) + "\n"
         )
-        cClassDefFile.write(Format.formatAst(cClassDef.toString) + "\n")
-        cClassDefFile.close()
+
+        val sortedCClassDef = cClassDef match {
+          case Some(m @ ModuleDef(name, info, body)) =>
+            Format.saveToFile(
+              testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
+              body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
+            )
+            val sorted = Some(dependencySort(m))
+            Format.saveToFile(
+              testRunDir.getPath() + s"/${packageName}.${name}.sorted.scala",
+              sorted.get.toString
+            )
+            sorted
+          case Some(BundleDef(_, _)) => cClassDef
+          case None                  => None
+        }
 
         tree // for now
       }

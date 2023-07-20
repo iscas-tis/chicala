@@ -1,7 +1,6 @@
 package chicala.ast
 
 import scala.tools.nsc.Global
-import chicala.sort.Id
 
 trait CSignalInfos { self: ChicalaAst =>
   val global: Global
@@ -52,6 +51,7 @@ trait CSignalInfos { self: ChicalaAst =>
   sealed abstract class CDataType {
     def updateDriction(newDirection: CDirection): CDataType
 
+    def subSignals: Set[String] = Set.empty
   }
   object CDataType {
     def fromTree(tree: Tree): CDataType = {
@@ -104,7 +104,6 @@ trait CSignalInfos { self: ChicalaAst =>
       case Flipped  => Bool(direction.flipped)
       case Undirect => Bool(direction)
     }
-
   }
   case class Bundle(signals: Map[TermName, CDataType]) extends CDataType {
     def updateDriction(newDirection: CDirection): CDataType = {
@@ -112,7 +111,15 @@ trait CSignalInfos { self: ChicalaAst =>
         signals.map { case (n, t) => (n, t.updateDriction(newDirection)) }
       )
     }
-
+    override def subSignals: Set[String] = signals
+      .map { case (termName, cDataType) =>
+        cDataType match {
+          case b: Bundle => b.subSignals.map(s => s"${termName.toString()}.${s}")
+          case _         => List(termName.toString())
+        }
+      }
+      .flatten
+      .toSet
   }
   // case class Vec() extends CDataType
 

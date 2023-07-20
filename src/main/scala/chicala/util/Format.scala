@@ -3,6 +3,8 @@ package chicala.util
 import scala.tools.nsc
 import nsc.Global
 
+import java.io._
+
 trait Format {
   import Format._
 
@@ -63,5 +65,13 @@ object Format {
         }
       }
     }._2
+  }
+
+  def saveToFile(path: String, s: String): Unit = {
+    val cClassDefFile = new BufferedWriter(
+      new PrintWriter(path)
+    )
+    cClassDefFile.write(s)
+    cClassDefFile.close()
   }
 }

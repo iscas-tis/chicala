@@ -26,12 +26,16 @@ trait CSignalInfos { self: ChicalaAst =>
          */
         case TypeApply(Select(Select(Ident(TermName(chisel3)), tpe), TermName("apply")), _) =>
           tpe match {
-            case TypeName("Input")   => Input
-            case TypeName("Output")  => Output
-            case TypeName("Flipped") => Flipped
-            case _                   => Undirect
+            case TermName("Input")   => Input
+            case TermName("Output")  => Output
+            case TermName("Flipped") => Flipped
+            case _ =>
+              reporter.error(tree.pos, s"Unknow CDirection: ${tree}")
+              Undirect
           }
-        case _ => Undirect
+        case _ =>
+          reporter.error(tree.pos, s"Unknow CDirection: ${tree}")
+          Undirect
       }
     }
   }

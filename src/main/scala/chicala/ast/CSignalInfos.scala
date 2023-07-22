@@ -73,7 +73,12 @@ trait CSignalInfos { self: ChicalaAst =>
       .flatten
       .toSet
   }
-  // case class Vec() extends CDataType
+
+  case class Vec(size: Tree, cDataType: CDataType) extends CDataType {
+    def updateDriction(newDirection: CDirection): CDataType = {
+      Vec(size, cDataType.updateDriction(newDirection))
+    }
+  }
 
   case class SignalInfo(physicalType: CPhysicalType, dataType: CDataType)
 

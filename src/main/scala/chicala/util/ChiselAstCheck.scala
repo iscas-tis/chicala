@@ -13,6 +13,8 @@ trait ChiselAstCheck {
 
   def SourceInfoFun(fun: Tree): Boolean =
     fun.tpe.toString().startsWith("(implicit sourceInfo: chisel3.internal.sourceinfo.SourceInfo")
+  def CompileOptionsFun(fun: Tree): Boolean =
+    fun.tpe.toString().startsWith("(implicit compileOptions: chisel3.CompileOptions):")
 
   /** pass through all unneed AST
     *
@@ -23,9 +25,11 @@ trait ChiselAstCheck {
     */
   def passThrough(tree: Tree): (Tree, Option[Tree]) = {
     tree match {
-      case Typed(expr, tpt)                       => (passThrough(expr)._1, Some(tpt))
-      case Apply(fun, args) if SourceInfoFun(fun) => passThrough(fun)
-      case _                                      => (tree, None)
+      case Typed(expr, tpt)                           => (passThrough(expr)._1, Some(tpt))
+      case Apply(fun, args) if SourceInfoFun(fun)     => passThrough(fun)
+      case Apply(fun, args) if CompileOptionsFun(fun) => passThrough(fun)
+      case TypeApply(fun, args)                       => passThrough(fun)
+      case _                                          => (tree, None)
     }
   }
 }

@@ -148,7 +148,7 @@ trait CStatementsLoader { self: Scala2Loader =>
       def whenFromTree(cInfo: CircuitInfo, tr: Tree): (CExp, List[CStatement]) = {
         val (tree, _) = passThrough(tr)
         tree match {
-          case Apply(Apply(cwa, condArgs), args) if Chisel3WhenApply(cwa) => {
+          case Apply(Apply(cwa, condArgs), args) if isChisel3WhenApply(cwa) => {
             val cond     = CExpLoader(cInfo, condArgs.head)
             val whenBody = bodyFromTree(cInfo, args.head)
             (cond, whenBody)
@@ -175,7 +175,7 @@ trait CStatementsLoader { self: Scala2Loader =>
           val otherBody        = bodyFromTree(cInfo, args.head)
           Some((cInfo, Some(When(cond, whenBody, otherBody))))
         }
-        case Apply(Apply(cwa, condArgs), args) if Chisel3WhenApply(cwa) => {
+        case Apply(Apply(cwa, condArgs), args) if isChisel3WhenApply(cwa) => {
           val (cond, whenBody) = whenFromTree(cInfo, tree)
           Some((cInfo, Some(When(cond, whenBody, List.empty))))
         }
@@ -187,7 +187,7 @@ trait CStatementsLoader { self: Scala2Loader =>
   object AssertLoader extends CStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Assert])] = {
       val (tree, _) = passThrough(tr)
-      if (ReturnAssert(tree)) {
+      if (isReturnAssert(tree)) {
         tree match {
           case Apply(Ident(TermName("_applyWithSourceLinePrintable")), args) =>
             Some(cInfo, Some(Assert(CExpLoader(cInfo, args.head))))

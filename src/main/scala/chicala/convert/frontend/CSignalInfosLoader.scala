@@ -23,7 +23,7 @@ trait CSignalInfosLoader { self: Scala2Loader =>
   object CDataTypeLoader {
     private def getSomeWidth(args: List[Tree]): Option[Tree] = args match {
       case Select(Apply(Select(cp, TermName("fromIntToWidth")), List(w)), TermName("W")) :: next
-          if Chisel3Package(cp) =>
+          if isChisel3Package(cp) =>
         Some(w)
       case _ => None
     }
@@ -54,7 +54,7 @@ trait CSignalInfosLoader { self: Scala2Loader =>
             case _ =>
               val f = passThrough(fun)._1
               f match {
-                case Select(Select(cp, tpe), TermName("apply")) if Chisel3Package(cp) =>
+                case Select(Select(cp, tpe), TermName("apply")) if isChisel3Package(cp) =>
                   val someWidth = getSomeWidth(args)
                   tpe match {
                     case TermName("UInt") => UInt(someWidth.get, Undirect)

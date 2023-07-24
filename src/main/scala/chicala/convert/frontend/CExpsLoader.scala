@@ -7,33 +7,34 @@ trait CExpsLoader { self: Scala2Loader =>
   import global._
 
   object CExpLoader {
-    def apply(cInfo: CircuitInfo, tree: Tree): CExp = {
-      val (subTree, someTpe) = passThrough(tree)
-      subTree match {
+    def apply(cInfo: CircuitInfo, tr: Tree): CExp = {
+      val (tree, someTpe) = passThrough(tr)
+      tree match {
 
-        case Apply(Select(qualifier, name), args) => {
+        case Apply(Select(qualifier, name), args) if isChiselType(qualifier) => {
           val opName = name.toString()
           COp.lookup(opName) match {
             case Some(value) => {
               value match {
                 case x: CUnaryOpObj =>
-                  reporter.error(subTree.pos, "should not be here in CExpLoader error1")
+                  reporter.error(tree.pos, "should not be here in CExpLoader error1")
                   NoneExp
                 case x: CBinaryOpObj =>
                   val left  = apply(cInfo, qualifier)
                   val right = apply(cInfo, args.head)
                   x.gen(left, right)
                 case x: CTernaryOpObj =>
-                  unprocessedTree(subTree, "CExpLoader")
-                  NoneExp // empty
+                  unprocessedTree(tree, "CExpLoader") // ? CTernaryOpObj is here ?
+                  NoneExp
               }
             }
             case None => {
-              unprocessedTree(subTree, "CExpLoader")
+              unprocessedTree(tree, "CExpLoader")
               NoneExp // empty
             }
           }
         }
+        case a: Apply => SExp(SApply(a))
 
         case Select(qualifier, name) => {
           if (qualifier.tpe.toString() == "chisel3.fromIntToLiteral") {
@@ -44,7 +45,7 @@ trait CExpsLoader { self: Scala2Loader =>
               case "U" => Lit(literal, SignalInfo(Node, UInt(Literal(Constant(width)), Undirect)))
               case "S" => Lit(literal, SignalInfo(Node, SInt(Literal(Constant(width)), Undirect)))
               case _ =>
-                reporter.error(subTree.pos, s"Unknow name in CExp ${name}")
+                reporter.error(tree.pos, s"Unknow name in CExp ${name}")
                 NoneExp
             }
           } else {
@@ -55,17 +56,17 @@ trait CExpsLoader { self: Scala2Loader =>
                     val inner = apply(cInfo, qualifier)
                     x.gen(inner)
                   case _ =>
-                    reporter.error(subTree.pos, "should not be here in CExpLoader error2")
+                    reporter.error(tree.pos, "should not be here in CExpLoader error2")
                     NoneExp
                 }
               case None =>
-                SignalRef(subTree, cInfo.getSignalInfo(subTree))
+                SignalRef(tree, cInfo.getSignalInfo(tree))
             }
           }
         }
 
         case _ => {
-          unprocessedTree(subTree, "CExpLoader")
+          unprocessedTree(tree, "CExpLoader")
           NoneExp
         }
 

@@ -36,13 +36,13 @@ trait ToplogicalSort { self: ChicalaAst =>
               if (m.contains(key)) m.updated(key, m(key) ++ set)
               else m.updated(key, set)
             }
-          case i: IoDef => // TODO: use SignalDef
+          case sd: SignalDef =>
             vertexs += Vertex(id)
-            last = last ++ i.relatedSignals.fully.map(x => i.circuitName.toString() + ".this." + x -> Set(id)).toMap
-          case w: WireDef =>
-            vertexs += Vertex(id)
-            last = last ++ w.relatedSignals.fully.map(x => w.circuitName.toString() + ".this." + x -> Set(id)).toMap
+            last = last ++ sd.relatedSignals.fully.map(x => moduleDef.name.toString() + ".this." + x -> Set(id)).toMap
           case a: Assert =>
+            vertexs += Vertex(id)
+          case ss: SStatement =>
+            // not process for now, keep the statement at the position
             vertexs += Vertex(id)
           case _ => // TODO: remove _
             println(
@@ -79,9 +79,10 @@ trait ToplogicalSort { self: ChicalaAst =>
               .map(lastConnect(_))
               .flatten
               .map(x => DirectedEdge(Vertex(id), Vertex(x)))
-          case _: IoDef | _: WireDef =>
+          case _: IoDef | _: WireDef => // pass
+          case _: SStatement         => // pass
           case _ =>
-            reporter.echo(
+            println(
               "(-_-) not processed in "
                 + "ToplogicalSort.getDependencyGraph.getConnectDependcy: " +
                 s"${statement.toString()}"
@@ -134,6 +135,7 @@ trait ToplogicalSort { self: ChicalaAst =>
           case b: BulkConnect =>
             reporter.echo(s"(-_-) not processed in ToplogicalSort.doReorder: ${b}")
             b
+          case s: SStatement => s
         }
       }
     }

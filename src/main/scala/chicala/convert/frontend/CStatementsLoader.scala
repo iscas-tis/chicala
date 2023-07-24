@@ -41,13 +41,16 @@ trait CStatementsLoader { self: Scala2Loader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CStatement])] = {
       val (tree, someTpe) = passThrough(tr)
       tree match {
-        case ValDef(mods, name, tpt, rhs) => {
+        case v @ ValDef(mods, name, tpt, rhs) => {
           if (mods.isParamAccessor) None // pass ParamAccessor
           else {
-            someStatementIn(cInfo, tree, List(IoDefLoader, WireDefLoader))
+            someStatementIn(cInfo, tree, List(IoDefLoader, WireDefLoader)) match {
+              case Some(value) => Some(value)
+              case None        => Some((cInfo, Some(SValDef(v)))) // ? update cInfo?
+            }
           }
         }
-        case DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
+        case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
           name match {
             // constructor of this class
             case termNames.CONSTRUCTOR => {
@@ -57,14 +60,15 @@ trait CStatementsLoader { self: Scala2Loader =>
             }
             // accessor of signal
             case x: TermName if cInfo.signal.contains(x) => None
-            case _ => {
-              unprocessedTree(tree, "CStatementLoader case DefDef")
-              None
-            }
+            case _ =>
+              Some((cInfo, Some(SDefDef(dd)))) // ? update cInfo?
           }
         }
-        case _: Apply => {
-          someStatementIn(cInfo, tree, List(AssertLoader, WhenLoader, ConnectLoader))
+        case a: Apply => {
+          someStatementIn(cInfo, tree, List(AssertLoader, WhenLoader, ConnectLoader)) match {
+            case Some(value) => Some(value)
+            case None        => Some((cInfo, Some(SApply(a)))) // ? update cInfo?
+          }
         }
         // empty statement
         case Literal(Constant(())) =>

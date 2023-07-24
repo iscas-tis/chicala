@@ -2,7 +2,7 @@ package chicala.ast
 
 import scala.tools.nsc.Global
 
-trait CStatements { self: ChicalaAst =>
+trait CStatements extends SStatements { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -60,4 +60,19 @@ trait CStatements { self: ChicalaAst =>
   case class Assert(exp: CExp) extends CStatement {
     val relatedSignals: RelatedSignals = RelatedSignals(Set.empty, Set.empty, exp.signals)
   }
+
+  // Scala Extention
+  // Use `trait xxxImpl` to implement in other file,
+  // but keep class `sealed` in this file
+
+  sealed abstract class SStatement(val tree: Tree) extends CStatement with SStatementImpl {
+    val relatedSignals: RelatedSignals = RelatedSignals.empty
+  }
+  sealed abstract class SDef(valOrDefDef: ValOrDefDef) extends SStatement(valOrDefDef)
+
+  case class SDefDef(defDef: DefDef) extends SDef(defDef) with SDefDefImpl
+  case class SValDef(valDef: ValDef) extends SDef(valDef) with SValDefImpl
+  case class SApply(appl: Apply)     extends SStatement(appl) with SApplyImpl
+  case class SSelect(select: Select) extends SStatement(select) with SSelectImpl
+  case class SBlock(block: Block)    extends SStatement(block) with SBlockImpl
 }

@@ -41,4 +41,10 @@ trait CExps { self: ChicalaAst =>
   case class And(override val left: CExp, override val right: CExp)   extends CBinaryOp(left, right)
   case class Equal(override val left: CExp, override val right: CExp) extends CBinaryOp(left, right)
   case class Mux(condition: CExp, ifTrue: CExp, ifFalse: CExp)        extends CTernaryOp(condition, ifTrue, ifFalse)
+
+  // scala extension
+
+  case class SExp(sStatement: SStatement) extends CExp {
+    def signals: Set[String] = sStatement.relatedSignals.dependency
+  }
 }

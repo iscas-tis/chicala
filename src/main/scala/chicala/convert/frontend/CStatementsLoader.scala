@@ -95,7 +95,7 @@ trait CStatementsLoader { self: Scala2Loader =>
 
           val bundle  = someBundleDef.get.bundle
           val newInfo = cInfo.updatedSignal(name, SignalInfo(Io, bundle))
-          val ioDef   = IoDef(name, SignalInfo(Io, bundle), cInfo.name)
+          val ioDef   = IoDef(name, SignalInfo(Io, bundle))
 
           Some((newInfo, Some(ioDef)))
         }
@@ -120,7 +120,7 @@ trait CStatementsLoader { self: Scala2Loader =>
               val dataType   = CDataTypeLoader(args.head)
               val signalInfo = SignalInfo(Wire, dataType)
               val newInfo    = cInfo.updatedSignal(name, signalInfo)
-              Some(newInfo, Some(WireDef(name, signalInfo, cInfo.name)))
+              Some(newInfo, Some(WireDef(name, signalInfo)))
             case _ => None
           }
         case _ => None

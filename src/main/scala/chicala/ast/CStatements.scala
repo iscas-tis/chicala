@@ -12,7 +12,7 @@ trait CStatements extends SStatements { self: ChicalaAst =>
 
   sealed abstract class SignalDef extends CStatement
 
-  case class IoDef(name: TermName, info: SignalInfo, circuitName: TypeName) extends SignalDef {
+  case class IoDef(name: TermName, info: SignalInfo) extends SignalDef {
     val relatedSignals: RelatedSignals = RelatedSignals(
       info.dataType match {
         case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
@@ -23,7 +23,7 @@ trait CStatements extends SStatements { self: ChicalaAst =>
     )
   }
 
-  case class WireDef(name: TermName, info: SignalInfo, circuitName: TypeName) extends SignalDef {
+  case class WireDef(name: TermName, info: SignalInfo) extends SignalDef {
     // not empty when WireDef with init val
     val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
   }

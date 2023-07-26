@@ -16,11 +16,11 @@ trait ChiselAstCheck {
   def isCompileOptionsFun(fun: Tree): Boolean =
     fun.tpe.toString().startsWith("(implicit compileOptions: chisel3.CompileOptions):")
 
-  def isChiselType(qualifier: Tree): Boolean = List(
+  def isChiselType(tree: Tree): Boolean = List(
     "chisel3.UInt",
     "chisel3.SInt",
     "chisel3.Bool"
-  ).contains(qualifier.tpe.erasure.toString())
+  ).contains(tree.tpe.erasure.toString())
 
   /** pass through all unneed AST
     *

@@ -7,10 +7,11 @@ trait CSignalInfos { self: ChicalaAst =>
   import global._
 
   sealed abstract class CPhysicalType
-  case object Io   extends CPhysicalType
-  case object Wire extends CPhysicalType
-  case object Reg  extends CPhysicalType
-  case object Node extends CPhysicalType
+  case object Io     extends CPhysicalType
+  case object Wire   extends CPhysicalType
+  case object Reg    extends CPhysicalType
+  case object Node   extends CPhysicalType
+  case object Symbol extends CPhysicalType
 
   sealed abstract class CDirection {
     def flipped: CDirection

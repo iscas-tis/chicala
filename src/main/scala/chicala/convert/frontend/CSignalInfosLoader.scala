@@ -42,6 +42,15 @@ trait CSignalInfosLoader { self: Scala2Loader =>
     def apply(tr: Tree): CDataType = {
       val tree = passThrough(tr)._1
       tree match {
+        case t: TypeTree if isChiselType(t) =>
+          t.tpe.toString() match {
+            case "chisel3.UInt" => UInt(EmptyTree, Undirect)
+            case "chisel3.SInt" => SInt(EmptyTree, Undirect)
+            case "chisel3.Bool" => Bool(Undirect)
+            case _ =>
+              reporter.error(t.pos, "unknow data type in CDataTypeLoader")
+              Bool(Undirect)
+          }
         case Apply(fun, args) =>
           val someDirection = CDirectionLoader(fun)
           someDirection match {

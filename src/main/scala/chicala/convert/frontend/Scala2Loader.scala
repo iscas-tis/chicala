@@ -1,10 +1,7 @@
 package chicala.convert.frontend
 
-import scala.tools.nsc
-import nsc.Global
-
 import chicala.util._
-import chicala.ast._
+import chicala.ast.ChicalaAst
 
 trait Scala2Loader
     extends ChicalaAst
@@ -12,5 +9,6 @@ trait Scala2Loader
     with CStatementsLoader
     with CSignalInfosLoader
     with CExpsLoader
+    with SStatementsLoader
     with ChiselAstCheck
     with Printer

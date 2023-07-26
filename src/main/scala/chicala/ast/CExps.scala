@@ -8,9 +8,13 @@ trait CExps { self: ChicalaAst =>
 
   sealed abstract class CExp {
     def signals: Set[String]
+    def isEmpty = this match {
+      case EmptyExp => true
+      case _        => false
+    }
   }
   object CExp {
-    def empty = NoneExp
+    def empty = EmptyExp
   }
 
   case class Lit(literal: Literal, info: SignalInfo) extends CExp {
@@ -19,7 +23,7 @@ trait CExps { self: ChicalaAst =>
   case class SignalRef(name: Tree, info: SignalInfo) extends CExp {
     def signals: Set[String] = Set(name.toString())
   }
-  case object NoneExp extends CExp {
+  case object EmptyExp extends CExp {
     def signals: Set[String] = Set.empty
   }
 
@@ -31,16 +35,19 @@ trait CExps { self: ChicalaAst =>
   sealed abstract class CBinaryOp(val left: CExp, val right: CExp) extends COp {
     def signals: Set[String] = left.signals ++ right.signals
   }
-  sealed abstract class CTernaryOp(val a: CExp, val b: CExp, val c: CExp) extends COp {
-    def signals: Set[String] = a.signals ++ b.signals ++ c.signals
+  sealed abstract class CMultiOp(val operands: List[CExp]) extends COp {
+    def signals: Set[String] = operands.map(_.signals).reduce(_ ++ _)
   }
 
-  case class Not(override val inner: CExp)                            extends CUnaryOp(inner)
+  case class Not(override val inner: CExp) extends CUnaryOp(inner)
+
   case class Add(override val left: CExp, override val right: CExp)   extends CBinaryOp(left, right)
   case class Or(override val left: CExp, override val right: CExp)    extends CBinaryOp(left, right)
   case class And(override val left: CExp, override val right: CExp)   extends CBinaryOp(left, right)
   case class Equal(override val left: CExp, override val right: CExp) extends CBinaryOp(left, right)
-  case class Mux(condition: CExp, ifTrue: CExp, ifFalse: CExp)        extends CTernaryOp(condition, ifTrue, ifFalse)
+
+  case class Cat(override val operands: List[CExp])  extends CMultiOp(operands)
+  case class Fill(override val operands: List[CExp]) extends CMultiOp(operands)
 
   // scala extension
 

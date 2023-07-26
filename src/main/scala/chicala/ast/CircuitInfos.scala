@@ -36,6 +36,7 @@ trait CircuitInfos { self: ChicalaAst =>
       tree match {
         case Select(This(this.name), termName: TermName) => signal(termName)
         case Select(qualifier, termName: TermName)       => select(getSignalInfo(qualifier), termName)
+        case Ident(termName: TermName)                   => signal(termName)
         case _ => {
           unprocessedTree(tree, "CircuitInfo.getSignalInfo")
           reporter.error(tree.pos, s"CircuitInfo.getSignalInfo not process")

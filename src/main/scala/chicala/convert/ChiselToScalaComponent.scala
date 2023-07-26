@@ -66,7 +66,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
 
         Format.saveToFile(
           testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
-          cClassDef.toString + "\n"
+          Format.formatAst(cClassDef.toString) + "\n"
         )
 
         val sortedCClassDef = cClassDef match {

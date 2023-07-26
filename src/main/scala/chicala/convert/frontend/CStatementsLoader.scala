@@ -46,11 +46,11 @@ trait CStatementsLoader { self: Scala2Loader =>
           else {
             someStatementIn(cInfo, tree, List(IoDefLoader, WireDefLoader)) match {
               case Some(value) => Some(value)
-              case None        => Some((cInfo, Some(SValDef(v)))) // ? update cInfo?
+              case None        => SValDefLoader(cInfo, v) // ? update cInfo?
             }
           }
         }
-        case dd @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
+        case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
           name match {
             // constructor of this class
             case termNames.CONSTRUCTOR => {
@@ -59,9 +59,14 @@ trait CStatementsLoader { self: Scala2Loader =>
               Some((cInfo.updatedParams(params), None))
             }
             // accessor of signal
-            case x: TermName if cInfo.signal.contains(x) => None
+            case t: TermName if cInfo.signal.contains(t) => None
             case _ =>
-              Some((cInfo, Some(SDefDef(dd)))) // ? update cInfo?
+              SDefDefLoader(cInfo, tree) match {
+                case Some(value) => Some(value)
+                case None =>
+                  unprocessedTree(tree, "CStatementLoader")
+                  None
+              }
           }
         }
         case a: Apply => {

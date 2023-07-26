@@ -21,33 +21,33 @@ trait CExps { self: ChicalaAst =>
     def signals: Set[String] = Set.empty
   }
   case class SignalRef(name: Tree, info: SignalInfo) extends CExp {
-    def signals: Set[String] = Set(name.toString())
+    def signals: Set[String] = Set(name.toString)
   }
   case object EmptyExp extends CExp {
     def signals: Set[String] = Set.empty
   }
 
   // operators
-  sealed abstract class COp extends CExp
-  sealed abstract class CUnaryOp(val inner: CExp) extends COp {
-    def signals: Set[String] = inner.signals
-  }
-  sealed abstract class CBinaryOp(val left: CExp, val right: CExp) extends COp {
-    def signals: Set[String] = left.signals ++ right.signals
-  }
-  sealed abstract class CMultiOp(val operands: List[CExp]) extends COp {
+  case class CApply(val op: COp, val operands: List[CExp]) extends CExp {
     def signals: Set[String] = operands.map(_.signals).reduce(_ ++ _)
+
+    override def toString: String =
+      s"${op.toString}(${operands.map(_.toString).reduce(_ + ", " + _)})"
   }
 
-  case class Not(override val inner: CExp) extends CUnaryOp(inner)
+  sealed abstract class COp
 
-  case class Add(override val left: CExp, override val right: CExp)   extends CBinaryOp(left, right)
-  case class Or(override val left: CExp, override val right: CExp)    extends CBinaryOp(left, right)
-  case class And(override val left: CExp, override val right: CExp)   extends CBinaryOp(left, right)
-  case class Equal(override val left: CExp, override val right: CExp) extends CBinaryOp(left, right)
+  sealed abstract class CCalculOp extends COp
+  case object Slice               extends CCalculOp
+  case object Not                 extends CCalculOp
+  case object Add                 extends CCalculOp
+  case object Or                  extends CCalculOp
+  case object And                 extends CCalculOp
+  case object Equal               extends CCalculOp
 
-  case class Cat(override val operands: List[CExp])  extends CMultiOp(operands)
-  case class Fill(override val operands: List[CExp]) extends CMultiOp(operands)
+  sealed abstract class CUtilOp extends COp
+  case object Cat               extends CUtilOp
+  case object Fill              extends CUtilOp
 
   // scala extension
 

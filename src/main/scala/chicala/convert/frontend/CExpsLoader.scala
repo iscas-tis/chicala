@@ -13,18 +13,9 @@ trait CExpsLoader { self: Scala2Loader =>
 
         case Apply(Select(qualifier, name), args) if isChiselType(qualifier) => {
           val opName = name.toString()
-          COp.lookup(opName) match {
-            case Some(value) => {
-              value match {
-                case x: CBinaryOpObj =>
-                  val left  = apply(cInfo, qualifier)
-                  val right = apply(cInfo, args.head)
-                  x.gen(left, right)
-                case _ =>
-                  reporter.error(tree.pos, "should not be here in CExpLoader error1")
-                  EmptyExp
-              }
-            }
+          COp(opName) match {
+            case Some(op) =>
+              CApply(op, (qualifier :: args).map(CExpLoader(cInfo, _)))
             case None => {
               unprocessedTree(tree, "CExpLoader")
               EmptyExp // empty
@@ -34,16 +25,9 @@ trait CExpsLoader { self: Scala2Loader =>
         case a @ Apply(fun, args) =>
           val f     = passThrough(fun)._1
           val fName = f.toString()
-          COp.lookup(fName) match {
-            case Some(value) =>
-              value match {
-                case x: CMultiOpObj =>
-                  x.gen(args.map(CExpLoader(cInfo, _)))
-                case _ =>
-                  reporter.error(tree.pos, "should not be here in CExpLoader error3")
-                  EmptyExp
-              }
-            case None => SExp(SApply(a))
+          COp(fName) match {
+            case Some(op) => CApply(op, args.map(CExpLoader(cInfo, _)))
+            case None     => SExp(SApply(a))
           }
 
         case Select(qualifier, name) => {
@@ -59,23 +43,14 @@ trait CExpsLoader { self: Scala2Loader =>
                 EmptyExp
             }
           } else {
-            COp.lookup(name.toString()) match {
-              case Some(value) =>
-                value match {
-                  case x: CUnaryOpObj =>
-                    val inner = CExpLoader(cInfo, qualifier)
-                    x.gen(inner)
-                  case _ =>
-                    reporter.error(tree.pos, "should not be here in CExpLoader error2")
-                    EmptyExp
-                }
+            COp(name.toString()) match {
+              case Some(op) =>
+                CApply(op, List(CExpLoader(cInfo, qualifier)))
               case None =>
                 SignalRef(tree, cInfo.getSignalInfo(tree))
             }
           }
         }
-        case EmptyTree => EmptyExp
-
         case i @ Ident(name) =>
           if (isChiselType(i))
             SignalRef(i, cInfo.getSignalInfo(i))
@@ -84,6 +59,7 @@ trait CExpsLoader { self: Scala2Loader =>
             EmptyExp
           }
 
+        case EmptyTree => EmptyExp
         case _ => {
           unprocessedTree(tree, "CExpLoader")
           EmptyExp
@@ -94,34 +70,21 @@ trait CExpsLoader { self: Scala2Loader =>
 
   }
 
-  // operator objects
-  sealed abstract class COpObj(val chiselInnerName: String)
-  sealed abstract class CUnaryOpObj(override val chiselInnerName: String, val gen: (CExp) => CUnaryOp)
-      extends COpObj(chiselInnerName)
-  sealed abstract class CBinaryOpObj(override val chiselInnerName: String, val gen: (CExp, CExp) => CBinaryOp)
-      extends COpObj(chiselInnerName)
-  sealed abstract class CMultiOpObj(override val chiselInnerName: String, val gen: (List[CExp]) => CMultiOp)
-      extends COpObj(chiselInnerName)
-
-  case object NotOp extends CUnaryOpObj("do_unary_$bang", new Not(_))
-
-  case object AddOp   extends CBinaryOpObj("do_$plus", new Add(_, _))
-  case object OrOp    extends CBinaryOpObj("do_$bar$bar", new Or(_, _))
-  case object AndOp   extends CBinaryOpObj("do_$amp$amp", new And(_, _))
-  case object EqualOp extends CBinaryOpObj("do_$eq$eq$eq", new Equal(_, _))
-
-  case object CatOp  extends CMultiOpObj("chisel3.util.Cat.apply", new Cat(_))
-  case object FillOp extends CMultiOpObj("chisel3.util.Fill.apply", new Cat(_))
-
   object COp {
-    val ops: Set[COpObj] = Set(NotOp) ++
-      Set(AddOp, OrOp, AndOp, EqualOp) ++
-      Set(CatOp, FillOp)
-    val nameToObj: Map[String, COpObj] = (ops.map { x =>
-      (x.chiselInnerName -> x)
-    }).toMap
+    val nameToObj: Map[String, COp] = Map(
+      // CCalculOp
+      "do_apply"       -> Slice,
+      "do_unary_$bang" -> Not,
+      "do_$plus"       -> Add,
+      "do_$bar$bar"    -> Or,
+      "do_$amp$amp"    -> And,
+      "do_$eq$eq$eq"   -> Equal,
+      // CUtilOp
+      "chisel3.util.Cat.apply"  -> Cat,
+      "chisel3.util.Fill.apply" -> Fill
+    )
 
-    def lookup(opName: String): Option[COpObj] = {
+    def apply(opName: String): Option[COp] = {
       if (nameToObj.contains(opName)) Some(nameToObj(opName))
       else None
     }

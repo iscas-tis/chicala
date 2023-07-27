@@ -46,7 +46,7 @@ trait CStatementsLoader { self: Scala2Loader =>
           else {
             someStatementIn(cInfo, tree, List(IoDefLoader, WireDefLoader)) match {
               case Some(value) => Some(value)
-              case None        => SValDefLoader(cInfo, v) // ? update cInfo?
+              case None        => SValDefLoader(cInfo, v)
             }
           }
         }
@@ -72,7 +72,7 @@ trait CStatementsLoader { self: Scala2Loader =>
         case a: Apply => {
           someStatementIn(cInfo, tree, List(AssertLoader, WhenLoader, ConnectLoader)) match {
             case Some(value) => Some(value)
-            case None        => Some((cInfo, Some(SApply(a)))) // ? update cInfo?
+            case None        => SApplyLoader(cInfo, a)
           }
         }
         // empty statement

@@ -8,18 +8,33 @@ trait CircuitInfos { self: ChicalaAst =>
 
   case class CircuitInfo(
       val name: TypeName,
-      val signal: Map[TermName, SignalInfo] = Map.empty,
-      val param: Map[TermName, TypeTree] = Map.empty
+      val signal: Map[TermName, SignalInfo],
+      val param: Map[TermName, TypeTree],
+      val function: Set[TermName]
   ) {
     def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
-      new CircuitInfo(name, signal + (termName -> signalInfo), param)
+      new CircuitInfo(name, signal + (termName -> signalInfo), param, function)
     def updatedSignals(signals: List[(TermName, SignalInfo)]): CircuitInfo =
-      new CircuitInfo(name, signal ++ signals, param)
+      new CircuitInfo(name, signal ++ signals, param, function)
 
     def updatedParam(termName: TermName, typeTree: TypeTree): CircuitInfo =
-      new CircuitInfo(name, signal, param + (termName -> typeTree))
+      new CircuitInfo(name, signal, param + (termName -> typeTree), function)
     def updatedParams(params: List[(TermName, TypeTree)]): CircuitInfo =
-      new CircuitInfo(name, signal, param ++ params)
+      new CircuitInfo(name, signal, param ++ params, function)
+
+    def updatedFuncion(termName: TermName): CircuitInfo =
+      new CircuitInfo(name, signal, param, function + termName)
+
+    def contains(termName: TermName): Boolean =
+      signal.contains(termName) || param.contains(termName) || function.contains(termName)
+    def contains(tree: Tree): Boolean = {
+      tree match {
+        case Select(This(this.name), termName: TermName) => contains(termName)
+        case _ =>
+          unprocessedTree(tree, "CircuitInfo.contains")
+          false
+      }
+    }
 
     def getSignalInfo(tree: Tree): SignalInfo = {
       def select(signalInfo: SignalInfo, termName: TermName): SignalInfo = signalInfo match {
@@ -47,7 +62,9 @@ trait CircuitInfos { self: ChicalaAst =>
   }
 
   object CircuitInfo {
-    def empty: CircuitInfo = new CircuitInfo(TypeName(""))
+    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Set.empty)
+
+    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Set.empty)
   }
 
   case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {

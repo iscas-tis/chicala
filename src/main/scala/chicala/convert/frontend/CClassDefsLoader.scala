@@ -25,7 +25,7 @@ trait CClassDefsLoader { self: Scala2Loader =>
             case _                                                      => false
           } =>
         val (cInfo, cBody): (CircuitInfo, List[CStatement]) =
-          CStatementLoader.fromListTree(new CircuitInfo(name), body)
+          CStatementLoader.fromListTree(CircuitInfo(name), body)
         Some(ModuleDef(name, cInfo, cBody))
       case _ => None
     }

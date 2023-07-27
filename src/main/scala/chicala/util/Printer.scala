@@ -11,7 +11,7 @@ trait Printer extends Format {
       tree.pos,
       s"""not processed in ${from}:
         |tree.tpe:
-        |  ${tree.tpe}
+        |  ${tree.tpe.erasure}
         |tree:
         |  ${tree}
         |tree AST:

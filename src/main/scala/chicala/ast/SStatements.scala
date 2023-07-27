@@ -10,12 +10,7 @@ trait SStatements { self: ChicalaAst =>
 
   trait SDefDefImpl { self: SDefDef => }
   trait SValDefImpl { self: SValDef => }
-  trait SApplyImpl { self: SApply =>
-    override def toString(): String = {
-      val name = this.getClass().getSimpleName()
-      s"$name(${showRaw(appl)})"
-    }
-  }
+  trait SApplyImpl  { self: SApply =>  }
   trait SSelectImpl { self: SSelect =>
     override def toString(): String = {
       val name = this.getClass().getSimpleName()

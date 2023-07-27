@@ -29,7 +29,7 @@ trait SStatementsLoader { self: Scala2Loader =>
             case _                      => SBlock.empty
           }
           assert(body.nonEmpty, s"function $name should have body")
-          Some((cInfo, Some(SDefDef(name, vpss, tpt, body))))
+          Some((cInfo.updatedFuncion(name), Some(SDefDef(name, vpss, tpt, body))))
         case _ => None
       }
     }
@@ -45,6 +45,16 @@ trait SStatementsLoader { self: Scala2Loader =>
             else
               cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
           Some((newCInfo, Some(SValDef(name, tpt, CExpLoader(cInfo, rhs))))) // ? or SExp?
+        case _ => None
+      }
+    }
+  }
+  object SApplyLoader extends CStatementObj {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SApply])] = {
+      val tree = passThrough(tr)._1
+      tree match {
+        case Apply(fun: Select, args) =>
+          Some((cInfo, Some(SApply(SSelect(fun), args.map(CExpLoader(cInfo, _))))))
         case _ => None
       }
     }

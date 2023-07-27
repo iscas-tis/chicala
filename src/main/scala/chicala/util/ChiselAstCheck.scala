@@ -19,7 +19,8 @@ trait ChiselAstCheck {
   def isChiselType(tree: Tree): Boolean = List(
     "chisel3.UInt",
     "chisel3.SInt",
-    "chisel3.Bool"
+    "chisel3.Bool",
+    "chisel3.Bundle"
   ).contains(tree.tpe.erasure.toString())
 
   /** pass through all unneed AST

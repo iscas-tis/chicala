@@ -10,7 +10,7 @@ trait CircuitInfos { self: ChicalaAst =>
       val name: TypeName,
       val signal: Map[TermName, SignalInfo],
       val param: Map[TermName, TypeTree],
-      val function: Set[TermName]
+      val function: Map[TermName, TypeTree]
   ) {
     def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
       new CircuitInfo(name, signal + (termName -> signalInfo), param, function)
@@ -22,8 +22,8 @@ trait CircuitInfos { self: ChicalaAst =>
     def updatedParams(params: List[(TermName, TypeTree)]): CircuitInfo =
       new CircuitInfo(name, signal, param ++ params, function)
 
-    def updatedFuncion(termName: TermName): CircuitInfo =
-      new CircuitInfo(name, signal, param, function + termName)
+    def updatedFuncion(termName: TermName, typeTree: TypeTree): CircuitInfo =
+      new CircuitInfo(name, signal, param, function + (termName -> typeTree))
 
     def contains(termName: TermName): Boolean =
       signal.contains(termName) || param.contains(termName) || function.contains(termName)
@@ -59,12 +59,18 @@ trait CircuitInfos { self: ChicalaAst =>
         }
       }
     }
+
+    def getFunctionInfo(tree: Tree): TypeTree = {
+      tree match {
+        case Select(This(this.name), termName: TermName) => function(termName)
+      }
+    }
   }
 
   object CircuitInfo {
-    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Set.empty)
+    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Map.empty)
 
-    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Set.empty)
+    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Map.empty)
   }
 
   case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {

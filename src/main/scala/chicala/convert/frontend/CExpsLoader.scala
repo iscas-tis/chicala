@@ -15,7 +15,8 @@ trait CExpsLoader { self: Scala2Loader =>
           val opName = name.toString()
           COp(opName) match {
             case Some(op) =>
-              CApply(op, (qualifier :: args).map(CExpLoader(cInfo, _)))
+              val signalInfo = SignalInfo(Node, CDataTypeLoader(someTpe.get))
+              CApply(op, signalInfo, (qualifier :: args).map(CExpLoader(cInfo, _)))
             case None => {
               unprocessedTree(tree, "CExpLoader")
               EmptyExp // empty
@@ -25,8 +26,11 @@ trait CExpsLoader { self: Scala2Loader =>
           val f     = passThrough(fun)._1
           val fName = f.toString()
           COp(fName) match {
-            case Some(op) => CApply(op, args.map(CExpLoader(cInfo, _)))
-            case None     => SExp(SApplyLoader(cInfo, a).get._2.get)
+            case Some(op) =>
+              val signalInfo = SignalInfo(Node, CDataTypeLoader.fromTreeTpe(a))
+              CApply(op, signalInfo, args.map(CExpLoader(cInfo, _)))
+            case None =>
+              SExp(SApplyLoader(cInfo, a).get._2.get, SignalInfo.empty) // SApply has no SignalInfo
           }
         case s @ Select(qualifier, name) if qualifier.tpe.toString() == "chisel3.fromIntToLiteral" =>
           val literal = qualifier.asInstanceOf[Apply].args.head.asInstanceOf[Literal]
@@ -43,7 +47,7 @@ trait CExpsLoader { self: Scala2Loader =>
           if (isChiselType(qualifier)) {
             COp(name.toString()) match {
               case Some(op) =>
-                CApply(op, List(CExpLoader(cInfo, qualifier)))
+                CApply(op, SignalInfo(Node, CDataTypeLoader(someTpe.get)), List(CExpLoader(cInfo, qualifier)))
               case None =>
                 if (isChiselType(s))
                   SignalRef(s, cInfo.getSignalInfo(s))
@@ -55,7 +59,7 @@ trait CExpsLoader { self: Scala2Loader =>
           } else if (isChiselType(s)) {
             SignalRef(s, cInfo.getSignalInfo(s))
           } else {
-            SExp(SSelect(s))
+            SExp(SSelect(s), SignalInfo.empty) // SSelect has no SignalInfo
           }
         case i @ Ident(name) =>
           if (isChiselType(i))
@@ -65,7 +69,7 @@ trait CExpsLoader { self: Scala2Loader =>
             EmptyExp
           }
         case l @ Literal(value) =>
-          SExp(SLiteral(l))
+          SExp(SLiteral(l), SignalInfo.empty) // SLiteral has no SignalInfo
 
         case EmptyTree => EmptyExp
         case _ => {

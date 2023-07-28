@@ -44,7 +44,7 @@ trait CStatementsLoader { self: Scala2Loader =>
         case v @ ValDef(mods, name, tpt, rhs) => {
           if (mods.isParamAccessor) None // pass ParamAccessor
           else {
-            someStatementIn(cInfo, tree, List(IoDefLoader, WireDefLoader)) match {
+            someStatementIn(cInfo, tree, List(SignalDefLoader)) match {
               case Some(value) => Some(value)
               case None        => SValDefLoader(cInfo, v)
             }
@@ -87,25 +87,49 @@ trait CStatementsLoader { self: Scala2Loader =>
 
   }
 
-  object IoDefLoader extends CStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[IoDef])] = {
-      val (tree, _) = passThrough(tr)
+  object SignalDefLoader extends CStatementObj {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SignalDef])] = {
+      val tree = passThrough(tr)._1
       tree match {
-        case ValDef(mods, nameTmp, tpt, Apply(TypeApply(Select(_, TermName("IO")), _), args)) => {
-          val someBundleDef = args.head match {
-            case Block(stats, expr) => BundleDefLoader(stats.head)
-            case _                  => None
-          }
+        case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) =>
+          // SignalDef
           val name = nameTmp.stripSuffix(" ")
+          passThrough(rhs)._1 match {
+            case a @ Apply(func, args) =>
+              if (isModuleThisIO(func, cInfo)) {
+                // IoDef
+                val someBundleDef = args.head match {
+                  case Block(stats, expr) => BundleDefLoader(stats.head)
+                  case _                  => None
+                }
 
-          val bundle  = someBundleDef.get.bundle
-          val newInfo = cInfo.updatedSignal(name, SignalInfo(Io, bundle))
-          val ioDef   = IoDef(name, SignalInfo(Io, bundle))
+                val bundle  = someBundleDef.get.bundle
+                val newInfo = cInfo.updatedSignal(name, SignalInfo(Io, bundle))
+                val ioDef   = IoDef(name, SignalInfo(Io, bundle))
 
-          Some((newInfo, Some(ioDef)))
-        }
+                Some((newInfo, Some(ioDef)))
+              } else if (isChisel3WireApply(func)) {
+                // WireDef
+                assert(args.length == 1, "should have only 1 arg in Wire()")
+
+                val dataType   = CDataTypeLoader(args.head)
+                val signalInfo = SignalInfo(Wire, dataType)
+                val newInfo    = cInfo.updatedSignal(name, signalInfo)
+                Some(newInfo, Some(WireDef(name, signalInfo)))
+              } else {
+                // SymbolDef
+                val cExp       = CExpLoader(cInfo, rhs)
+                val signalInfo = SignalInfo(Symbol, cExp.info.dataType)
+                val newInfo    = cInfo.updatedSignal(name, signalInfo)
+                Some((newInfo, Some(SymbolDef(name, signalInfo, cExp))))
+              } // TODO: RegDef
+            case _ =>
+              // ? TODO?
+              None
+          }
         case _ => None
       }
+
     }
   }
 

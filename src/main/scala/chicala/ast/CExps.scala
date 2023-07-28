@@ -6,7 +6,7 @@ trait CExps { self: ChicalaAst =>
   val global: Global
   import global._
 
-  sealed abstract class CExp {
+  sealed abstract class CExp(val info: SignalInfo) {
     def signals: Set[String]
     def isEmpty = this match {
       case EmptyExp => true
@@ -17,18 +17,18 @@ trait CExps { self: ChicalaAst =>
     def empty = EmptyExp
   }
 
-  case class Lit(literal: Literal, info: SignalInfo) extends CExp {
+  case class Lit(val literal: Literal, override val info: SignalInfo) extends CExp(info) {
     def signals: Set[String] = Set.empty
   }
-  case class SignalRef(name: Tree, info: SignalInfo) extends CExp {
+  case class SignalRef(val name: Tree, override val info: SignalInfo) extends CExp(info) {
     def signals: Set[String] = Set(name.toString)
   }
-  case object EmptyExp extends CExp {
+  case object EmptyExp extends CExp(SignalInfo.empty) {
     def signals: Set[String] = Set.empty
   }
 
   // operators
-  case class CApply(val op: COp, val operands: List[CExp]) extends CExp {
+  case class CApply(val op: COp, override val info: SignalInfo, val operands: List[CExp]) extends CExp(info) {
     def signals: Set[String] = operands.map(_.signals).reduce(_ ++ _)
 
     override def toString: String =
@@ -51,7 +51,7 @@ trait CExps { self: ChicalaAst =>
 
   // scala extension
 
-  case class SExp(sStatement: SStatement) extends CExp {
+  case class SExp(val sStatement: SStatement, override val info: SignalInfo) extends CExp(info) {
     def signals: Set[String] = sStatement.relatedSignals.dependency
   }
 }

@@ -44,7 +44,7 @@ trait CStatementsLoader { self: Scala2Loader =>
         case v @ ValDef(mods, name, tpt, rhs) => {
           if (mods.isParamAccessor) None // pass ParamAccessor
           else {
-            someStatementIn(cInfo, tree, List(SignalDefLoader)) match {
+            SignalDefLoader(cInfo, tree) match {
               case Some(value) => Some(value)
               case None        => SValDefLoader(cInfo, v)
             }
@@ -91,7 +91,7 @@ trait CStatementsLoader { self: Scala2Loader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SignalDef])] = {
       val tree = passThrough(tr)._1
       tree match {
-        case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) =>
+        case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
           // SignalDef
           val name = nameTmp.stripSuffix(" ")
           passThrough(rhs)._1 match {
@@ -123,10 +123,44 @@ trait CStatementsLoader { self: Scala2Loader =>
                 val newInfo    = cInfo.updatedSignal(name, signalInfo)
                 Some((newInfo, Some(SymbolDef(name, signalInfo, cExp))))
               } // TODO: RegDef
+            case s @ Select(Select(This(typeName), termname), _)
+                if cInfo.enumTmp.nonEmpty &&
+                  typeName == cInfo.name && termname == cInfo.enumTmp.get._2 =>
+              // EnumDef step 2
+              val (n, tn, ed) = cInfo.enumTmp.get
+              val num         = n - 1
+              val enumDef     = EnumDef(ed.names :+ name, ed.info)
+              val enumTmp     = (num, tn, enumDef)
+              val newCInfo    = cInfo.updatedSignal(name, enumDef.info)
+              if (num == 0)
+                Some((newCInfo.updatedEnumTmp(None), Some(enumTmp._3)))
+              else
+                Some((newCInfo.updatedEnumTmp(Some(enumTmp)), None))
             case _ =>
               // ? TODO?
               None
           }
+        }
+        case v @ ValDef(mods, name, tpt, rhs) if isChisel3EnumTmpValDef(v) => {
+          // EnumDef step 1
+          rhs match {
+            case Match(Typed(Apply(cuea, number), _), _) => {
+              val num = number.head.asInstanceOf[Literal].value.value.asInstanceOf[Int]
+              val enumTmp = (
+                num,
+                name,
+                EnumDef(
+                  List.empty,
+                  SignalInfo(
+                    Node,
+                    UInt(Literal(Constant(BigInt(num - 1).bitLength)), Undirect)
+                  )
+                )
+              )
+              Some((cInfo.updatedEnumTmp(Some(enumTmp)), None))
+            }
+          }
+        }
         case _ => None
       }
 

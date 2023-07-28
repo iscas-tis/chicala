@@ -40,6 +40,7 @@ trait CExps { self: ChicalaAst =>
   sealed abstract class CCalculOp extends COp
   case object Slice               extends CCalculOp
   case object Not                 extends CCalculOp
+  case object UnaryMinus          extends CCalculOp
   case object Add                 extends CCalculOp
   case object Or                  extends CCalculOp
   case object And                 extends CCalculOp

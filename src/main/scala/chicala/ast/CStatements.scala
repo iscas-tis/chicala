@@ -1,6 +1,7 @@
 package chicala.ast
 
 import scala.tools.nsc.Global
+import chicala.ChicalaPlugin
 
 trait CStatements { self: ChicalaAst =>
   val global: Global
@@ -35,6 +36,14 @@ trait CStatements { self: ChicalaAst =>
   case class SymbolDef(name: TermName, info: SignalInfo, rhs: CExp) extends SignalDef {
     // for now
     val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, rhs.signals)
+  }
+  case class EnumDef(names: List[TermName], info: SignalInfo) extends SignalDef {
+    val relatedSignals: RelatedSignals = RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
+    val inner: List[SymbolDef] = names
+      .zip(0 until names.size)
+      .map { case (name, i) =>
+        SymbolDef(name, info, Lit(Literal(Constant(i)), info))
+      }
   }
 
   case class Connect(left: SignalRef, expr: CExp) extends CStatement {

@@ -85,12 +85,13 @@ trait CExpsLoader { self: Scala2Loader =>
   object COp {
     val nameToObj: Map[String, COp] = Map(
       // CCalculOp
-      "do_apply"       -> Slice,
-      "do_unary_$bang" -> Not,
-      "do_$plus"       -> Add,
-      "do_$bar$bar"    -> Or,
-      "do_$amp$amp"    -> And,
-      "do_$eq$eq$eq"   -> Equal,
+      "do_apply"        -> Slice,
+      "do_unary_$bang"  -> Not,
+      "do_unary_$minus" -> UnaryMinus,
+      "do_$plus"        -> Add,
+      "do_$bar$bar"     -> Or,
+      "do_$amp$amp"     -> And,
+      "do_$eq$eq$eq"    -> Equal,
       // CUtilOp
       "chisel3.util.Cat.apply"  -> Cat,
       "chisel3.util.Fill.apply" -> Fill

@@ -10,20 +10,25 @@ trait CircuitInfos { self: ChicalaAst =>
       val name: TypeName,
       val signal: Map[TermName, SignalInfo],
       val param: Map[TermName, TypeTree],
-      val function: Map[TermName, TypeTree]
+      val function: Map[TermName, TypeTree],
+      /* use to record EnumDef  */
+      val enumTmp: Option[(Int, TermName, EnumDef)]
   ) {
     def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
-      new CircuitInfo(name, signal + (termName -> signalInfo), param, function)
+      this.copy(signal = signal + (termName -> signalInfo))
     def updatedSignals(signals: List[(TermName, SignalInfo)]): CircuitInfo =
-      new CircuitInfo(name, signal ++ signals, param, function)
+      this.copy(signal = signal ++ signals)
 
     def updatedParam(termName: TermName, typeTree: TypeTree): CircuitInfo =
-      new CircuitInfo(name, signal, param + (termName -> typeTree), function)
+      this.copy(param = param + (termName -> typeTree))
     def updatedParams(params: List[(TermName, TypeTree)]): CircuitInfo =
-      new CircuitInfo(name, signal, param ++ params, function)
+      this.copy(param = param ++ params)
 
     def updatedFuncion(termName: TermName, typeTree: TypeTree): CircuitInfo =
-      new CircuitInfo(name, signal, param, function + (termName -> typeTree))
+      this.copy(function = function + (termName -> typeTree))
+
+    def updatedEnumTmp(et: Option[(Int, TermName, EnumDef)]): CircuitInfo =
+      this.copy(enumTmp = et)
 
     def contains(termName: TermName): Boolean =
       signal.contains(termName) || param.contains(termName) || function.contains(termName)
@@ -68,9 +73,9 @@ trait CircuitInfos { self: ChicalaAst =>
   }
 
   object CircuitInfo {
-    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Map.empty)
+    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Map.empty, None)
 
-    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Map.empty)
+    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Map.empty, None)
   }
 
   case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {

@@ -47,32 +47,12 @@ trait CExpsLoader { self: Scala2Loader =>
                   }
               }
             } else if (isChiselLiteralType(qualifier)) {
-              val (literal: Literal, value: BigInt, width: Int) =
-                if (isChisel3FromIntToLiteralType(qualifier)) {
-                  val literal = qualifier.asInstanceOf[Apply].args.head.asInstanceOf[Literal]
-                  val value   = BigInt(literal.value.stringValue)
-                  val width   = value.bitLength
-                  (literal, value, width)
-                } else if (isChisel3FromStringToLiteralType(qualifier)) {
-                  val literal     = qualifier.asInstanceOf[Apply].args.head.asInstanceOf[Literal]
-                  val (base, num) = literal.value.stringValue.splitAt(1)
-                  val radix = base match {
-                    case "x" | "h" => 16
-                    case "d"       => 10
-                    case "o"       => 8
-                    case "b"       => 2
-                    case _ =>
-                      reporter.error(literal.pos, "Unknow literal base")
-                      2
-                  }
-                  val value = BigInt(num, radix)
-                  val width = value.bitLength
-                  (literal, value, width)
-                }
+              val litTree = qualifier.asInstanceOf[Apply].args.head
+              val litExp  = CExpLoader(cInfo, litTree).asInstanceOf[SExp]
 
               name.toString() match {
-                case "U" => Lit(literal, SignalInfo(Node, UInt(Literal(Constant(width)), Undirect)))
-                case "S" => Lit(literal, SignalInfo(Node, SInt(Literal(Constant(width)), Undirect)))
+                case "U" => Lit(litExp, SignalInfo(Node, UInt(EmptyTree, Undirect)))
+                case "S" => Lit(litExp, SignalInfo(Node, SInt(EmptyTree, Undirect)))
                 case _ =>
                   reporter.error(tree.pos, s"Unknow name in CExp ${name}")
                   EmptyExp

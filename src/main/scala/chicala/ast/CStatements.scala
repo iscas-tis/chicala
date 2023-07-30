@@ -42,7 +42,7 @@ trait CStatements { self: ChicalaAst =>
     val inner: List[SymbolDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
-        SymbolDef(name, info, Lit(Literal(Constant(i)), info))
+        SymbolDef(name, info, Lit(SExp(SLiteral(Literal(Constant(i))), info), info))
       }
   }
 

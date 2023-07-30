@@ -17,7 +17,7 @@ trait CExps { self: ChicalaAst =>
     def empty = EmptyExp
   }
 
-  case class Lit(val literal: Literal, override val info: SignalInfo) extends CExp(info) {
+  case class Lit(val litExp: SExp, override val info: SignalInfo) extends CExp(info) {
     def signals: Set[String] = Set.empty
   }
   case class SignalRef(val name: Tree, override val info: SignalInfo) extends CExp(info) {

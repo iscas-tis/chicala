@@ -11,6 +11,15 @@ trait ChiselAstCheck { this: Scala2Loader =>
   def isChisel3WhenApply(tree: Tree): Boolean = tree.toString() == "chisel3.when.apply"
   def isChisel3WireApply(tree: Tree): Boolean = passThrough(tree)._1.toString() == "chisel3.Wire.apply"
 
+  def isChisel3FromIntToLiteralType(tree: Tree): Boolean = List(
+    "chisel3.fromIntToLiteral",
+    "chisel3.package.fromIntToLiteral"
+  ).contains(tree.tpe.toString())
+  def isChisel3FromStringToLiteralType(tree: Tree): Boolean = List(
+    "chisel3.fromStringToLiteral",
+    "chisel3.package.fromStringToLiteral"
+  ).contains(tree.tpe.toString())
+
   def isChisel3UtilEnumApply(tree: Tree): Boolean = tree.toString() == "chisel3.util.Enum.apply"
 
   def isModuleThisIO(tree: Tree, cInfo: CircuitInfo): Boolean =
@@ -37,6 +46,10 @@ trait ChiselAstCheck { this: Scala2Loader =>
     "chisel3.Bool",
     "chisel3.Bundle"
   ).contains(tree.tpe.erasure.toString())
+
+  def isChiselLiteralType(tree: Tree): Boolean =
+    isChisel3FromIntToLiteralType(tree) ||
+      isChisel3FromStringToLiteralType(tree)
 
   /** pass through all unneed AST
     *

@@ -111,6 +111,7 @@ trait CExpsLoader { self: Scala2Loader =>
       "do_unary_$bang"  -> Not,
       "do_unary_$minus" -> UnaryMinus,
       "do_$plus"        -> Add,
+      "do_$minus"       -> Minus,
       "do_$bar$bar"     -> Or,
       "do_$amp$amp"     -> And,
       "do_$up"          -> Xor,

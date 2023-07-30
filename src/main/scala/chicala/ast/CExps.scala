@@ -42,6 +42,7 @@ trait CExps { self: ChicalaAst =>
   case object Not                 extends CCalculOp
   case object UnaryMinus          extends CCalculOp
   case object Add                 extends CCalculOp
+  case object Minus               extends CCalculOp
   case object Or                  extends CCalculOp
   case object And                 extends CCalculOp
   case object Xor                 extends CCalculOp

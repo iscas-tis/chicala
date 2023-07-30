@@ -8,14 +8,14 @@ trait CExpsLoader { self: Scala2Loader =>
 
   object CExpLoader {
     def apply(cInfo: CircuitInfo, tr: Tree): CExp = {
-      val (tree, someTpe) = passThrough(tr)
-      tree match {
+      val (tree, tpt) = passThrough(tr)
 
+      tree match {
         case Apply(Select(qualifier, name), args) if isChiselType(qualifier) =>
           val opName = name.toString()
           COp(opName) match {
             case Some(op) =>
-              val signalInfo = SignalInfo(Node, CDataTypeLoader(someTpe.get))
+              val signalInfo = SignalInfo(Node, CDataTypeLoader(tpt))
               CApply(op, signalInfo, (qualifier :: args).map(CExpLoader(cInfo, _)))
             case None => {
               unprocessedTree(tree, "CExpLoader")
@@ -37,7 +37,7 @@ trait CExpsLoader { self: Scala2Loader =>
             if (isChiselType(qualifier)) {
               COp(name.toString()) match {
                 case Some(op) =>
-                  CApply(op, SignalInfo(Node, CDataTypeLoader(someTpe.get)), List(CExpLoader(cInfo, qualifier)))
+                  CApply(op, SignalInfo(Node, CDataTypeLoader(tpt)), List(CExpLoader(cInfo, qualifier)))
                 case None =>
                   if (isChiselType(s))
                     SignalRef(s, cInfo.getSignalInfo(s))

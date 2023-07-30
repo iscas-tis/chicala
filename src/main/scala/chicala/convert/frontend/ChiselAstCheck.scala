@@ -58,14 +58,12 @@ trait ChiselAstCheck { this: Scala2Loader =>
     * @return
     *   sub tree, optional typed info
     */
-  def passThrough(tree: Tree): (Tree, Option[Tree]) = {
-    tree match {
-      case Typed(expr, tpt)                             => (passThrough(expr)._1, Some(tpt))
-      case Apply(fun, args) if isSourceInfoFun(fun)     => passThrough(fun)
-      case Apply(fun, args) if isCompileOptionsFun(fun) => passThrough(fun)
-      case TypeApply(fun, args)                         => (passThrough(fun)._1, Some(tree))
-      case _                                            => (tree, None)
-    }
+  def passThrough(tree: Tree): (Tree, TypeTree) = tree match {
+    case Typed(expr, tpt: TypeTree)                   => (passThrough(expr)._1, tpt)
+    case Apply(fun, args) if isSourceInfoFun(fun)     => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case Apply(fun, args) if isCompileOptionsFun(fun) => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case TypeApply(fun, args)                         => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case _                                            => (tree, TypeTree(tree.tpe))
   }
 
   def isScala2TupleType(tree: Tree): Boolean = tree.tpe.typeSymbol.fullName.startsWith("scala.Tuple")

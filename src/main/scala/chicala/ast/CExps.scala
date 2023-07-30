@@ -38,15 +38,17 @@ trait CExps { self: ChicalaAst =>
   sealed abstract class COp
 
   sealed abstract class CCalculOp extends COp
-  case object Slice               extends CCalculOp
-  case object Not                 extends CCalculOp
-  case object UnaryMinus          extends CCalculOp
-  case object Add                 extends CCalculOp
-  case object Minus               extends CCalculOp
-  case object Or                  extends CCalculOp
-  case object And                 extends CCalculOp
-  case object Xor                 extends CCalculOp
-  case object Equal               extends CCalculOp
+  case object Slice               extends CCalculOp // a()
+  case object Not                 extends CCalculOp // !a
+  case object UnaryMinus          extends CCalculOp // -a
+  case object Add                 extends CCalculOp // +
+  case object Minus               extends CCalculOp // -
+  case object Or                  extends CCalculOp // ||
+  case object And                 extends CCalculOp // &&
+  case object Xor                 extends CCalculOp // ^
+  case object LShift              extends CCalculOp // <<
+  case object Equal               extends CCalculOp // ===
+  case object GreaterEq           extends CCalculOp // >=
 
   sealed abstract class CUtilOp extends COp
   case object Cat               extends CUtilOp

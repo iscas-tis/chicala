@@ -95,7 +95,9 @@ trait CExpsLoader { self: Scala2Loader =>
       "do_$bar$bar"     -> Or,
       "do_$amp$amp"     -> And,
       "do_$up"          -> Xor,
+      "do_$less$less"   -> LShift,
       "do_$eq$eq$eq"    -> Equal,
+      "do_$greater$eq"  -> GreaterEq,
       // CUtilOp
       "chisel3.util.Cat.apply"  -> Cat,
       "chisel3.util.Fill.apply" -> Fill

@@ -12,7 +12,9 @@ trait CircuitInfos { self: ChicalaAst =>
       val param: Map[TermName, TypeTree],
       val function: Map[TermName, TypeTree],
       /* use to record EnumDef  */
-      val enumTmp: Option[(Int, TermName, EnumDef)]
+      val numTmp: Int,
+      val enumTmp: Option[(TermName, EnumDef)],
+      val tupleTmp: Option[(TermName, STupleUnapplyDef)]
   ) {
     def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
       this.copy(signal = signal + (termName -> signalInfo))
@@ -27,8 +29,10 @@ trait CircuitInfos { self: ChicalaAst =>
     def updatedFuncion(termName: TermName, typeTree: TypeTree): CircuitInfo =
       this.copy(function = function + (termName -> typeTree))
 
-    def updatedEnumTmp(et: Option[(Int, TermName, EnumDef)]): CircuitInfo =
-      this.copy(enumTmp = et)
+    def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo =
+      this.copy(numTmp = num, enumTmp = et)
+    def updatedTupleTmp(num: Int, tt: Option[(TermName, STupleUnapplyDef)]): CircuitInfo =
+      this.copy(numTmp = num, tupleTmp = tt)
 
     def contains(termName: TermName): Boolean =
       signal.contains(termName) || param.contains(termName) || function.contains(termName)
@@ -73,9 +77,9 @@ trait CircuitInfos { self: ChicalaAst =>
   }
 
   object CircuitInfo {
-    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Map.empty, None)
+    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Map.empty, 0, None, None)
 
-    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Map.empty, None)
+    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Map.empty, 0, None, None)
   }
 
   case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {

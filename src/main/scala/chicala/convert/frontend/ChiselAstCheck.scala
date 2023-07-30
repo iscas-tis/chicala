@@ -54,4 +54,13 @@ trait ChiselAstCheck { this: Scala2Loader =>
       case _                                            => (tree, None)
     }
   }
+
+  def isScala2TupleType(tree: Tree): Boolean = tree.tpe.typeSymbol.fullName.startsWith("scala.Tuple")
+
+  def isScala2TupleApply(tree: Tree): Boolean = """scala\.Tuple[0-9]*\.apply\[.*\]""".r.matches(tree.toString())
+
+  def isScala2TupleUnapplyTmpValDef(tree: Tree): Boolean = tree match {
+    case ValDef(mods, name, tpt, Match(Typed(Apply(appl, _), _), _)) if isScala2TupleApply(appl) => true
+    case _                                                                                       => false
+  }
 }

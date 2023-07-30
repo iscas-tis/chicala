@@ -43,12 +43,7 @@ trait CStatementsLoader { self: Scala2Loader =>
       tree match {
         case v @ ValDef(mods, name, tpt, rhs) => {
           if (mods.isParamAccessor) None // pass ParamAccessor
-          else {
-            SignalDefLoader(cInfo, tree) match {
-              case Some(value) => Some(value)
-              case None        => SValDefLoader(cInfo, v)
-            }
-          }
+          else ValDefLoader(cInfo, tree)
         }
         case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
           name match {
@@ -87,8 +82,8 @@ trait CStatementsLoader { self: Scala2Loader =>
 
   }
 
-  object SignalDefLoader extends CStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SignalDef])] = {
+  object ValDefLoader extends CStatementObj {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CStatement])] = {
       val tree = passThrough(tr)._1
       tree match {
         case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
@@ -125,17 +120,34 @@ trait CStatementsLoader { self: Scala2Loader =>
               } // TODO: RegDef
             case s @ Select(Select(This(typeName), termname), _)
                 if cInfo.enumTmp.nonEmpty &&
-                  typeName == cInfo.name && termname == cInfo.enumTmp.get._2 =>
+                  typeName == cInfo.name && termname == cInfo.enumTmp.get._1 =>
               // EnumDef step 2
-              val (n, tn, ed) = cInfo.enumTmp.get
-              val num         = n - 1
-              val enumDef     = EnumDef(ed.names :+ name, ed.info)
-              val enumTmp     = (num, tn, enumDef)
-              val newCInfo    = cInfo.updatedSignal(name, enumDef.info)
+              val (tn, ed) = cInfo.enumTmp.get
+              val num      = cInfo.numTmp - 1
+              val enumDef  = EnumDef(ed.names :+ name, ed.info)
+              val enumTmp  = (tn, enumDef)
+              val newCInfo = cInfo.updatedSignal(name, enumDef.info)
               if (num == 0)
-                Some((newCInfo.updatedEnumTmp(None), Some(enumTmp._3)))
+                Some((newCInfo.updatedEnumTmp(0, None), Some(enumTmp._2)))
               else
-                Some((newCInfo.updatedEnumTmp(Some(enumTmp)), None))
+                Some((newCInfo.updatedEnumTmp(num, Some(enumTmp)), None))
+            case s @ Select(Select(This(typeName), termname), _)
+                if cInfo.tupleTmp.nonEmpty &&
+                  typeName == cInfo.name && termname == cInfo.tupleTmp.get._1 =>
+              // STupleUnapplyDef step 2
+              val (tn, stud)       = cInfo.tupleTmp.get
+              val num              = cInfo.numTmp - 1
+              val sTupleUnapplyDef = stud.copy(names = stud.names :+ name)
+              val tupleTmp         = (tn, sTupleUnapplyDef)
+              val newCInfo =
+                if (isChiselType(tpt))
+                  cInfo.updatedSignal(name, SignalInfo(Symbol, CDataTypeLoader.fromTreeTpe(tpt)))
+                else
+                  cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
+              if (num == 0)
+                Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
+              else
+                Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
             case _ =>
               // ? TODO?
               None
@@ -147,7 +159,6 @@ trait CStatementsLoader { self: Scala2Loader =>
             case Match(Typed(Apply(cuea, number), _), _) => {
               val num = number.head.asInstanceOf[Literal].value.value.asInstanceOf[Int]
               val enumTmp = (
-                num,
                 name,
                 EnumDef(
                   List.empty,
@@ -157,10 +168,28 @@ trait CStatementsLoader { self: Scala2Loader =>
                   )
                 )
               )
-              Some((cInfo.updatedEnumTmp(Some(enumTmp)), None))
+              Some((cInfo.updatedEnumTmp(num, Some(enumTmp)), None))
             }
           }
         }
+        case v @ ValDef(mods, name, tpt, Match(t @ Typed(Apply(appl, args), _), _)) => {
+          // STupleUnapplyDef step 1
+          val num = tpt.tpe.typeArgs.length
+          val cExp =
+            if (isScala2TupleUnapplyTmpValDef(v)) CExpLoader(cInfo, args.head)
+            else CExpLoader(cInfo, t)
+          Some(
+            (
+              cInfo.updatedTupleTmp(
+                num,
+                Some((name, STupleUnapplyDef(List.empty, cExp, tpt.tpe.typeArgs)))
+              ),
+              None
+            )
+          )
+        }
+        case v: ValDef =>
+          SValDefLoader(cInfo, tr)
         case _ => None
       }
 

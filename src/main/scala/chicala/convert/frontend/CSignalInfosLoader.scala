@@ -39,12 +39,20 @@ trait CSignalInfosLoader { self: Scala2Loader =>
       }
     }
 
+    def fromString(tpe: String): Option[CDataType] = {
+      tpe match {
+        case "chisel3.UInt" => Some(UInt(EmptyTree, Undirect))
+        case "chisel3.SInt" => Some(SInt(EmptyTree, Undirect))
+        case "chisel3.Bool" => Some(Bool(Undirect))
+        case _              => None
+      }
+    }
+
     def fromTreeTpe(tree: Tree): CDataType = {
-      tree.tpe.toString() match {
-        case "chisel3.UInt" => UInt(EmptyTree, Undirect)
-        case "chisel3.SInt" => SInt(EmptyTree, Undirect)
-        case "chisel3.Bool" => Bool(Undirect)
-        case _ =>
+      fromString(tree.tpe.toString()) match {
+        case Some(value) =>
+          value
+        case None =>
           reporter.error(tree.pos, "unknow data type in CDataTypeLoader.fromTreeTpe")
           Bool(Undirect)
       }

@@ -87,10 +87,15 @@ trait CStatements { self: ChicalaAst =>
   ) extends SDef
       with SDefDefImpl
   case class SValDef(name: TermName, tpt: Tree, rhs: CExp) extends SDef with SValDefImpl
-  case class SApply(fun: SSelect, args: List[CExp])        extends SStatement with SApplyImpl
-  case class SSelect(select: Select)                       extends SStatement with SSelectImpl
-  case class SBlock(stats: List[CStatement], expr: CExp)   extends SStatement with SBlockImpl
-  case class SLiteral(literal: Literal)                    extends SStatement
+  case class STupleUnapplyDef(
+      names: List[TermName],
+      rhs: CExp,
+      tupleTyp: List[Type]
+  ) extends SDef
+  case class SApply(fun: SSelect, args: List[CExp])      extends SStatement with SApplyImpl
+  case class SSelect(select: Select)                     extends SStatement with SSelectImpl
+  case class SBlock(stats: List[CStatement], expr: CExp) extends SStatement with SBlockImpl
+  case class SLiteral(literal: Literal)                  extends SStatement
   object SBlock {
     def empty = SBlock(List.empty, CExp.empty)
   }

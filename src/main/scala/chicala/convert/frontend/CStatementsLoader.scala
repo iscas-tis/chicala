@@ -241,20 +241,6 @@ trait CStatementsLoader { self: Scala2Loader =>
   }
   object WhenLoader extends CStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[When])] = {
-      def whenFromTree(cInfo: CircuitInfo, tr: Tree): (CExp, List[CStatement]) = {
-        val (tree, _) = passThrough(tr)
-        tree match {
-          case Apply(Apply(cwa, condArgs), args) if isChisel3WhenApply(cwa) => {
-            val cond     = CExpLoader(cInfo, condArgs.head)
-            val whenBody = bodyFromTree(cInfo, args.head)
-            (cond, whenBody)
-          }
-          case _ => {
-            reporter.error(tree.pos, "unknow patten in WhenLoader.whenFromTree")
-            (CExp.empty, List.empty)
-          }
-        }
-      }
       def bodyFromTree(cInfo: CircuitInfo, tr: Tree): List[CStatement] = {
         val (tree, _) = passThrough(tr)
         val treeBody = tree match {
@@ -263,17 +249,38 @@ trait CStatementsLoader { self: Scala2Loader =>
         }
         CStatementLoader.fromListTree(cInfo, treeBody)._2
       }
+      def pushBackElseWhen(when: When, elseWhen: When): When = when match {
+        case When(cond, whenBody, otherBody, true) =>
+          When(
+            cond,
+            whenBody,
+            List(pushBackElseWhen(otherBody.head.asInstanceOf[When], elseWhen)),
+            true
+          )
+        case When(cond, whenBody, otherBody, false) =>
+          When(cond, whenBody, List(elseWhen), true)
+      }
 
       val (tree, _) = passThrough(tr)
       tree match {
-        case Apply(Select(qualifier, TermName("otherwise")), args) => {
-          val (cond, whenBody) = whenFromTree(cInfo, qualifier)
-          val otherBody        = bodyFromTree(cInfo, args.head)
-          Some((cInfo, Some(When(cond, whenBody, otherBody))))
-        }
         case Apply(Apply(cwa, condArgs), args) if isChisel3WhenApply(cwa) => {
-          val (cond, whenBody) = whenFromTree(cInfo, tree)
+          val cond     = CExpLoader(cInfo, condArgs.head)
+          val whenBody = bodyFromTree(cInfo, args.head)
           Some((cInfo, Some(When(cond, whenBody, List.empty))))
+        }
+        case Apply(Select(qualifier, TermName("otherwise")), args) => {
+          val Some((newCInfo, Some(when))) = WhenLoader(cInfo, qualifier)
+          val otherBody                    = bodyFromTree(cInfo, args.head)
+          Some((cInfo, Some(When(when.cond, when.whenBody, otherBody))))
+        }
+        case Apply(Apply(Select(qualifier, TermName("elsewhen")), condArgs), args) => {
+          val Some((newCInfo, Some(when))) = WhenLoader(cInfo, qualifier)
+
+          val elseCond     = CExpLoader(cInfo, condArgs.head)
+          val elseWhen     = When(elseCond, bodyFromTree(cInfo, args.head), List.empty)
+          val whenElseWhen = pushBackElseWhen(when, elseWhen)
+
+          Some((cInfo, Some(whenElseWhen)))
         }
         case _ => None
       }

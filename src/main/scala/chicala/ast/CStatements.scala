@@ -55,7 +55,12 @@ trait CStatements { self: ChicalaAst =>
     val relatedSignals: RelatedSignals = RelatedSignals.empty
   }
 
-  case class When(cond: CExp, whenBody: List[CStatement], otherBody: List[CStatement]) extends CStatement {
+  case class When(
+      cond: CExp,
+      whenBody: List[CStatement],
+      otherBody: List[CStatement],
+      hasElseWhen: Boolean = false
+  ) extends CStatement {
     val relatedSignals: RelatedSignals = {
       val whenRS     = whenBody.map(_.relatedSignals).fold(RelatedSignals.empty)(_ ++ _)
       val otherRS    = otherBody.map(_.relatedSignals).fold(RelatedSignals.empty)(_ ++ _)

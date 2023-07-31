@@ -141,7 +141,7 @@ trait CStatementsLoader { self: Scala2Loader =>
               val tupleTmp         = (tn, sTupleUnapplyDef)
               val newCInfo =
                 if (isChiselType(tpt))
-                  cInfo.updatedSignal(name, SignalInfo(Symbol, CDataTypeLoader.fromTreeTpe(tpt)))
+                  cInfo.updatedSignal(name, SignalInfo(Symbol, CDataTypeLoader.fromTypeTree(tpt)))
                 else
                   cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
               if (num == 0)

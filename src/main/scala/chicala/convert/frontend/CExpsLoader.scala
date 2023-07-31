@@ -27,13 +27,13 @@ trait CExpsLoader { self: Scala2Loader =>
           val fName = f.toString()
           COp(fName) match {
             case Some(op) =>
-              val signalInfo = SignalInfo(Node, CDataTypeLoader.fromTreeTpe(a))
+              val signalInfo = SignalInfo(Node, CDataTypeLoader.fromTypeTree(tpt))
               CApply(op, signalInfo, args.map(CExpLoader(cInfo, _)))
             case None =>
               SExp(SApplyLoader(cInfo, a).get._2.get, SignalInfo.empty) // SApply has no SignalInfo
           }
         case s @ Select(qualifier, name) =>
-          if (isChiselType(s)) {
+          if (isChiselType(tpt)) {
             if (isChiselType(qualifier)) {
               COp(name.toString()) match {
                 case Some(op) =>
@@ -90,15 +90,19 @@ trait CExpsLoader { self: Scala2Loader =>
       "do_apply"        -> Slice,
       "do_unary_$bang"  -> Not,
       "do_unary_$minus" -> UnaryMinus,
-      "do_$plus"        -> Add,
-      "do_$minus"       -> Minus,
-      "do_$bar$bar"     -> Or,
-      "do_$amp$amp"     -> And,
-      "do_$up"          -> Xor,
-      "do_$less$less"   -> LShift,
-      "do_$eq$eq$eq"    -> Equal,
-      "do_$greater$eq"  -> GreaterEq,
+      //
+      "do_$plus"       -> Add,
+      "do_$minus"      -> Minus,
+      "do_$bar$bar"    -> Or,
+      "do_$amp$amp"    -> And,
+      "do_$up"         -> Xor,
+      "do_$less$less"  -> LShift,
+      "do_$eq$eq$eq"   -> Equal,
+      "do_$greater$eq" -> GreaterEq,
+      //
+      "do_asUInt" -> AsUInt,
       // CUtilOp
+      "chisel3.Mux.do_apply"    -> Mux,
       "chisel3.util.Cat.apply"  -> Cat,
       "chisel3.util.Fill.apply" -> Fill
     )

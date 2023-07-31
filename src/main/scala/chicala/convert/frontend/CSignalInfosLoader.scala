@@ -48,12 +48,12 @@ trait CSignalInfosLoader { self: Scala2Loader =>
       }
     }
 
-    def fromTreeTpe(tree: Tree): CDataType = {
+    def fromTypeTree(tree: Tree): CDataType = {
       fromString(tree.tpe.toString()) match {
         case Some(value) =>
           value
         case None =>
-          reporter.error(tree.pos, "unknow data type in CDataTypeLoader.fromTreeTpe")
+          reporter.error(tree.pos, "unknow data type in CDataTypeLoader.fromTypeTree")
           Bool(Undirect)
       }
     }
@@ -61,7 +61,7 @@ trait CSignalInfosLoader { self: Scala2Loader =>
     def apply(tr: Tree): CDataType = {
       val tree = passThrough(tr)._1
       tree match {
-        case t: TypeTree if isChiselType(t) => fromTreeTpe(t)
+        case t: TypeTree if isChiselType(t) => fromTypeTree(t)
         case Apply(fun, args) =>
           val someDirection = CDirectionLoader(fun)
           someDirection match {

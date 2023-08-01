@@ -104,13 +104,9 @@ trait CStatementsLoader { self: Scala2Loader =>
 
                 Some((newInfo, Some(ioDef)))
               } else if (isChisel3WireApply(func)) {
-                // WireDef
-                assert(args.length == 1, "should have only 1 arg in Wire()")
-
-                val dataType   = CDataTypeLoader(args.head)
-                val signalInfo = SignalInfo(Wire, dataType)
-                val newInfo    = cInfo.updatedSignal(name, signalInfo)
-                Some(newInfo, Some(WireDef(name, signalInfo)))
+                Some(loadWireDef(cInfo, name, func, args))
+              } else if (isChiselRegDefApply(func)) {
+                Some(loadRegDef(cInfo, name, func, args))
               } else {
                 // SymbolDef
                 val cExp       = CExpLoader(cInfo, rhs)
@@ -194,31 +190,57 @@ trait CStatementsLoader { self: Scala2Loader =>
       }
 
     }
-  }
 
-  object WireDefLoader extends CStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[WireDef])] = {
-      val (tree, _) = passThrough(tr)
-      tree match {
-        case ValDef(mods, nameTmp, tpt, apply) =>
-          passThrough(apply)._1 match {
-            case Apply(
-                  TypeApply(Select(Select(Ident(TermName("chisel3")), TermName("Wire")), TermName("apply")), _),
-                  args
-                ) =>
-              assert(args.length == 1, "should have only 1 arg in Wire()")
+    def loadWireDef(
+        cInfo: CircuitInfo,
+        name: TermName,
+        func: Tree,
+        args: List[Tree]
+    ): (CircuitInfo, Option[WireDef]) = {
+      assert(args.length == 1, "should have only 1 arg in Wire()")
 
-              val name       = nameTmp.stripSuffix(" ")
-              val dataType   = CDataTypeLoader(args.head)
-              val signalInfo = SignalInfo(Wire, dataType)
-              val newInfo    = cInfo.updatedSignal(name, signalInfo)
-              Some(newInfo, Some(WireDef(name, signalInfo)))
-            case _ => None
-          }
-        case _ => None
-      }
-
+      val dataType   = CDataTypeLoader(args.head)
+      val signalInfo = SignalInfo(Wire, dataType)
+      val newInfo    = cInfo.updatedSignal(name, signalInfo)
+      (newInfo, Some(WireDef(name, signalInfo)))
     }
+    def loadRegDef(
+        cInfo: CircuitInfo,
+        name: TermName,
+        func: Tree,
+        args: List[Tree]
+    ): (CircuitInfo, Option[RegDef]) = {
+      if (isChisel3RegApply(func)) {
+        assert(args.length == 1, "should have only 1 arg in Reg()")
+
+        val signalInfo = SignalInfo(Reg, CDataTypeLoader(args.head))
+        val newCInfo   = cInfo.updatedSignal(name, signalInfo)
+        (newCInfo, Some(RegDef(name, signalInfo)))
+
+      } else if (isChisel3RegInitApply(func)) {
+        if (args.length == 1) {
+          val init       = CExpLoader(cInfo, args.head)
+          val signalInfo = init.info.copy(physicalType = Reg)
+          val newCInfo   = cInfo.updatedSignal(name, signalInfo)
+          (newCInfo, Some(RegDef(name, signalInfo, Some(init))))
+        } else {
+          unprocessedTree(func, s"ValDefLoader.loadRegDef with ${args.size} arg")
+          (cInfo, None)
+        }
+      } else if (isChisel3UtilRegEnableApply(func)) {
+        if (args.length != 2)
+          reporter.error(func.pos, "should have 2 args in RegEnable()")
+        val next       = CExpLoader(cInfo, args.head)
+        val enable     = CExpLoader(cInfo, args.tail.head)
+        val signalInfo = next.info
+        val newCInfo   = cInfo.updatedSignal(name, signalInfo)
+        (newCInfo, Some(RegDef(name, signalInfo, None, Some(next), Some(enable))))
+      } else {
+        reporter.error(func.pos, "Unknow RegDef function")
+        (cInfo, None)
+      }
+    }
+
   }
 
   object ConnectLoader extends CStatementObj {

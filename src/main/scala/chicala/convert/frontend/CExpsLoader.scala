@@ -22,6 +22,20 @@ trait CExpsLoader { self: Scala2Loader =>
               EmptyExp // empty
             }
           }
+        case Apply(Select(qualifier, name), args) if isChiselLiteralType(qualifier) => {
+          // 0.U(1.W)
+          val litTree = qualifier.asInstanceOf[Apply].args.head
+          val litExp  = CExpLoader(cInfo, litTree).asInstanceOf[SExp]
+          val width   = CDataTypeLoader.getSomeWidth(args).get
+
+          name.toString() match {
+            case "U" => Lit(litExp, SignalInfo(Node, UInt(width, Undirect)))
+            case "S" => Lit(litExp, SignalInfo(Node, SInt(width, Undirect)))
+            case _ =>
+              reporter.error(tree.pos, s"Unknow name in CExp ${name}")
+              EmptyExp
+          }
+        }
         case a @ Apply(fun, args) =>
           val f     = passThrough(fun)._1
           val fName = f.toString()
@@ -104,7 +118,8 @@ trait CExpsLoader { self: Scala2Loader =>
       // CUtilOp
       "chisel3.Mux.do_apply"    -> Mux,
       "chisel3.util.Cat.apply"  -> Cat,
-      "chisel3.util.Fill.apply" -> Fill
+      "chisel3.util.Fill.apply" -> Fill,
+      "chisel3.util.Log2.apply" -> Log2
     )
 
     def apply(opName: String): Option[COp] = {

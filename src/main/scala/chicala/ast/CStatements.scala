@@ -29,7 +29,13 @@ trait CStatements { self: ChicalaAst =>
     val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
   }
 
-  case class RegDef() extends SignalDef {
+  case class RegDef(
+      name: TermName,
+      info: SignalInfo,
+      someInit: Option[CExp] = None,
+      someNext: Option[CExp] = None,
+      someEnable: Option[CExp] = None
+  ) extends SignalDef {
     // not empty when RegDef with init val
     val relatedSignals: RelatedSignals = RelatedSignals.empty
   }

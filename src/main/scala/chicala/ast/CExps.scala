@@ -57,6 +57,7 @@ trait CExps { self: ChicalaAst =>
   case object Mux               extends CUtilOp
   case object Cat               extends CUtilOp
   case object Fill              extends CUtilOp
+  case object Log2              extends CUtilOp
 
   // scala extension
 

@@ -21,7 +21,7 @@ trait CSignalInfosLoader { self: Scala2Loader =>
   }
 
   object CDataTypeLoader {
-    private def getSomeWidth(args: List[Tree]): Option[Tree] = args match {
+    def getSomeWidth(args: List[Tree]): Option[Tree] = args match {
       case Select(Apply(Select(cp, TermName("fromIntToWidth")), List(w)), TermName("W")) :: next
           if isChisel3Package(cp) =>
         Some(w)

@@ -38,7 +38,9 @@ trait ToplogicalSort { self: ChicalaAst =>
             }
           case sd: SignalDef =>
             vertexs += Vertex(id)
-            last = last ++ sd.relatedSignals.fully.map(x => moduleDef.name.toString() + ".this." + x -> Set(id)).toMap
+            last = last ++ sd.relatedSignals.fully
+              .map(x => moduleDef.name.toString() + ".this." + x -> Set(id))
+              .toMap
           case a: Assert =>
             vertexs += Vertex(id)
           case ss: SStatement =>
@@ -65,7 +67,7 @@ trait ToplogicalSort { self: ChicalaAst =>
         statement match {
           case c: Connect =>
             val left = c.relatedSignals.fully.head
-            if (lastConnect.contains(left)) { // valid connection
+            if (lastConnect(left).contains(id)) { // valid connection
               edges ++= (dependency ++ c.relatedSignals.dependency)
                 .map(lastConnect(_))
                 .flatten
@@ -74,19 +76,13 @@ trait ToplogicalSort { self: ChicalaAst =>
           case w: When =>
             getConnectDependcy(id :+ 1, w.whenBody, lastConnect, dependency ++ w.cond.signals)
             getConnectDependcy(id :+ 2, w.otherBody, lastConnect, dependency ++ w.cond.signals)
-          case a: Assert =>
-            edges ++= (dependency ++ a.relatedSignals.dependency)
+          case r: RegDef if r.inner.length > 1 => // with enable
+            getConnectDependcy(id, r.inner, lastConnect, dependency)
+          case s =>
+            edges ++= (dependency ++ s.relatedSignals.dependency)
               .map(lastConnect(_))
               .flatten
               .map(x => DirectedEdge(Vertex(id), Vertex(x)))
-          case _: IoDef | _: WireDef => // pass
-          case _: SStatement         => // pass
-          case _ =>
-            println(
-              "(-_-) not processed in "
-                + "ToplogicalSort.getDependencyGraph.getConnectDependcy: " +
-                s"${statement.toString()}"
-            )
         }
       }
     }

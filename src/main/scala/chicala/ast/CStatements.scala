@@ -36,16 +36,32 @@ trait CStatements { self: ChicalaAst =>
       someNext: Option[CExp] = None,
       someEnable: Option[CExp] = None
   ) extends SignalDef {
-    // not empty when RegDef with init val
-    val relatedSignals: RelatedSignals = RelatedSignals.empty
+    val relatedSignals: RelatedSignals = someEnable match {
+      case None        => RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
+      case Some(value) => inner.map(_.relatedSignals).reduce(_ ++ _)
+    }
+    def inner: List[CStatement] = RegDef(name, info, someInit, None, None) ::
+      (someEnable match {
+        case Some(enable) =>
+          List(
+            When(
+              enable,
+              List(Connect(SignalRef(Select(EmptyTree, name), info), someNext.get)),
+              List.empty
+            )
+          )
+        case None => List.empty
+      })
+
   }
   case class SymbolDef(name: TermName, info: SignalInfo, rhs: CExp) extends SignalDef {
     // for now
     val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, rhs.signals)
   }
   case class EnumDef(names: List[TermName], info: SignalInfo) extends SignalDef {
-    val relatedSignals: RelatedSignals = RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
-    val inner: List[SymbolDef] = names
+    val relatedSignals: RelatedSignals =
+      RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
+    def inner: List[SymbolDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
         SymbolDef(name, info, Lit(SExp(SLiteral(Literal(Constant(i))), info), info))

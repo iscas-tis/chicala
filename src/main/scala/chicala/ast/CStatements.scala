@@ -13,9 +13,9 @@ trait CStatements { self: ChicalaAst =>
 
   sealed abstract class SignalDef extends CStatement
 
-  case class IoDef(name: TermName, info: SignalInfo) extends SignalDef {
+  case class IoDef(name: TermName, tpe: CType) extends SignalDef {
     val relatedSignals: RelatedSignals = RelatedSignals(
-      info.dataType match {
+      tpe match {
         case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
         case _         => Set(name.toString())
       },
@@ -24,14 +24,14 @@ trait CStatements { self: ChicalaAst =>
     )
   }
 
-  case class WireDef(name: TermName, info: SignalInfo) extends SignalDef {
+  case class WireDef(name: TermName, info: CType) extends SignalDef {
     // not empty when WireDef with init val
     val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
   }
 
   case class RegDef(
       name: TermName,
-      info: SignalInfo,
+      info: CType,
       someInit: Option[CExp] = None,
       someNext: Option[CExp] = None,
       someEnable: Option[CExp] = None
@@ -54,11 +54,11 @@ trait CStatements { self: ChicalaAst =>
       })
 
   }
-  case class SymbolDef(name: TermName, info: SignalInfo, rhs: CExp) extends SignalDef {
+  case class SymbolDef(name: TermName, info: CType, rhs: CExp) extends SignalDef {
     // for now
     val relatedSignals: RelatedSignals = RelatedSignals(Set(name.toString()), Set.empty, rhs.signals)
   }
-  case class EnumDef(names: List[TermName], info: SignalInfo) extends SignalDef {
+  case class EnumDef(names: List[TermName], info: CType) extends SignalDef {
     val relatedSignals: RelatedSignals =
       RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
     def inner: List[SymbolDef] = names

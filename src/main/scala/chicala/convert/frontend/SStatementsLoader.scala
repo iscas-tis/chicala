@@ -1,7 +1,6 @@
 package chicala.convert.frontend
 
 import scala.tools.nsc.Global
-import chicala.ast.CSignalInfos
 
 trait SStatementsLoader { self: Scala2Loader =>
   val global: Global
@@ -41,7 +40,7 @@ trait SStatementsLoader { self: Scala2Loader =>
         case ValDef(mods, name, tpt, rhs) =>
           val newCInfo =
             if (isChiselType(tpt))
-              cInfo.updatedSignal(name, SignalInfo(Symbol, CDataTypeLoader(tpt)))
+              cInfo.updatedSignal(name, CTypeLoader(tpt))
             else
               cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
           Some((newCInfo, Some(SValDef(name, tpt, CExpLoader(cInfo, rhs))))) // ? or SExp?

@@ -42,7 +42,7 @@ trait CClassDefsLoader { self: Scala2Loader =>
           val signals = body
             .map {
               case ValDef(mods, name, tpt, rhs) =>
-                Some((name.stripSuffix(" "), CDataTypeLoader(rhs)))
+                Some((name.stripSuffix(" "), CTypeLoader(rhs)))
               case _ => None
             }
             .flatten

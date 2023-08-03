@@ -98,9 +98,9 @@ trait CStatementsLoader { self: Scala2Loader =>
                   case _                  => None
                 }
 
-                val bundle  = someBundleDef.get.bundle
-                val newInfo = cInfo.updatedSignal(name, SignalInfo(Io, bundle))
-                val ioDef   = IoDef(name, SignalInfo(Io, bundle))
+                val bundle  = someBundleDef.get.bundle.updatedPhysical(Io)
+                val newInfo = cInfo.updatedSignal(name, bundle)
+                val ioDef   = IoDef(name, bundle)
 
                 Some((newInfo, Some(ioDef)))
               } else if (isChisel3WireApply(func)) {
@@ -110,7 +110,7 @@ trait CStatementsLoader { self: Scala2Loader =>
               } else {
                 // SymbolDef
                 val cExp       = CExpLoader(cInfo, rhs)
-                val signalInfo = SignalInfo(Symbol, cExp.info.dataType)
+                val signalInfo = cExp.info.updatedPhysical(Node)
                 val newInfo    = cInfo.updatedSignal(name, signalInfo)
                 Some((newInfo, Some(SymbolDef(name, signalInfo, cExp))))
               } // TODO: RegDef
@@ -137,7 +137,7 @@ trait CStatementsLoader { self: Scala2Loader =>
               val tupleTmp         = (tn, sTupleUnapplyDef)
               val newCInfo =
                 if (isChiselType(tpt))
-                  cInfo.updatedSignal(name, SignalInfo(Symbol, CDataTypeLoader.fromTypeTree(tpt)))
+                  cInfo.updatedSignal(name, CTypeLoader.fromTypeTree(tpt))
                 else
                   cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
               if (num == 0)
@@ -158,10 +158,7 @@ trait CStatementsLoader { self: Scala2Loader =>
                 name,
                 EnumDef(
                   List.empty,
-                  SignalInfo(
-                    Node,
-                    UInt(Literal(Constant(BigInt(num - 1).bitLength)), Undirect)
-                  )
+                  UInt(Node, Undirect) // width: Literal(Constant(BigInt(num - 1).bitLength))
                 )
               )
               Some((cInfo.updatedEnumTmp(num, Some(enumTmp)), None))
@@ -199,10 +196,9 @@ trait CStatementsLoader { self: Scala2Loader =>
     ): (CircuitInfo, Option[WireDef]) = {
       assert(args.length == 1, "should have only 1 arg in Wire()")
 
-      val dataType   = CDataTypeLoader(args.head)
-      val signalInfo = SignalInfo(Wire, dataType)
-      val newInfo    = cInfo.updatedSignal(name, signalInfo)
-      (newInfo, Some(WireDef(name, signalInfo)))
+      val cType   = CTypeLoader(args.head).updatedPhysical(Wire)
+      val newInfo = cInfo.updatedSignal(name, cType)
+      (newInfo, Some(WireDef(name, cType)))
     }
     def loadRegDef(
         cInfo: CircuitInfo,
@@ -213,14 +209,14 @@ trait CStatementsLoader { self: Scala2Loader =>
       if (isChisel3RegApply(func)) {
         assert(args.length == 1, "should have only 1 arg in Reg()")
 
-        val signalInfo = SignalInfo(Reg, CDataTypeLoader(args.head))
+        val signalInfo = CTypeLoader(args.head).updatedPhysical(Reg)
         val newCInfo   = cInfo.updatedSignal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo)))
 
       } else if (isChisel3RegInitApply(func)) {
         if (args.length == 1) {
           val init       = CExpLoader(cInfo, args.head)
-          val signalInfo = init.info.copy(physicalType = Reg)
+          val signalInfo = init.info.updatedPhysical(Reg)
           val newCInfo   = cInfo.updatedSignal(name, signalInfo)
           (newCInfo, Some(RegDef(name, signalInfo, Some(init))))
         } else {

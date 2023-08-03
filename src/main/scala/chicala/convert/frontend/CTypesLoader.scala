@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait CSignalInfosLoader { self: Scala2Loader =>
+trait CTypesLoader { self: Scala2Loader =>
   val global: Global
   import global._
 
@@ -20,7 +20,7 @@ trait CSignalInfosLoader { self: Scala2Loader =>
     }
   }
 
-  object CDataTypeLoader {
+  object CTypeLoader {
     def getSomeWidth(args: List[Tree]): Option[Tree] = args match {
       case Select(Apply(Select(cp, TermName("fromIntToWidth")), List(w)), TermName("W")) :: next
           if isChisel3Package(cp) =>
@@ -28,37 +28,37 @@ trait CSignalInfosLoader { self: Scala2Loader =>
       case _ => None
     }
 
-    private def getVecArgs(args: List[Tree]): (Tree, CDataType) = {
+    private def getVecArgs(args: List[Tree]): (Tree, CType) = {
       if (args.length == 2) {
         val size      = args.head
-        val cDataType = CDataTypeLoader(args.tail.head)
+        val cDataType = CTypeLoader(args.tail.head)
         (size, cDataType)
       } else {
         reporter.error(args.head.pos, "Unknow arg of Vec")
-        (args.head, Bool(Undirect))
+        (args.head, CType.empty)
       }
     }
 
-    def fromString(tpe: String): Option[CDataType] = {
+    def fromString(tpe: String): Option[CType] = {
       tpe match {
-        case "chisel3.UInt" => Some(UInt(EmptyTree, Undirect))
-        case "chisel3.SInt" => Some(SInt(EmptyTree, Undirect))
-        case "chisel3.Bool" => Some(Bool(Undirect))
+        case "chisel3.UInt" => Some(UInt(Node, Undirect))
+        case "chisel3.SInt" => Some(SInt(Node, Undirect))
+        case "chisel3.Bool" => Some(Bool(Node, Undirect))
         case _              => None
       }
     }
 
-    def fromTypeTree(tree: Tree): CDataType = {
+    def fromTypeTree(tree: Tree): CType = {
       fromString(tree.tpe.toString()) match {
         case Some(value) =>
           value
         case None =>
-          reporter.error(tree.pos, "unknow data type in CDataTypeLoader.fromTypeTree")
-          Bool(Undirect)
+          reporter.error(tree.pos, "unknow data type in CTypeLoader.fromTypeTree")
+          CType.empty
       }
     }
 
-    def apply(tr: Tree): CDataType = {
+    def apply(tr: Tree): CType = {
       val tree = passThrough(tr)._1
       tree match {
         case t: TypeTree if isChiselType(t) => fromTypeTree(t)
@@ -67,8 +67,8 @@ trait CSignalInfosLoader { self: Scala2Loader =>
           someDirection match {
             /* Apply(<Input(_)>, List(<UInt(width.W)>)) */
             case Some(direction) =>
-              val cDataType = CDataTypeLoader(args.head)
-              cDataType.updateDriction(direction)
+              val cDataType = CTypeLoader(args.head)
+              cDataType.updatedDriction(direction)
 
             /* Apply(<UInt(_)>, List(<width.W>)) */
             case _ =>
@@ -77,27 +77,27 @@ trait CSignalInfosLoader { self: Scala2Loader =>
                 case Select(Select(cp, tpe), TermName("apply")) if isChisel3Package(cp) =>
                   val someWidth = getSomeWidth(args)
                   tpe match {
-                    case TermName("UInt") => UInt(someWidth.get, Undirect)
-                    case TermName("SInt") => UInt(someWidth.get, Undirect)
-                    case TermName("Bool") => Bool(Undirect)
+                    case TermName("UInt") => UInt(Node, Undirect)
+                    case TermName("SInt") => UInt(Node, Undirect)
+                    case TermName("Bool") => Bool(Node, Undirect)
                     case TermName("Vec") =>
-                      val (size, cDataType) = getVecArgs(args)
-                      Vec(size, cDataType)
+                      val (size, cType) = getVecArgs(args)
+                      Vec(cType) // size
                     case _ =>
-                      unprocessedTree(f, "CDataTypeLoader")
-                      Bool(Undirect)
+                      unprocessedTree(f, "CTypeLoader")
+                      CType.empty
                   }
                 case _ =>
-                  unprocessedTree(f, "CDataTypeLoader")
-                  Bool(Undirect)
+                  unprocessedTree(f, "CTypeLoader")
+                  CType.empty
               }
           }
 
         case Block(stats, _) =>
           BundleDefLoader(stats.head).get.bundle
         case _ =>
-          unprocessedTree(tree, "CDataTypeLoader")
-          Bool(Undirect)
+          unprocessedTree(tree, "CTypeLoader")
+          CType.empty
       }
     }
   }

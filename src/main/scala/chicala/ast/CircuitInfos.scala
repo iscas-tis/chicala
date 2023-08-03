@@ -8,7 +8,7 @@ trait CircuitInfos { self: ChicalaAst =>
 
   case class CircuitInfo(
       val name: TypeName,
-      val signal: Map[TermName, SignalInfo],
+      val signal: Map[TermName, CType],
       val param: Map[TermName, TypeTree],
       val function: Map[TermName, TypeTree],
       /* use to record EnumDef  */
@@ -16,9 +16,9 @@ trait CircuitInfos { self: ChicalaAst =>
       val enumTmp: Option[(TermName, EnumDef)],
       val tupleTmp: Option[(TermName, STupleUnapplyDef)]
   ) {
-    def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
+    def updatedSignal(termName: TermName, signalInfo: CType): CircuitInfo =
       this.copy(signal = signal + (termName -> signalInfo))
-    def updatedSignals(signals: List[(TermName, SignalInfo)]): CircuitInfo =
+    def updatedSignals(signals: List[(TermName, CType)]): CircuitInfo =
       this.copy(signal = signal ++ signals)
 
     def updatedParam(termName: TermName, typeTree: TypeTree): CircuitInfo =
@@ -45,26 +45,23 @@ trait CircuitInfos { self: ChicalaAst =>
       }
     }
 
-    def getSignalInfo(tree: Tree): SignalInfo = {
-      def select(signalInfo: SignalInfo, termName: TermName): SignalInfo = signalInfo match {
-        case SignalInfo(physicalType, dataType) =>
-          dataType match {
-            case Bundle(signals) if signals.contains(termName) =>
-              SignalInfo(physicalType, signals(termName))
-            case _ => {
-              reporter.error(tree.pos, s"TermName ${termName} not found in ${dataType}")
-              SignalInfo.empty
-            }
-          }
+    def getCType(tree: Tree): CType = {
+      def select(tpe: CType, termName: TermName): CType = tpe match {
+        case Bundle(signals) if signals.contains(termName) =>
+          signals(termName)
+        case _ => {
+          reporter.error(tree.pos, s"TermName ${termName} not found in ${tpe}")
+          CType.empty
+        }
       }
       tree match {
         case Select(This(this.name), termName: TermName) => signal(termName)
-        case Select(qualifier, termName: TermName)       => select(getSignalInfo(qualifier), termName)
+        case Select(qualifier, termName: TermName)       => select(getCType(qualifier), termName)
         case Ident(termName: TermName)                   => signal(termName)
         case _ => {
-          unprocessedTree(tree, "CircuitInfo.getSignalInfo")
-          reporter.error(tree.pos, s"CircuitInfo.getSignalInfo not process")
-          SignalInfo.empty
+          unprocessedTree(tree, "CircuitInfo.getCType")
+          reporter.error(tree.pos, s"CircuitInfo.getCType not process")
+          CType.empty
         }
       }
     }

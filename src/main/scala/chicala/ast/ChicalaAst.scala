@@ -9,7 +9,7 @@ trait ChicalaAst
     extends CircuitInfos
     with CClassDefs
     with CStatements
-    with CSignalInfos
+    with MTypes
     with CExps
     with SStatements
     with Printer

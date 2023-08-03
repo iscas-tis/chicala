@@ -1,7 +1,6 @@
 package chicala.ast
 
-import scala.tools.nsc
-import nsc.Global
+import scala.tools.nsc.Global
 
 import chicala.util._
 

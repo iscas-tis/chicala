@@ -25,7 +25,7 @@ trait SStatementsLoader { self: Scala2Loader =>
             }
           val body = SBlockLoader(newCInfo, rhs) match {
             case Some((_, Some(value))) => value
-            case _                      => SBlock.empty
+            case _                      => SBlock(List.empty, EmptyMType)
           }
           assert(body.body.nonEmpty, s"function $name should have body")
           Some((cInfo.updatedFuncion(name, tpt), Some(SDefDef(name, vpss, tpt, body))))

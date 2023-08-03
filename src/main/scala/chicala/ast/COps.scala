@@ -7,7 +7,6 @@ trait COps { self: ChicalaAst =>
   import global._
 
   // operators
-
   sealed abstract class COp
 
   sealed abstract class CCalculOp extends COp

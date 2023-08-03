@@ -9,6 +9,8 @@ trait CTypeImpls { self: MTypes =>
   import global._
 
   trait CTypeImpl { self: CType =>
+    def physical: CPhysical
+
     def updatedPhysical(newPhysical: CPhysical): CType
     def updatedDriction(newDirection: CDirection): CType
     def subSignals: Set[String] = Set.empty
@@ -48,15 +50,15 @@ trait CTypeImpls { self: MTypes =>
   }
   trait VecImpl { self: Vec =>
     def updatedPhysical(newPhysical: CPhysical): Vec =
-      Vec(tparam.updatedPhysical(newPhysical))
+      Vec(newPhysical, tparam.updatedPhysical(newPhysical))
     def updatedDriction(newDirection: CDirection): Vec =
-      Vec(tparam.updatedDriction(newDirection))
+      Vec(physical, tparam.updatedDriction(newDirection))
   }
   trait BundleImpl { self: Bundle =>
     def updatedPhysical(newPhysical: CPhysical): Bundle =
-      Bundle(signals.map { case (n, t) => (n, t.updatedPhysical(newPhysical)) })
+      Bundle(newPhysical, signals.map { case (n, t) => (n, t.updatedPhysical(newPhysical)) })
     def updatedDriction(newDirection: CDirection): Bundle =
-      Bundle(signals.map { case (n, t) => (n, t.updatedDriction(newDirection)) })
+      Bundle(physical, signals.map { case (n, t) => (n, t.updatedDriction(newDirection)) })
 
     override def subSignals: Set[String] = signals
       .map { case (termName, cDataType) =>

@@ -24,9 +24,9 @@ trait CClassDefsLoader { self: Scala2Loader =>
             case Select(Ident(TermName("chisel3")), TypeName("Module")) => true
             case _                                                      => false
           } =>
-        val (cInfo, cBody): (CircuitInfo, List[CStatement]) =
-          CStatementLoader.fromListTree(CircuitInfo(name), body)
-        Some(ModuleDef(name, cInfo, cBody))
+        val (cInfo, cBody): (CircuitInfo, List[MStatement]) =
+          MStatementLoader.fromListTree(CircuitInfo(name), body)
+        Some(ModuleDef(name, List.empty, cBody)) // TODO: pparamss
       case _ => None
     }
   }
@@ -47,7 +47,7 @@ trait CClassDefsLoader { self: Scala2Loader =>
             }
             .flatten
             .toMap
-          Some(BundleDef(name, Bundle(signals)))
+          Some(BundleDef(name, Bundle(Node, signals)))
         case _ => None
       }
     }

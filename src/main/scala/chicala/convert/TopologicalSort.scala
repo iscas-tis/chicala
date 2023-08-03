@@ -18,7 +18,7 @@ trait ToplogicalSort { self: ChicalaAst =>
 
     def getVertexAndLastConnectDependcy(
         idPrefix: Id,
-        statements: List[CStatement],
+        statements: List[MStatement],
         lastConnect: Map[String, Set[Id]]
     ): Map[String, Set[Id]] = {
       var last = lastConnect
@@ -36,15 +36,12 @@ trait ToplogicalSort { self: ChicalaAst =>
               if (m.contains(key)) m.updated(key, m(key) ++ set)
               else m.updated(key, set)
             }
-          case sd: SignalDef =>
+          case sd: CValDef =>
             vertexs += Vertex(id)
             last = last ++ sd.relatedSignals.fully
               .map(x => moduleDef.name.toString() + ".this." + x -> Set(id))
               .toMap
           case a: Assert =>
-            vertexs += Vertex(id)
-          case ss: SStatement =>
-            // not process for now, keep the statement at the position
             vertexs += Vertex(id)
           case _ => // TODO: remove _
             println(
@@ -59,7 +56,7 @@ trait ToplogicalSort { self: ChicalaAst =>
 
     def getConnectDependcy(
         idPrefix: Id,
-        statements: List[CStatement],
+        statements: List[MStatement],
         lastConnect: Map[String, Set[Id]],
         dependency: Set[String]
     ): Unit = {
@@ -74,10 +71,8 @@ trait ToplogicalSort { self: ChicalaAst =>
                 .map(x => DirectedEdge(Vertex(id), Vertex(x)))
             }
           case w: When =>
-            getConnectDependcy(id :+ 1, w.whenBody, lastConnect, dependency ++ w.cond.signals)
-            getConnectDependcy(id :+ 2, w.otherBody, lastConnect, dependency ++ w.cond.signals)
-          case r: RegDef if r.inner.length > 1 => // with enable
-            getConnectDependcy(id, r.inner, lastConnect, dependency)
+            getConnectDependcy(id :+ 1, w.whenBody, lastConnect, dependency ++ w.cond.relatedSignals.dependency)
+            getConnectDependcy(id :+ 2, w.otherBody, lastConnect, dependency ++ w.cond.relatedSignals.dependency)
           case s =>
             edges ++= (dependency ++ s.relatedSignals.dependency)
               .map(lastConnect(_))
@@ -113,12 +108,12 @@ trait ToplogicalSort { self: ChicalaAst =>
         .reverse                        // reverse 2
     }
 
-    def doReorder(bodyList: List[CStatement], idList: List[Id]): List[CStatement] = {
+    def doReorder(bodyList: List[MStatement], idList: List[Id]): List[MStatement] = {
       val body = bodyList.toArray
 
       mergeId(idList).map { case (index, restList) =>
         body(index - 1) match {
-          case _: Connect | _: Assert | _: SignalDef => body(index - 1)
+          case _: Connect | _: Assert | _: CValDef => body(index - 1)
           case w: When =>
             val merged = mergeId(restList).toMap
             val whenBody =
@@ -131,12 +126,12 @@ trait ToplogicalSort { self: ChicalaAst =>
           case b: BulkConnect =>
             reporter.echo(s"(-_-) not processed in ToplogicalSort.doReorder: ${b}")
             b
-          case s: SStatement => s
+          case s => s
         }
       }
     }
 
-    ModuleDef(moduleDef.name, moduleDef.info, doReorder(moduleDef.body, topologicalOrder))
+    ModuleDef(moduleDef.name, moduleDef.pparamss, doReorder(moduleDef.body, topologicalOrder))
   }
 
   def dependencySort(moduleDef: ModuleDef): ModuleDef = {

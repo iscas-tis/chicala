@@ -6,7 +6,7 @@ trait SStatementsLoader { self: Scala2Loader =>
   val global: Global
   import global._
 
-  object SDefDefLoader extends CStatementObj {
+  object SDefDefLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SDefDef])] = {
       val tree = passThrough(tr)._1
       tree match {
@@ -27,13 +27,13 @@ trait SStatementsLoader { self: Scala2Loader =>
             case Some((_, Some(value))) => value
             case _                      => SBlock.empty
           }
-          assert(body.nonEmpty, s"function $name should have body")
+          assert(body.body.nonEmpty, s"function $name should have body")
           Some((cInfo.updatedFuncion(name, tpt), Some(SDefDef(name, vpss, tpt, body))))
         case _ => None
       }
     }
   }
-  object SValDefLoader extends CStatementObj {
+  object SValDefLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SValDef])] = {
       val tree = passThrough(tr)._1
       tree match {
@@ -43,35 +43,34 @@ trait SStatementsLoader { self: Scala2Loader =>
               cInfo.updatedSignal(name, CTypeLoader(tpt))
             else
               cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
-          Some((newCInfo, Some(SValDef(name, tpt, CExpLoader(cInfo, rhs))))) // ? or SExp?
+          Some((newCInfo, Some(SValDef(name, STypeLoader(tpt), CExpLoader(cInfo, rhs))))) // ? or SExp?
         case _ => None
       }
     }
   }
-  object SApplyLoader extends CStatementObj {
+  object SApplyLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SApply])] = {
       val tree = passThrough(tr)._1
       tree match {
         case Apply(fun, args) =>
           passThrough(fun)._1 match {
             case s: Select =>
-              Some((cInfo, Some(SApply(SSelect(s), args.map(CExpLoader(cInfo, _))))))
+              Some((cInfo, Some(SApply(SSelect(s, EmptyMType), args.map(CExpLoader(cInfo, _)), EmptyMType))))
             case _ => None
           }
         case _ => None
       }
     }
   }
-  object SBlockLoader extends CStatementObj {
+  object SBlockLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SBlock])] = {
       val tree = passThrough(tr)._1
       tree match {
         case Block(stats, expr) =>
-          val (newCInfo, cList) = CStatementLoader.fromListTree(cInfo, stats)
-          val cExp              = CExpLoader(newCInfo, expr)
-          Some((newCInfo, Some(SBlock(cList, cExp))))
+          val (newCInfo, cList) = MStatementLoader.fromListTree(cInfo, stats :+ expr)
+          Some((newCInfo, Some(SBlock(cList, EmptyMType))))
         case _ =>
-          Some((cInfo, Some(SBlock(List.empty, CExpLoader(cInfo, tr)))))
+          Some((cInfo, Some(SBlock(List(CExpLoader(cInfo, tr)), EmptyMType))))
       }
     }
   }

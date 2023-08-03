@@ -82,7 +82,7 @@ trait CTypesLoader { self: Scala2Loader =>
                     case TermName("Bool") => Bool(Node, Undirect)
                     case TermName("Vec") =>
                       val (size, cType) = getVecArgs(args)
-                      Vec(cType) // size
+                      Vec(Node, cType) // size
                     case _ =>
                       unprocessedTree(f, "CTypeLoader")
                       CType.empty
@@ -99,6 +99,12 @@ trait CTypesLoader { self: Scala2Loader =>
           unprocessedTree(tree, "CTypeLoader")
           CType.empty
       }
+    }
+  }
+
+  object STypeLoader {
+    def apply(tr: Tree): SType = {
+      StInt
     }
   }
 }

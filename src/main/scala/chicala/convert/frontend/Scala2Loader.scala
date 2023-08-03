@@ -6,7 +6,7 @@ import chicala.ast.ChicalaAst
 trait Scala2Loader
     extends ChicalaAst
     with CClassDefsLoader
-    with CStatementsLoader
+    with MStatementsLoader
     with CTypesLoader
     with CExpsLoader
     with SStatementsLoader

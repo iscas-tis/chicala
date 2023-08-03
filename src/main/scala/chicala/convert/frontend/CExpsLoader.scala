@@ -7,7 +7,7 @@ trait CExpsLoader { self: Scala2Loader =>
   import global._
 
   object CExpLoader {
-    def apply(cInfo: CircuitInfo, tr: Tree): CExp = {
+    def apply(cInfo: CircuitInfo, tr: Tree): MTerm = {
       val (tree, tpt) = passThrough(tr)
 
       tree match {
@@ -19,13 +19,13 @@ trait CExpsLoader { self: Scala2Loader =>
               CApply(op, signalInfo, (qualifier :: args).map(CExpLoader(cInfo, _)))
             case None => {
               unprocessedTree(tree, "CExpLoader")
-              EmptyExp // empty
+              EmptyMTerm // empty
             }
           }
         case Apply(Select(qualifier, name), args) if isChiselLiteralType(qualifier) => {
           // 0.U(1.W)
           val litTree = qualifier.asInstanceOf[Apply].args.head
-          val litExp  = CExpLoader(cInfo, litTree).asInstanceOf[SExp]
+          val litExp  = CExpLoader(cInfo, litTree).asInstanceOf[STerm]
           val width   = CTypeLoader.getSomeWidth(args).get
 
           name.toString() match {
@@ -33,7 +33,7 @@ trait CExpsLoader { self: Scala2Loader =>
             case "S" => Lit(litExp, SInt(Node, Undirect)) // width
             case _ =>
               reporter.error(tree.pos, s"Unknow name in CExp ${name}")
-              EmptyExp
+              EmptyMTerm
           }
         }
         case a @ Apply(fun, args) =>
@@ -44,7 +44,7 @@ trait CExpsLoader { self: Scala2Loader =>
               val signalInfo = CTypeLoader.fromTypeTree(tpt)
               CApply(op, signalInfo, args.map(CExpLoader(cInfo, _)))
             case None =>
-              SExp(SApplyLoader(cInfo, a).get._2.get, CType.empty) // SApply has no SignalInfo
+              SApplyLoader(cInfo, a).get._2.get // SApply has no SignalInfo
           }
         case s @ Select(qualifier, name) =>
           if (isChiselType(tpt)) {
@@ -57,40 +57,40 @@ trait CExpsLoader { self: Scala2Loader =>
                     SignalRef(s, cInfo.getCType(s))
                   else {
                     reporter.error(tree.pos, s"Unknow op name in CExp ${name}")
-                    EmptyExp
+                    EmptyMTerm
                   }
               }
             } else if (isChiselLiteralType(qualifier)) {
               val litTree = qualifier.asInstanceOf[Apply].args.head
-              val litExp  = CExpLoader(cInfo, litTree).asInstanceOf[SExp]
+              val litExp  = CExpLoader(cInfo, litTree).asInstanceOf[STerm]
 
               name.toString() match {
                 case "U" => Lit(litExp, UInt(Node, Undirect))
                 case "S" => Lit(litExp, SInt(Node, Undirect))
                 case _ =>
                   reporter.error(tree.pos, s"Unknow name in CExp ${name}")
-                  EmptyExp
+                  EmptyMTerm
               }
             } else {
               SignalRef(s, cInfo.getCType(s))
             }
           } else {
-            SExp(SSelect(s), CType.empty) // SSelect has no SignalInfo
+            SSelect(s, EmptyMType) // SSelect has no SignalInfo
           }
         case i @ Ident(name) =>
           if (isChiselType(i))
             SignalRef(i, cInfo.getCType(i))
           else {
             unprocessedTree(tree, "CExpLoader.case.Ident")
-            EmptyExp
+            EmptyMTerm
           }
         case l @ Literal(value) =>
-          SExp(SLiteral(l), CType.empty) // SLiteral has no SignalInfo
+          SLiteral(l, EmptyMType) // SLiteral has no SignalInfo
 
-        case EmptyTree => EmptyExp
+        case EmptyTree => EmptyMTerm
         case _ => {
           unprocessedTree(tree, "CExpLoader")
-          EmptyExp
+          EmptyMTerm
         }
 
       }

@@ -2,34 +2,34 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait CStatementsLoader { self: Scala2Loader =>
+trait MStatementsLoader { self: Scala2Loader =>
   val global: Global
   import global._
 
-  trait CStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CStatement])]
+  trait MStatementObj {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])]
   }
 
-  object CStatementLoader extends CStatementObj {
+  object MStatementLoader extends MStatementObj {
     private def someStatementIn(
         cInfo: CircuitInfo,
         tree: Tree,
-        objs: List[CStatementObj]
-    ): Option[(CircuitInfo, Option[CStatement])] = {
+        objs: List[MStatementObj]
+    ): Option[(CircuitInfo, Option[MStatement])] = {
       val ls = objs.map(_.apply(cInfo, tree)).flatten
 
       assert(ls.length <= 1, "should be at most one statement")
       ls match {
         case head :: next => Some(head)
         case Nil => {
-          unprocessedTree(tree, "CStatement.someStatementIn")
+          unprocessedTree(tree, "MStatement.someStatementIn")
           None
         }
       }
     }
 
-    def fromListTree(cInfo: CircuitInfo, body: List[Tree]): (CircuitInfo, List[CStatement]) = {
-      (body.foldLeft((cInfo, List.empty[CStatement])) { case ((info, past), tr) =>
+    def fromListTree(cInfo: CircuitInfo, body: List[Tree]): (CircuitInfo, List[MStatement]) = {
+      (body.foldLeft((cInfo, List.empty[MStatement])) { case ((info, past), tr) =>
         apply(info, tr) match {
           case Some((newInfo, Some(newStat))) => (newInfo, newStat :: past)
           case Some((newInfo, None))          => (newInfo, past)
@@ -38,7 +38,7 @@ trait CStatementsLoader { self: Scala2Loader =>
       }) match { case (info, past) => (info, past.reverse) }
     }
 
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CStatement])] = {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])] = {
       val (tree, someTpe) = passThrough(tr)
       tree match {
         case v @ ValDef(mods, name, tpt, rhs) => {
@@ -59,7 +59,7 @@ trait CStatementsLoader { self: Scala2Loader =>
               SDefDefLoader(cInfo, tree) match {
                 case Some(value) => Some(value)
                 case None =>
-                  unprocessedTree(tree, "CStatementLoader")
+                  unprocessedTree(tree, "MStatementLoader")
                   None
               }
           }
@@ -74,7 +74,7 @@ trait CStatementsLoader { self: Scala2Loader =>
         case Literal(Constant(())) =>
           None
         case _ => {
-          unprocessedTree(tree, "CStatementLoader case _")
+          unprocessedTree(tree, "MStatementLoader case _")
           None
         }
       }
@@ -82,8 +82,8 @@ trait CStatementsLoader { self: Scala2Loader =>
 
   }
 
-  object ValDefLoader extends CStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CStatement])] = {
+  object ValDefLoader extends MStatementObj {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])] = {
       val tree = passThrough(tr)._1
       tree match {
         case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
@@ -108,12 +108,12 @@ trait CStatementsLoader { self: Scala2Loader =>
               } else if (isChiselRegDefApply(func)) {
                 Some(loadRegDef(cInfo, name, func, args))
               } else {
-                // SymbolDef
+                // NodeDef
                 val cExp       = CExpLoader(cInfo, rhs)
-                val signalInfo = cExp.info.updatedPhysical(Node)
+                val signalInfo = cExp.tpe.asInstanceOf[CType].updatedPhysical(Node)
                 val newInfo    = cInfo.updatedSignal(name, signalInfo)
-                Some((newInfo, Some(SymbolDef(name, signalInfo, cExp))))
-              } // TODO: RegDef
+                Some((newInfo, Some(NodeDef(name, signalInfo, cExp))))
+              }
             case s @ Select(Select(This(typeName), termname), _)
                 if cInfo.enumTmp.nonEmpty &&
                   typeName == cInfo.name && termname == cInfo.enumTmp.get._1 =>
@@ -175,7 +175,7 @@ trait CStatementsLoader { self: Scala2Loader =>
             (
               cInfo.updatedTupleTmp(
                 num,
-                Some((name, STupleUnapplyDef(List.empty, cExp, tpt.tpe.typeArgs)))
+                Some((name, SUnapplyDef(List.empty, cExp, tpt.tpe.typeArgs)))
               ),
               None
             )
@@ -193,7 +193,7 @@ trait CStatementsLoader { self: Scala2Loader =>
         name: TermName,
         func: Tree,
         args: List[Tree]
-    ): (CircuitInfo, Option[WireDef]) = {
+    ): (CircuitInfo, Option[CValDef]) = {
       assert(args.length == 1, "should have only 1 arg in Wire()")
 
       val cType   = CTypeLoader(args.head).updatedPhysical(Wire)
@@ -205,7 +205,7 @@ trait CStatementsLoader { self: Scala2Loader =>
         name: TermName,
         func: Tree,
         args: List[Tree]
-    ): (CircuitInfo, Option[RegDef]) = {
+    ): (CircuitInfo, Option[CValDef]) = {
       if (isChisel3RegApply(func)) {
         assert(args.length == 1, "should have only 1 arg in Reg()")
 
@@ -216,7 +216,7 @@ trait CStatementsLoader { self: Scala2Loader =>
       } else if (isChisel3RegInitApply(func)) {
         if (args.length == 1) {
           val init       = CExpLoader(cInfo, args.head)
-          val signalInfo = init.info.updatedPhysical(Reg)
+          val signalInfo = init.tpe.asInstanceOf[CType].updatedPhysical(Reg)
           val newCInfo   = cInfo.updatedSignal(name, signalInfo)
           (newCInfo, Some(RegDef(name, signalInfo, Some(init))))
         } else {
@@ -228,7 +228,7 @@ trait CStatementsLoader { self: Scala2Loader =>
           reporter.error(func.pos, "should have 2 args in RegEnable()")
         val next       = CExpLoader(cInfo, args.head)
         val enable     = CExpLoader(cInfo, args.tail.head)
-        val signalInfo = next.info
+        val signalInfo = next.tpe.asInstanceOf[CType]
         val newCInfo   = cInfo.updatedSignal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo, None, Some(next), Some(enable))))
       } else {
@@ -239,7 +239,7 @@ trait CStatementsLoader { self: Scala2Loader =>
 
   }
 
-  object ConnectLoader extends CStatementObj {
+  object ConnectLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Connect])] = {
       val (tree, _) = passThrough(tr)
       tree match {
@@ -257,15 +257,15 @@ trait CStatementsLoader { self: Scala2Loader =>
       }
     }
   }
-  object WhenLoader extends CStatementObj {
+  object WhenLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[When])] = {
-      def bodyFromTree(cInfo: CircuitInfo, tr: Tree): List[CStatement] = {
+      def bodyFromTree(cInfo: CircuitInfo, tr: Tree): List[MStatement] = {
         val (tree, _) = passThrough(tr)
         val treeBody = tree match {
           case Block(stats, expr) => stats :+ expr
           case tr                 => List(tr)
         }
-        CStatementLoader.fromListTree(cInfo, treeBody)._2
+        MStatementLoader.fromListTree(cInfo, treeBody)._2
       }
       def pushBackElseWhen(when: When, elseWhen: When): When = when match {
         case When(cond, whenBody, otherBody, true) =>
@@ -305,7 +305,7 @@ trait CStatementsLoader { self: Scala2Loader =>
     }
   }
 
-  object AssertLoader extends CStatementObj {
+  object AssertLoader extends MStatementObj {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Assert])] = {
       val (tree, _) = passThrough(tr)
       if (isReturnAssert(tree)) {

@@ -14,7 +14,7 @@ trait CircuitInfos { self: ChicalaAst =>
       /* use to record EnumDef  */
       val numTmp: Int,
       val enumTmp: Option[(TermName, EnumDef)],
-      val tupleTmp: Option[(TermName, STupleUnapplyDef)]
+      val tupleTmp: Option[(TermName, SUnapplyDef)]
   ) {
     def updatedSignal(termName: TermName, signalInfo: CType): CircuitInfo =
       this.copy(signal = signal + (termName -> signalInfo))
@@ -31,7 +31,7 @@ trait CircuitInfos { self: ChicalaAst =>
 
     def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo =
       this.copy(numTmp = num, enumTmp = et)
-    def updatedTupleTmp(num: Int, tt: Option[(TermName, STupleUnapplyDef)]): CircuitInfo =
+    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo =
       this.copy(numTmp = num, tupleTmp = tt)
 
     def contains(termName: TermName): Boolean =
@@ -47,7 +47,7 @@ trait CircuitInfos { self: ChicalaAst =>
 
     def getCType(tree: Tree): CType = {
       def select(tpe: CType, termName: TermName): CType = tpe match {
-        case Bundle(signals) if signals.contains(termName) =>
+        case Bundle(physical, signals) if signals.contains(termName) =>
           signals(termName)
         case _ => {
           reporter.error(tree.pos, s"TermName ${termName} not found in ${tpe}")

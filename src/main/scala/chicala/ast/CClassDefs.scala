@@ -10,7 +10,11 @@ trait CClassDefs { self: ChicalaAst =>
     def convert: Tree
   }
 
-  case class ModuleDef(name: TypeName, info: CircuitInfo, body: List[CStatement]) extends CClassDef {
+  case class ModuleDef(
+      name: TypeName,
+      pparamss: List[List[(TermName, SType)]],
+      body: List[MStatement]
+  ) extends CClassDef {
     def convert: Tree = {
       // TODO
       Literal(Constant(()))

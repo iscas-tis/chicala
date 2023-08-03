@@ -8,14 +8,16 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
-  // CType
-  sealed abstract class CType extends CTypeImpl
+  sealed abstract class MType
 
-  case class UInt(physical: CPhysical, direction: CDirection) extends CType with UIntImpl
-  case class SInt(physical: CPhysical, direction: CDirection) extends CType with SIntImpl
-  case class Bool(physical: CPhysical, direction: CDirection) extends CType with BoolImpl
-  case class Vec(tparam: CType)                               extends CType with VecImpl
-  case class Bundle(signals: Map[TermName, CType])            extends CType with BundleImpl
+  // CType
+  sealed abstract class CType extends MType with CTypeImpl
+
+  case class UInt(physical: CPhysical, direction: CDirection)           extends CType with UIntImpl
+  case class SInt(physical: CPhysical, direction: CDirection)           extends CType with SIntImpl
+  case class Bool(physical: CPhysical, direction: CDirection)           extends CType with BoolImpl
+  case class Vec(physical: CPhysical, tparam: CType)                    extends CType with VecImpl
+  case class Bundle(physical: CPhysical, signals: Map[TermName, CType]) extends CType with BundleImpl
 
   // CPhysical
   sealed abstract class CPhysical
@@ -32,5 +34,8 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object Undirect extends CDirection { def flipped: CDirection = Undirect }
 
   // SType
-  sealed abstract class SType
+  sealed abstract class SType extends MType
+  case object StInt           extends SType
+
+  case object EmptyMType extends MType
 }

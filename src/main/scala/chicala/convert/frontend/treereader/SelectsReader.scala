@@ -13,7 +13,7 @@ trait SelectsReader { self: Scala2Reader =>
         case s @ Select(qualifier, name) =>
           if (isChiselType(tpt)) {
             if (isChiselType(qualifier)) {
-              COp(name.toString()) match {
+              COpLoader(name.toString()) match {
                 case Some(op) =>
                   Some((cInfo, Some(CApply(op, CTypeLoader(tpt), List(MTermLoader(cInfo, qualifier).get._2.get)))))
                 case None =>
@@ -26,7 +26,7 @@ trait SelectsReader { self: Scala2Reader =>
               }
             } else if (isChiselLiteralType(qualifier)) {
               val litTree = qualifier.asInstanceOf[Apply].args.head
-              val litExp  = MTermLoader(cInfo, litTree).asInstanceOf[STerm]
+              val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
 
               name.toString() match {
                 case "U" => Some((cInfo, Some(Lit(litExp, UInt(Node, Undirect)))))

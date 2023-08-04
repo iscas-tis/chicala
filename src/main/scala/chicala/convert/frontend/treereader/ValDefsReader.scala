@@ -11,7 +11,6 @@ trait ValDefsReader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val tree = passThrough(tr)._1
       tree match {
-        case v @ ValDef(mods, name, tpt, rhs) if (mods.isParamAccessor) => None // pass ParamAccessor
         case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
           // SignalDef
           val name = nameTmp.stripSuffix(" ")
@@ -70,8 +69,12 @@ trait ValDefsReader { self: Scala2Reader =>
                 Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
               else
                 Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
+            case EmptyTree =>
+              val tpe      = CTypeLoader(tpt)
+              val newCInfo = cInfo.updatedSignal(name, tpe)
+              val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
+              Some((newCInfo, Some(nodeDef)))
             case _ =>
-              // ? TODO?
               None
           }
         }
@@ -113,7 +116,12 @@ trait ValDefsReader { self: Scala2Reader =>
               cInfo.updatedSignal(name, CTypeLoader(tpt))
             else
               cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
-          Some((newCInfo, Some(SValDef(name, STypeLoader(tpt), MTermLoader(cInfo, rhs).get._2.get)))) // ? or SExp?
+          val tpe = STypeLoader(tpt)
+          val r = MTermLoader(cInfo, rhs) match {
+            case Some((_, Some(value))) => value
+            case _                      => EmptyMTerm
+          }
+          Some((newCInfo, Some(SValDef(name, tpe, r))))
         case _ =>
           unprocessedTree(tr, "ValDefReader")
           None

@@ -16,12 +16,17 @@ trait MStatementsLoader { self: Scala2Reader =>
     }
   }
 
-  object MTermLoader {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
-      val (tree, tpt) = passThrough(tr)
-      tree match {
-        case _: Apply => ApplyReader(cInfo, tr)
+  def firstMatchIn[T <: MStatement](
+      cInfo: CircuitInfo,
+      tree: Tree,
+      objs: List[(CircuitInfo, Tree) => Option[(CircuitInfo, Option[T])]]
+  ): Option[(CircuitInfo, Option[T])] = {
+    objs.foldLeft(None: Option[(CircuitInfo, Option[T])]) { case (past, obj) =>
+      past match {
+        case Some(_) => past
+        case None    => obj(cInfo, tree)
       }
     }
   }
+
 }

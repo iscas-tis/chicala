@@ -2,11 +2,11 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait COpsMatcher { self: Scala2Reader =>
+trait COpsLoader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object COp {
+  object COpLoader {
     val nameToObj: Map[String, COp] = Map(
       // CCalculOp
       "do_apply"        -> Slice,

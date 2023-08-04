@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait CTypesLoader { self: Scala2Loader =>
+trait CTypesLoader { self: Scala2Reader =>
   val global: Global
   import global._
 

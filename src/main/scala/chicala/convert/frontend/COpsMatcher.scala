@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait COpsMatcher { self: Scala2Loader =>
+trait COpsMatcher { self: Scala2Reader =>
   val global: Global
   import global._
 

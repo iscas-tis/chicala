@@ -2,11 +2,11 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait DefDefsLoader { self: Scala2Loader =>
+trait DefDefsReader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object DefDefLoader {
+  object DefDefReader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val tree = passThrough(tr)._1
       tree match {
@@ -24,16 +24,16 @@ trait DefDefsLoader { self: Scala2Loader =>
               val (newCInfo, vpss: List[List[SValDef]]) =
                 vparamss.foldLeft((cInfo, List.empty[List[SValDef]])) { case ((cf, ls), vps) =>
                   val (ncf, nl) = vps.foldLeft((cf, List.empty[SValDef])) { case ((c, l), t) =>
-                    ValDefLoader(c, t) match {
+                    ValDefReader(c, t) match {
                       case Some((nc, Some(svd: SValDef))) => (nc, l :+ svd)
                       case _ =>
-                        unprocessedTree(t, "SDefDefLoader")
+                        unprocessedTree(t, "SDefDefReader")
                         (c, l)
                     }
                   }
                   (ncf, ls :+ nl)
                 }
-              val body = BlockLoader(newCInfo, rhs) match {
+              val body = BlockReader(newCInfo, rhs) match {
                 case Some((_, Some(value))) => value
                 case _                      => SBlock(List.empty, EmptyMType)
               }
@@ -43,7 +43,7 @@ trait DefDefsLoader { self: Scala2Loader =>
           }
         }
         case _ =>
-          unprocessedTree(tree, "DefDefLoader")
+          unprocessedTree(tree, "DefDefReader")
           None
       }
 

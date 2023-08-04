@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait ChiselAstCheck { this: Scala2Loader =>
+trait ChiselAstCheck { this: Scala2Reader =>
   val global: Global
   import global._
 

@@ -3,11 +3,11 @@ package chicala.convert.frontend
 import scala.tools.nsc.Global
 import chicala.ast.impl.MTermImpls
 
-trait ValDefsLoader { self: Scala2Loader =>
+trait ValDefsReader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object ValDefLoader {
+  object ValDefReader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val tree = passThrough(tr)._1
       tree match {
@@ -115,7 +115,7 @@ trait ValDefsLoader { self: Scala2Loader =>
               cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
           Some((newCInfo, Some(SValDef(name, STypeLoader(tpt), MTermLoader(cInfo, rhs).get._2.get)))) // ? or SExp?
         case _ =>
-          unprocessedTree(tr, "ValDefLoader")
+          unprocessedTree(tr, "ValDefReader")
           None
       }
 
@@ -153,7 +153,7 @@ trait ValDefsLoader { self: Scala2Loader =>
           val newCInfo   = cInfo.updatedSignal(name, signalInfo)
           (newCInfo, Some(RegDef(name, signalInfo, Some(init))))
         } else {
-          unprocessedTree(func, s"ValDefLoader.loadRegDef with ${args.size} arg")
+          unprocessedTree(func, s"ValDefReader.loadRegDef with ${args.size} arg")
           (cInfo, None)
         }
       } else if (isChisel3UtilRegEnableApply(func)) {

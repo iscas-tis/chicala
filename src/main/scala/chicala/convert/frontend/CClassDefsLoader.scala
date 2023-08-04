@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait CClassDefsLoader { self: Scala2Loader =>
+trait CClassDefsLoader { self: Scala2Reader =>
   val global: Global
   import global._
 
@@ -25,7 +25,7 @@ trait CClassDefsLoader { self: Scala2Loader =>
             case _                                                      => false
           } =>
         val (cInfo, cBody): (CircuitInfo, List[MStatement]) =
-          StatementLoader.fromListTree(CircuitInfo(name), body)
+          StatementReader.fromListTree(CircuitInfo(name), body)
         Some(ModuleDef(name, List.empty, cBody)) // TODO: pparamss
       case _ => None
     }

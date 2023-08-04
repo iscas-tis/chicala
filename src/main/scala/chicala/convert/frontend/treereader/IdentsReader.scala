@@ -2,11 +2,11 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait IdentsLoader { self: Scala2Loader =>
+trait IdentsReader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object IdentLoader {
+  object IdentReader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
@@ -14,11 +14,11 @@ trait IdentsLoader { self: Scala2Loader =>
           if (isChiselType(i))
             Some((cInfo, Some(SignalRef(i, cInfo.getCType(i)))))
           else {
-            unprocessedTree(tree, "CExpLoader.case.Ident")
+            unprocessedTree(tree, "IdentReader")
             None
           }
         case _ =>
-          unprocessedTree(tree, "BlockLoader")
+          unprocessedTree(tree, "IdentReader")
           None
       }
 

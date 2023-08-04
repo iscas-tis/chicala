@@ -2,11 +2,11 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait SelectsLoader { self: Scala2Loader =>
+trait SelectsReader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object SelectLoader {
+  object SelectReader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
@@ -42,7 +42,7 @@ trait SelectsLoader { self: Scala2Loader =>
             Some((cInfo, Some(SSelect(s, EmptyMType)))) // SSelect has no SignalInfo
           }
         case _ =>
-          unprocessedTree(tree, "SelectLoader")
+          unprocessedTree(tree, "SelectReader")
           None
       }
 

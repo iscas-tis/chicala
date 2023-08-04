@@ -2,11 +2,11 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait ApplysLoader { self: Scala2Loader =>
+trait ApplysReader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object ApplyLoader {
+  object ApplyReader {
 
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
@@ -18,7 +18,7 @@ trait ApplysLoader { self: Scala2Loader =>
               val signalInfo = CTypeLoader(tpt)
               Some((cInfo, Some(CApply(op, signalInfo, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
             case None =>
-              unprocessedTree(tr, "ApplyLoader")
+              unprocessedTree(tr, "ApplyReader")
               None
           }
         case Apply(Select(qualifier, name), args) if isChiselLiteralType(qualifier) => {
@@ -45,14 +45,14 @@ trait ApplysLoader { self: Scala2Loader =>
             case None => {
               someMTermIn(cInfo, tr, List(AssertLoader, WhenLoader, ConnectLoader)) match {
                 case Some(value) => Some(value)
-                case None        => SApplyLoader(cInfo, tr)
+                case None        => SApplyReader(cInfo, tr)
               }
             }
           }
 
         }
         case _ =>
-          unprocessedTree(tree, "ApplyLoader")
+          unprocessedTree(tree, "ApplyReader")
           None
       }
 
@@ -104,7 +104,7 @@ trait ApplysLoader { self: Scala2Loader =>
             case Block(stats, expr) => stats :+ expr
             case tr                 => List(tr)
           }
-          StatementLoader.fromListTree(cInfo, treeBody)._2
+          StatementReader.fromListTree(cInfo, treeBody)._2
         }
         def pushBackElseWhen(when: When, elseWhen: When): When = when match {
           case When(cond, whenBody, otherBody, true) =>
@@ -150,14 +150,14 @@ trait ApplysLoader { self: Scala2Loader =>
         if (isReturnAssert(tree)) {
           tree match {
             case Apply(Ident(TermName("_applyWithSourceLinePrintable")), args) =>
-              Some(cInfo, Some(Assert(StatementLoader(cInfo, args.head).get._2.get.asInstanceOf[MTerm])))
+              Some(cInfo, Some(Assert(StatementReader(cInfo, args.head).get._2.get.asInstanceOf[MTerm])))
             case _ => None
           }
         } else None
       }
     }
 
-    object SApplyLoader extends MTermLoader {
+    object SApplyReader extends MTermLoader {
       def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SApply])] = {
         val tree = passThrough(tr)._1
         tree match {

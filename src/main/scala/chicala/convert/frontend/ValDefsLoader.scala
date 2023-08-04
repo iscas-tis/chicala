@@ -1,34 +1,16 @@
 package chicala.convert.frontend
 
 import scala.tools.nsc.Global
+import chicala.ast.impl.MTermImpls
 
-trait MDefsLoader { self: Scala2Loader =>
+trait ValDefsLoader { self: Scala2Loader =>
   val global: Global
   import global._
 
-  object MDefLoader {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])] = {
+  object ValDefLoader {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val tree = passThrough(tr)._1
       tree match {
-        case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
-          name match {
-            // constructor of this class
-            case termNames.CONSTRUCTOR => {
-              // register construct param
-              val params = vparamss.flatten.map(x => (x.name, x.tpt.asInstanceOf[TypeTree]))
-              Some((cInfo.updatedParams(params), None))
-            }
-            // accessor of signal
-            case t: TermName if cInfo.signal.contains(t) => None
-            case _ =>
-              SDefDefLoader(cInfo, tree) match {
-                case Some(value) => Some(value)
-                case None =>
-                  unprocessedTree(tree, "MDefLoader")
-                  None
-              }
-          }
-        }
         case v @ ValDef(mods, name, tpt, rhs) if (mods.isParamAccessor) => None // pass ParamAccessor
         case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
           // SignalDef
@@ -53,7 +35,7 @@ trait MDefsLoader { self: Scala2Loader =>
                 Some(loadRegDef(cInfo, name, func, args))
               } else {
                 // NodeDef
-                val cExp       = CExpLoader(cInfo, rhs)
+                val cExp       = MTermLoader(cInfo, rhs).get._2.get
                 val signalInfo = cExp.tpe.asInstanceOf[CType].updatedPhysical(Node)
                 val newInfo    = cInfo.updatedSignal(name, signalInfo)
                 Some((newInfo, Some(NodeDef(name, signalInfo, cExp))))
@@ -113,8 +95,8 @@ trait MDefsLoader { self: Scala2Loader =>
           // STupleUnapplyDef step 1
           val num = tpt.tpe.typeArgs.length
           val cExp =
-            if (isScala2TupleUnapplyTmpValDef(v)) CExpLoader(cInfo, args.head)
-            else CExpLoader(cInfo, t)
+            if (isScala2TupleUnapplyTmpValDef(v)) MTermLoader(cInfo, args.head).get._2.get
+            else MTermLoader(cInfo, t).get._2.get // ? what is this ?
           Some(
             (
               cInfo.updatedTupleTmp(
@@ -125,9 +107,16 @@ trait MDefsLoader { self: Scala2Loader =>
             )
           )
         }
-        case v: ValDef =>
-          SValDefLoader(cInfo, tr)
-        case _ => None
+        case ValDef(mods, name, tpt, rhs) =>
+          val newCInfo =
+            if (isChiselType(tpt))
+              cInfo.updatedSignal(name, CTypeLoader(tpt))
+            else
+              cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
+          Some((newCInfo, Some(SValDef(name, STypeLoader(tpt), MTermLoader(cInfo, rhs).get._2.get)))) // ? or SExp?
+        case _ =>
+          unprocessedTree(tr, "ValDefLoader")
+          None
       }
 
     }
@@ -159,7 +148,7 @@ trait MDefsLoader { self: Scala2Loader =>
 
       } else if (isChisel3RegInitApply(func)) {
         if (args.length == 1) {
-          val init       = CExpLoader(cInfo, args.head)
+          val init       = MTermLoader(cInfo, args.head).get._2.get
           val signalInfo = init.tpe.asInstanceOf[CType].updatedPhysical(Reg)
           val newCInfo   = cInfo.updatedSignal(name, signalInfo)
           (newCInfo, Some(RegDef(name, signalInfo, Some(init))))
@@ -170,58 +159,14 @@ trait MDefsLoader { self: Scala2Loader =>
       } else if (isChisel3UtilRegEnableApply(func)) {
         if (args.length != 2)
           reporter.error(func.pos, "should have 2 args in RegEnable()")
-        val next       = CExpLoader(cInfo, args.head)
-        val enable     = CExpLoader(cInfo, args.tail.head)
+        val next       = MTermLoader(cInfo, args.head).get._2.get
+        val enable     = MTermLoader(cInfo, args.tail.head).get._2.get
         val signalInfo = next.tpe.asInstanceOf[CType]
         val newCInfo   = cInfo.updatedSignal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo, None, Some(next), Some(enable))))
       } else {
         reporter.error(func.pos, "Unknow RegDef function")
         (cInfo, None)
-      }
-    }
-  }
-
-  object SDefDefLoader {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SDefDef])] = {
-      val tree = passThrough(tr)._1
-      tree match {
-        case DefDef(mods, name, tparams, vparamss, tpt: TypeTree, rhs) =>
-          val (newCInfo, vpss: List[List[SValDef]]) =
-            vparamss.foldLeft((cInfo, List.empty[List[SValDef]])) { case ((cf, ls), vps) =>
-              val (ncf, nl) = vps.foldLeft((cf, List.empty[SValDef])) { case ((c, l), t) =>
-                SValDefLoader(c, t) match {
-                  case Some((nc, Some(svd))) => (nc, l :+ svd)
-                  case _ =>
-                    unprocessedTree(t, "SDefDefLoader")
-                    (c, l)
-                }
-              }
-              (ncf, ls :+ nl)
-            }
-          val body = SBlockLoader(newCInfo, rhs) match {
-            case Some((_, Some(value))) => value
-            case _                      => SBlock(List.empty, EmptyMType)
-          }
-          assert(body.body.nonEmpty, s"function $name should have body")
-          Some((cInfo.updatedFuncion(name, tpt), Some(SDefDef(name, vpss, tpt, body))))
-        case _ => None
-      }
-    }
-  }
-
-  object SValDefLoader {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SValDef])] = {
-      val tree = passThrough(tr)._1
-      tree match {
-        case ValDef(mods, name, tpt, rhs) =>
-          val newCInfo =
-            if (isChiselType(tpt))
-              cInfo.updatedSignal(name, CTypeLoader(tpt))
-            else
-              cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
-          Some((newCInfo, Some(SValDef(name, STypeLoader(tpt), CExpLoader(cInfo, rhs))))) // ? or SExp?
-        case _ => None
       }
     }
   }

@@ -25,7 +25,7 @@ trait CClassDefsLoader { self: Scala2Loader =>
             case _                                                      => false
           } =>
         val (cInfo, cBody): (CircuitInfo, List[MStatement]) =
-          MStatementLoader.fromListTree(CircuitInfo(name), body)
+          StatementLoader.fromListTree(CircuitInfo(name), body)
         Some(ModuleDef(name, List.empty, cBody)) // TODO: pparamss
       case _ => None
     }

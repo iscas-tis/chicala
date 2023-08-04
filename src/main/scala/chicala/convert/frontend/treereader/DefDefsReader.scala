@@ -13,13 +13,9 @@ trait DefDefsReader { self: Scala2Reader =>
         case d @ DefDef(mods, name, tparams, vparamss, tpt: TypeTree, rhs) => {
           name match {
             // constructor of this class
-            case termNames.CONSTRUCTOR => {
-              // register construct param
-              val params = vparamss.flatten.map(x => (x.name, x.tpt.asInstanceOf[TypeTree]))
-              Some((cInfo.updatedParams(params), None))
-            }
-            // accessor of signal
-            case t: TermName if cInfo.signal.contains(t) => None
+            case termNames.CONSTRUCTOR => None
+            // accessor of val
+            case t: TermName if cInfo.contains(t) => None
             case _ => {
               val (newCInfo, vpss: List[List[MValDef]]) =
                 vparamss.foldLeft((cInfo, List.empty[List[MValDef]])) { case ((cf, ls), vps) =>
@@ -40,7 +36,8 @@ trait DefDefsReader { self: Scala2Reader =>
                   SBlock(List(mTerm), mTerm.tpe)
               }
               assert(body.body.nonEmpty, s"function $name should have body")
-              Some((cInfo.updatedFuncion(name, tpt), Some(SDefDef(name, vpss, tpt, body))))
+              val tpe = MTypeLoader(tpt)
+              Some((cInfo.updatedFunc(name, tpe), Some(SDefDef(name, vpss, tpe, body))))
             }
           }
         }

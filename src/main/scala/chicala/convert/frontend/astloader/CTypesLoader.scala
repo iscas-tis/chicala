@@ -104,7 +104,20 @@ trait CTypesLoader { self: Scala2Reader =>
 
   object STypeLoader {
     def apply(tr: Tree): SType = {
-      StInt
+      if (isScala2TupleType(tr)) {
+        StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x))))
+      } else {
+        tr.tpe.toString() match {
+          case "Int" => StInt
+        }
+      }
+    }
+  }
+
+  object MTypeLoader {
+    def apply(tr: Tree): MType = {
+      if (isChiselType(tr)) CTypeLoader(tr)
+      else STypeLoader(tr)
     }
   }
 }

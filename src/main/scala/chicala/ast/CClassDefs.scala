@@ -12,7 +12,7 @@ trait CClassDefs { self: ChicalaAst =>
 
   case class ModuleDef(
       name: TypeName,
-      pparamss: List[List[(TermName, SType)]],
+      vparams: List[SValDef],
       body: List[MStatement]
   ) extends CClassDef {
     def convert: Tree = {

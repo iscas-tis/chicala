@@ -26,7 +26,7 @@ trait CClassDefsLoader { self: Scala2Reader =>
           } =>
         val (cInfo, cBody): (CircuitInfo, List[MStatement]) =
           StatementReader.fromListTree(CircuitInfo(name), body)
-        Some(ModuleDef(name, List.empty, cBody)) // TODO: pparamss
+        Some(ModuleDef(name, cInfo.params.toList, cBody))
       case _ => None
     }
   }

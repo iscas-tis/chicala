@@ -34,8 +34,9 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object Undirect extends CDirection { def flipped: CDirection = Undirect }
 
   // SType
-  sealed abstract class SType extends MType
-  case object StInt           extends SType
+  sealed abstract class SType              extends MType
+  case object StInt                        extends SType
+  case class StTuple(tparams: List[MType]) extends SType
 
   case object EmptyMType extends MType
 }

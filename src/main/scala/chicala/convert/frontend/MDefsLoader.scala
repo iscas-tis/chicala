@@ -2,49 +2,14 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait MStatementsLoader { self: Scala2Loader =>
+trait MDefsLoader { self: Scala2Loader =>
   val global: Global
   import global._
 
-  trait MStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])]
-  }
-
-  object MStatementLoader extends MStatementObj {
-    private def someStatementIn(
-        cInfo: CircuitInfo,
-        tree: Tree,
-        objs: List[MStatementObj]
-    ): Option[(CircuitInfo, Option[MStatement])] = {
-      val ls = objs.map(_.apply(cInfo, tree)).flatten
-
-      assert(ls.length <= 1, "should be at most one statement")
-      ls match {
-        case head :: next => Some(head)
-        case Nil => {
-          unprocessedTree(tree, "MStatement.someStatementIn")
-          None
-        }
-      }
-    }
-
-    def fromListTree(cInfo: CircuitInfo, body: List[Tree]): (CircuitInfo, List[MStatement]) = {
-      (body.foldLeft((cInfo, List.empty[MStatement])) { case ((info, past), tr) =>
-        apply(info, tr) match {
-          case Some((newInfo, Some(newStat))) => (newInfo, newStat :: past)
-          case Some((newInfo, None))          => (newInfo, past)
-          case None                           => (info, past)
-        }
-      }) match { case (info, past) => (info, past.reverse) }
-    }
-
+  object MDefLoader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])] = {
-      val (tree, someTpe) = passThrough(tr)
+      val tree = passThrough(tr)._1
       tree match {
-        case v @ ValDef(mods, name, tpt, rhs) => {
-          if (mods.isParamAccessor) None // pass ParamAccessor
-          else ValDefLoader(cInfo, tree)
-        }
         case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) => {
           name match {
             // constructor of this class
@@ -59,33 +24,12 @@ trait MStatementsLoader { self: Scala2Loader =>
               SDefDefLoader(cInfo, tree) match {
                 case Some(value) => Some(value)
                 case None =>
-                  unprocessedTree(tree, "MStatementLoader")
+                  unprocessedTree(tree, "MDefLoader")
                   None
               }
           }
         }
-        case a: Apply => {
-          someStatementIn(cInfo, tree, List(AssertLoader, WhenLoader, ConnectLoader)) match {
-            case Some(value) => Some(value)
-            case None        => SApplyLoader(cInfo, a)
-          }
-        }
-        // empty statement
-        case Literal(Constant(())) =>
-          None
-        case _ => {
-          unprocessedTree(tree, "MStatementLoader case _")
-          None
-        }
-      }
-    }
-
-  }
-
-  object ValDefLoader extends MStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MStatement])] = {
-      val tree = passThrough(tr)._1
-      tree match {
+        case v @ ValDef(mods, name, tpt, rhs) if (mods.isParamAccessor) => None // pass ParamAccessor
         case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
           // SignalDef
           val name = nameTmp.stripSuffix(" ")
@@ -236,85 +180,49 @@ trait MStatementsLoader { self: Scala2Loader =>
         (cInfo, None)
       }
     }
-
   }
 
-  object ConnectLoader extends MStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Connect])] = {
-      val (tree, _) = passThrough(tr)
+  object SDefDefLoader {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SDefDef])] = {
+      val tree = passThrough(tr)._1
       tree match {
-        case Apply(Select(termName: Select, TermName("$colon$eq")), args) =>
-          assert(args.length == 1, "should have one right expr")
-          val left  = CExpLoader(cInfo, termName)
-          val right = CExpLoader(cInfo, args.head)
-          left match {
-            case x: SignalRef => Some(cInfo, Some(Connect(x, right)))
-            case _ =>
-              unprocessedTree(termName, "ConnectLoader")
-              None
+        case DefDef(mods, name, tparams, vparamss, tpt: TypeTree, rhs) =>
+          val (newCInfo, vpss: List[List[SValDef]]) =
+            vparamss.foldLeft((cInfo, List.empty[List[SValDef]])) { case ((cf, ls), vps) =>
+              val (ncf, nl) = vps.foldLeft((cf, List.empty[SValDef])) { case ((c, l), t) =>
+                SValDefLoader(c, t) match {
+                  case Some((nc, Some(svd))) => (nc, l :+ svd)
+                  case _ =>
+                    unprocessedTree(t, "SDefDefLoader")
+                    (c, l)
+                }
+              }
+              (ncf, ls :+ nl)
+            }
+          val body = SBlockLoader(newCInfo, rhs) match {
+            case Some((_, Some(value))) => value
+            case _                      => SBlock(List.empty, EmptyMType)
           }
+          assert(body.body.nonEmpty, s"function $name should have body")
+          Some((cInfo.updatedFuncion(name, tpt), Some(SDefDef(name, vpss, tpt, body))))
         case _ => None
       }
     }
   }
-  object WhenLoader extends MStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[When])] = {
-      def bodyFromTree(cInfo: CircuitInfo, tr: Tree): List[MStatement] = {
-        val (tree, _) = passThrough(tr)
-        val treeBody = tree match {
-          case Block(stats, expr) => stats :+ expr
-          case tr                 => List(tr)
-        }
-        MStatementLoader.fromListTree(cInfo, treeBody)._2
-      }
-      def pushBackElseWhen(when: When, elseWhen: When): When = when match {
-        case When(cond, whenBody, otherBody, true) =>
-          When(
-            cond,
-            whenBody,
-            List(pushBackElseWhen(otherBody.head.asInstanceOf[When], elseWhen)),
-            true
-          )
-        case When(cond, whenBody, otherBody, false) =>
-          When(cond, whenBody, List(elseWhen), true)
-      }
 
-      val (tree, _) = passThrough(tr)
+  object SValDefLoader {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SValDef])] = {
+      val tree = passThrough(tr)._1
       tree match {
-        case Apply(Apply(cwa, condArgs), args) if isChisel3WhenApply(cwa) => {
-          val cond     = CExpLoader(cInfo, condArgs.head)
-          val whenBody = bodyFromTree(cInfo, args.head)
-          Some((cInfo, Some(When(cond, whenBody, List.empty))))
-        }
-        case Apply(Select(qualifier, TermName("otherwise")), args) => {
-          val Some((newCInfo, Some(when))) = WhenLoader(cInfo, qualifier)
-          val otherBody                    = bodyFromTree(cInfo, args.head)
-          Some((cInfo, Some(When(when.cond, when.whenBody, otherBody))))
-        }
-        case Apply(Apply(Select(qualifier, TermName("elsewhen")), condArgs), args) => {
-          val Some((newCInfo, Some(when))) = WhenLoader(cInfo, qualifier)
-
-          val elseCond     = CExpLoader(cInfo, condArgs.head)
-          val elseWhen     = When(elseCond, bodyFromTree(cInfo, args.head), List.empty)
-          val whenElseWhen = pushBackElseWhen(when, elseWhen)
-
-          Some((cInfo, Some(whenElseWhen)))
-        }
+        case ValDef(mods, name, tpt, rhs) =>
+          val newCInfo =
+            if (isChiselType(tpt))
+              cInfo.updatedSignal(name, CTypeLoader(tpt))
+            else
+              cInfo.updatedParam(name, tpt.asInstanceOf[TypeTree])
+          Some((newCInfo, Some(SValDef(name, STypeLoader(tpt), CExpLoader(cInfo, rhs))))) // ? or SExp?
         case _ => None
       }
-    }
-  }
-
-  object AssertLoader extends MStatementObj {
-    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Assert])] = {
-      val (tree, _) = passThrough(tr)
-      if (isReturnAssert(tree)) {
-        tree match {
-          case Apply(Ident(TermName("_applyWithSourceLinePrintable")), args) =>
-            Some(cInfo, Some(Assert(CExpLoader(cInfo, args.head))))
-          case _ => None
-        }
-      } else None
     }
   }
 

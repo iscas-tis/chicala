@@ -7,8 +7,10 @@ trait Scala2Loader
     extends ChicalaAst
     with CClassDefsLoader
     with MStatementsLoader
+    with MTermsLoader
+    with STermsLoader
+    with MDefsLoader
     with CTypesLoader
-    with CExpsLoader
-    with SStatementsLoader
+    with COpsMatcher
     with ChiselAstCheck
     with Printer

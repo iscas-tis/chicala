@@ -106,9 +106,14 @@ trait CTypesLoader { self: Scala2Reader =>
     def apply(tr: Tree): SType = {
       if (isScala2TupleType(tr)) {
         StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x))))
+      } else if ("""(.*): .*""".r.matches(tr.tpe.toString())) {
+        StFunc
       } else {
-        tr.tpe.toString() match {
+        tr.tpe.erasure.toString() match {
           case "Int" => StInt
+          case _ =>
+            reporter.error(tr.pos, s"Unknow type: ${tr.tpe.erasure}")
+            StInt
         }
       }
     }

@@ -6,6 +6,10 @@ trait MStatementsLoader { self: Scala2Reader =>
   val global: Global
   import global._
 
+  abstract class Loader[M <: MStatement] {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[M])]
+  }
+
   object MDefLoader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val (tree, tpt) = passThrough(tr)

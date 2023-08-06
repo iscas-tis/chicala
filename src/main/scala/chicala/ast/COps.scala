@@ -10,6 +10,7 @@ trait COps { self: ChicalaAst =>
   sealed abstract class COp
 
   sealed abstract class CCalculOp extends COp
+  case object VecSelect           extends CCalculOp // vec()
   case object Slice               extends CCalculOp // a()
   case object Not                 extends CCalculOp // !a
   case object UnaryMinus          extends CCalculOp // -a

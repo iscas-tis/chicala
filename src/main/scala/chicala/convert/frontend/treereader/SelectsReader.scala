@@ -10,7 +10,7 @@ trait SelectsReader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
-        case s @ Select(qualifier, name) =>
+        case s @ Select(qualifier, name: TermName) =>
           if (isChiselType(tpt)) {
             if (isChiselType(qualifier)) {
               COpLoader(name.toString()) match {
@@ -21,7 +21,7 @@ trait SelectsReader { self: Scala2Reader =>
                     Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
                   else {
                     reporter.error(tree.pos, s"Unknow op name in CExp ${name}")
-                    Some((cInfo, None))
+                    None
                   }
               }
             } else if (isChiselLiteralType(qualifier)) {
@@ -33,13 +33,25 @@ trait SelectsReader { self: Scala2Reader =>
                 case "S" => Some((cInfo, Some(Lit(litExp, SInt(Node, Undirect)))))
                 case _ =>
                   reporter.error(tree.pos, s"Unknow name in CExp ${name}")
-                  Some((cInfo, None))
+                  None
               }
             } else {
               Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
             }
           } else {
-            Some((cInfo, Some(SSelect(s, EmptyMType)))) // SSelect has no SignalInfo
+            val tpe = MTypeLoader(tpt)
+            qualifier match {
+              case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
+              case Ident(innerName: TermName) =>
+                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(qualifier)), name, tpe))))
+              case si: Select =>
+                Some(
+                  (
+                    cInfo,
+                    Some(SSelect(SelectReader(cInfo, si).get._2.get.asInstanceOf[STerm], name, tpe))
+                  )
+                )
+            }
           }
         case _ =>
           unprocessedTree(tree, "SelectReader")

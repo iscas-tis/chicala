@@ -35,14 +35,16 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class SubModuleRun()     extends CTerm with SubModuleRunImpl
 
   // STerm
-  sealed abstract class STerm                                    extends MTerm
-  case class SApply(fun: SSelect, args: List[MTerm], tpe: MType) extends STerm
-  case class SSelect(select: Select, tpe: MType)                 extends STerm
-  case class SBlock(body: List[MStatement], tpe: MType)          extends STerm
-  case class SLiteral(literal: Literal, tpe: MType)              extends STerm
-  case class SFor()                                              extends STerm with SForImpl
-  case class SIf(tpe: MType)                                     extends STerm
-  case class SMatch(tpe: MType)                                  extends STerm
+  sealed abstract class STerm                                  extends MTerm
+  case class SApply(fun: STerm, args: List[MTerm], tpe: MType) extends STerm
+  case class SSelect(from: STerm, name: TermName, tpe: MType)  extends STerm
+  case class SBlock(body: List[MStatement], tpe: MType)        extends STerm
+  case class SLiteral(literal: Literal, tpe: MType)            extends STerm
+  case class SIdent(name: TermName, tpe: MType)                extends STerm
+  case class SFor()                                            extends STerm with SForImpl
+  case class SIf(tpe: MType)                                   extends STerm
+  case class SMatch(tpe: MType)                                extends STerm
+  case class STuple(args: List[MTerm], tpe: StTuple)           extends STerm
 
   case object EmptyMTerm extends MTerm { val tpe = EmptyMType }
 
@@ -68,8 +70,8 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
 
   sealed abstract class MUnapplyDef extends MDef
 
-  case class EnumDef(names: List[TermName], info: CType)                          extends MUnapplyDef with EnumDefImpl
-  case class SUnapplyDef(names: List[TermName], rhs: MTerm, tupleTyp: List[Type]) extends MUnapplyDef
+  case class EnumDef(names: List[TermName], info: CType)                  extends MUnapplyDef with EnumDefImpl
+  case class SUnapplyDef(names: List[TermName], rhs: MTerm, tpe: StTuple) extends MUnapplyDef
 
   case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock) extends MDef
   case class SubModuleDef()                                                                   extends MDef

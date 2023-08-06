@@ -96,11 +96,12 @@ trait ValDefsReader { self: Scala2Reader =>
           val cExp =
             if (isScala2TupleUnapplyTmpValDef(v)) MTermLoader(cInfo, args.head).get._2.get
             else MTermLoader(cInfo, t).get._2.get // ? what is this ?
+          val tpe = STypeLoader(tpt).asInstanceOf[StTuple]
           Some(
             (
               cInfo.updatedTupleTmp(
                 num,
-                Some((name, SUnapplyDef(List.empty, cExp, tpt.tpe.typeArgs)))
+                Some((name, SUnapplyDef(List.empty, cExp, tpe)))
               ),
               None
             )

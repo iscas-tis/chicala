@@ -32,10 +32,10 @@ trait CTermsLoader { self: Scala2Reader =>
           val opName = name.toString()
           COpLoader(opName) match {
             case Some(op) =>
-              val signalInfo = CTypeLoader(tpt)
-              Some((cInfo, Some(CApply(op, signalInfo, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
+              val tpe = CTypeLoader(tpt)
+              Some((cInfo, Some(CApply(op, tpe, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
             case None =>
-              unprocessedTree(tr, "ApplyReader CApply")
+              unprocessedTree(tr, "CApplyLoader")
               None
           }
         case a @ Apply(fun, args) => {
@@ -43,8 +43,8 @@ trait CTermsLoader { self: Scala2Reader =>
           val fName = f.toString()
           COpLoader(fName) match {
             case Some(op) =>
-              val signalInfo = CTypeLoader.fromTypeTree(tpt)
-              Some((cInfo, Some(CApply(op, signalInfo, args.map(MTermLoader(cInfo, _).get._2.get)))))
+              val tpe = CTypeLoader.fromTypeTree(tpt)
+              Some((cInfo, Some(CApply(op, tpe, args.map(MTermLoader(cInfo, _).get._2.get)))))
             case None => None
           }
         }
@@ -126,7 +126,7 @@ trait CTermsLoader { self: Scala2Reader =>
             case "U" => Some((cInfo, Some(Lit(litExp, UInt(Node, Undirect))))) // width
             case "S" => Some((cInfo, Some(Lit(litExp, SInt(Node, Undirect))))) // width
             case _ =>
-              reporter.error(tree.pos, s"Unknow name in CExp ${name}")
+              errorTree(tree, "Unknow name in CExp")
               None
           }
         }

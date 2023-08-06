@@ -36,8 +36,7 @@ trait Printer extends Format {
         |tree AST:
         |  ${showFormattedRaw(tree, 3).replace("\n", "\n  ")}
         |stackTrace:
-        |  ${slicedTraces}
-        |source code:""".stripMargin
+        |  ${slicedTraces}""".stripMargin
     )
   }
 }

@@ -39,7 +39,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class SApply(fun: STerm, args: List[MTerm], tpe: MType) extends STerm
   case class SSelect(from: STerm, name: TermName, tpe: MType)  extends STerm
   case class SBlock(body: List[MStatement], tpe: MType)        extends STerm
-  case class SLiteral(literal: Literal, tpe: MType)            extends STerm
+  case class SLiteral(value: Any, tpe: MType)                  extends STerm
   case class SIdent(name: TermName, tpe: MType)                extends STerm
   case class SFor()                                            extends STerm with SForImpl
   case class SIf(tpe: MType)                                   extends STerm

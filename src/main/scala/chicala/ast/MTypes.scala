@@ -36,6 +36,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   // SType
   sealed abstract class SType              extends MType
   case object StInt                        extends SType
+  case object StString                     extends SType
   case class StTuple(tparams: List[MType]) extends SType
   case object StFunc                       extends SType
 

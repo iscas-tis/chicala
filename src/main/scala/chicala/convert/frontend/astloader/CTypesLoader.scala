@@ -110,9 +110,10 @@ trait CTypesLoader { self: Scala2Reader =>
         StFunc
       } else {
         tr.tpe.erasure.toString() match {
-          case "Int" => StInt
+          case "Int"    => StInt
+          case "String" => StString
           case _ =>
-            reporter.error(tr.pos, s"Unknow type: ${tr.tpe.erasure}")
+            errorTree(tr, s"Unknow type `${tr.tpe.erasure}`")
             StInt
         }
       }

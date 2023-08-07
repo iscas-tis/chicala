@@ -8,34 +8,30 @@ trait CircuitInfos { self: ChicalaAst =>
 
   case class CircuitInfo(
       val name: TypeName,
-      val signal: Map[TermName, SignalInfo],
-      val param: Map[TermName, TypeTree],
-      val function: Map[TermName, TypeTree],
+      val params: List[SValDef],
+      val vals: Map[TermName, MType],
+      val funcs: Map[TermName, MType],
       /* use to record EnumDef  */
       val numTmp: Int,
       val enumTmp: Option[(TermName, EnumDef)],
-      val tupleTmp: Option[(TermName, STupleUnapplyDef)]
+      val tupleTmp: Option[(TermName, SUnapplyDef)]
   ) {
-    def updatedSignal(termName: TermName, signalInfo: SignalInfo): CircuitInfo =
-      this.copy(signal = signal + (termName -> signalInfo))
-    def updatedSignals(signals: List[(TermName, SignalInfo)]): CircuitInfo =
-      this.copy(signal = signal ++ signals)
+    def updatedParam(sValDef: SValDef): CircuitInfo =
+      this.copy(params = params :+ sValDef)
 
-    def updatedParam(termName: TermName, typeTree: TypeTree): CircuitInfo =
-      this.copy(param = param + (termName -> typeTree))
-    def updatedParams(params: List[(TermName, TypeTree)]): CircuitInfo =
-      this.copy(param = param ++ params)
+    def updatedVal(termName: TermName, tpe: MType): CircuitInfo =
+      this.copy(vals = vals + (termName -> tpe))
 
-    def updatedFuncion(termName: TermName, typeTree: TypeTree): CircuitInfo =
-      this.copy(function = function + (termName -> typeTree))
+    def updatedFunc(termName: TermName, tpe: MType): CircuitInfo =
+      this.copy(funcs = funcs + (termName -> tpe))
 
     def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo =
       this.copy(numTmp = num, enumTmp = et)
-    def updatedTupleTmp(num: Int, tt: Option[(TermName, STupleUnapplyDef)]): CircuitInfo =
+    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo =
       this.copy(numTmp = num, tupleTmp = tt)
 
     def contains(termName: TermName): Boolean =
-      signal.contains(termName) || param.contains(termName) || function.contains(termName)
+      vals.contains(termName) || funcs.contains(termName)
     def contains(tree: Tree): Boolean = {
       tree match {
         case Select(This(this.name), termName: TermName) => contains(termName)
@@ -45,41 +41,48 @@ trait CircuitInfos { self: ChicalaAst =>
       }
     }
 
-    def getSignalInfo(tree: Tree): SignalInfo = {
-      def select(signalInfo: SignalInfo, termName: TermName): SignalInfo = signalInfo match {
-        case SignalInfo(physicalType, dataType) =>
-          dataType match {
-            case Bundle(signals) if signals.contains(termName) =>
-              SignalInfo(physicalType, signals(termName))
-            case _ => {
-              reporter.error(tree.pos, s"TermName ${termName} not found in ${dataType}")
-              SignalInfo.empty
-            }
-          }
+    def getCType(tree: Tree): CType = {
+      val tpe = getMType(tree)
+      tpe match {
+        case c: CType => c
+        case _ =>
+          reporter.error(tree.pos, "Not CType")
+          CType.empty
+      }
+    }
+
+    def getMType(tree: Tree): MType = {
+      def select(tpe: CType, termName: TermName): MType = tpe match {
+        case Bundle(physical, signals) if signals.contains(termName) =>
+          signals(termName)
+        case _ => {
+          reporter.error(tree.pos, s"TermName ${termName} not found in ${tpe}")
+          CType.empty
+        }
       }
       tree match {
-        case Select(This(this.name), termName: TermName) => signal(termName)
-        case Select(qualifier, termName: TermName)       => select(getSignalInfo(qualifier), termName)
-        case Ident(termName: TermName)                   => signal(termName)
+        case Select(This(this.name), termName: TermName) => vals(termName)
+        case Select(qualifier, termName: TermName)       => select(getCType(qualifier), termName)
+        case Ident(termName: TermName)                   => vals(termName)
         case _ => {
-          unprocessedTree(tree, "CircuitInfo.getSignalInfo")
-          reporter.error(tree.pos, s"CircuitInfo.getSignalInfo not process")
-          SignalInfo.empty
+          unprocessedTree(tree, "CircuitInfo.getCType")
+          reporter.error(tree.pos, s"CircuitInfo.getCType not process")
+          CType.empty
         }
       }
     }
 
-    def getFunctionInfo(tree: Tree): TypeTree = {
+    def getFunctionInfo(tree: Tree): MType = {
       tree match {
-        case Select(This(this.name), termName: TermName) => function(termName)
+        case Select(This(this.name), termName: TermName) => funcs(termName)
       }
     }
   }
 
   object CircuitInfo {
-    def apply(name: TypeName) = new CircuitInfo(name, Map.empty, Map.empty, Map.empty, 0, None, None)
+    def apply(name: TypeName) = new CircuitInfo(name, List.empty, Map.empty, Map.empty, 0, None, None)
 
-    def empty = new CircuitInfo(TypeName(""), Map.empty, Map.empty, Map.empty, 0, None, None)
+    def empty = new CircuitInfo(TypeName(""), List.empty, Map.empty, Map.empty, 0, None, None)
   }
 
   case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
@@ -88,6 +91,13 @@ trait CircuitInfos { self: ChicalaAst =>
         this.fully ++ that.fully,
         this.partially ++ that.partially,
         this.dependency ++ that.dependency
+      )
+    }
+    def removedAll(set: IterableOnce[String]): RelatedSignals = {
+      RelatedSignals(
+        fully.removedAll(set),
+        partially.removedAll(set),
+        dependency.removedAll(set)
       )
     }
   }

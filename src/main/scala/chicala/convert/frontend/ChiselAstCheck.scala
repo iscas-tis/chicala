@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait ChiselAstCheck { this: Scala2Loader =>
+trait ChiselAstCheck { this: Scala2Reader =>
   val global: Global
   import global._
 
@@ -54,12 +54,15 @@ trait ChiselAstCheck { this: Scala2Loader =>
     case _ => false
   }
 
-  def isChiselType(tree: Tree): Boolean = List(
-    "chisel3.UInt",
-    "chisel3.SInt",
-    "chisel3.Bool",
-    "chisel3.Bundle"
-  ).contains(tree.tpe.erasure.toString())
+  def isChiselType(tree: Tree): Boolean = {
+    val typeStr = tree.tpe.erasure.toString()
+    List(
+      "chisel3.UInt",
+      "chisel3.SInt",
+      "chisel3.Bool",
+      "chisel3.Bundle"
+    ).contains(typeStr) || typeStr.startsWith("chisel3.Vec")
+  }
 
   def isChiselLiteralType(tree: Tree): Boolean = List(
     isChisel3FromIntToLiteralType(_),

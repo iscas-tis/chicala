@@ -9,7 +9,7 @@ import nsc.transform.TypingTransformers
 import java.io._
 
 import chicala.util.Format
-import chicala.convert.frontend.Scala2Loader
+import chicala.convert.frontend.Scala2Reader
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
@@ -36,7 +36,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
 
   class ChiselToScalaTransformer(unit: CompilationUnit)
       extends TypingTransformer(unit)
-      with Scala2Loader
+      with Scala2Reader
       with ToplogicalSort
       with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global

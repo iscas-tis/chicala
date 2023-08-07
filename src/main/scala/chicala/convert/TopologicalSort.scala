@@ -36,16 +36,16 @@ trait ToplogicalSort { self: ChicalaAst =>
               if (m.contains(key)) m.updated(key, m(key) ++ set)
               else m.updated(key, set)
             }
-          case sd: CValDef =>
+          case md: MDef =>
             vertexs += Vertex(id)
-            last = last ++ sd.relatedSignals.fully
+            last = last ++ md.relatedSignals.fully
               .map(x => moduleDef.name.toString() + ".this." + x -> Set(id))
               .toMap
           case a: Assert =>
             vertexs += Vertex(id)
-          case _ => // TODO: remove _
+          case _ =>
             println(
-              "(-_-) not processed in "
+              s"(-_-) not processed ${moduleDef.name} statement in "
                 + "ToplogicalSort.getDependencyGraph.getVertexAndLastConnectDependcy: " +
                 s"${statement.toString()}"
             )
@@ -122,7 +122,10 @@ trait ToplogicalSort { self: ChicalaAst =>
             val otherBody =
               if (merged.contains(2)) doReorder(w.otherBody, merged(2))
               else List.empty
-            When(w.cond, whenBody, otherBody)
+            val hasElseWhen =
+              if (w.hasElseWhen && otherBody.nonEmpty) true
+              else false
+            When(w.cond, whenBody, otherBody, hasElseWhen)
           case b: BulkConnect =>
             reporter.echo(s"(-_-) not processed in ToplogicalSort.doReorder: ${b}")
             b
@@ -137,6 +140,14 @@ trait ToplogicalSort { self: ChicalaAst =>
   def dependencySort(moduleDef: ModuleDef): ModuleDef = {
     val dependencyGraph  = getDependencyGraph(moduleDef)
     val topologicalOrder = dependencyGraph.toplogicalSort(layer = true)
+    Format.saveToFile(
+      s"./test_run_dir/chiselToScala/${moduleDef.name}.dot",
+      dependencyGraph.toDot
+    )
+    Format.saveToFile(
+      s"./test_run_dir/chiselToScala/${moduleDef.name}.order.scala",
+      topologicalOrder.toString()
+    )
     reorder(moduleDef, topologicalOrder)
   }
 }
@@ -158,6 +169,14 @@ case class Id(val seq: List[Int]) extends Ordered[Id] {
   override def toString(): String = {
     if (seq.isEmpty) "Id()"
     else s"Id(${seq.map(_.toString()).reduce(_ + ", " + _)})"
+  }
+
+  def toPointString: String = {
+    if (seq.isEmpty) ""
+    else seq.map(_.toString()).reduce(_ + "." + _)
+  }
+  def toNameString: String = {
+    s"p${toPointString.replace(".", "x")}"
   }
 
   def :+(number: Int): Id = Id(seq :+ number)
@@ -186,6 +205,20 @@ case class DirectedGraph(val vertexs: Set[Vertex], edges: Set[DirectedEdge]) {
     val edgesSetName   = if (edges.size <= 4) "Set" else "HashSet"
     val edgesList      = edges.toList.sorted.map(_.toString()).reduce(_ + ", " + _)
     s"DirectedGraph($vertexsSetName($vertexsList),$edgesSetName($edgesList))"
+  }
+
+  def toDot: String = {
+    val nodes = vertexs.map(_.id).map(x => s"${x.toNameString} [label=\"${x.toPointString}\"]")
+    val diedges = edges.map { case DirectedEdge(from, to) =>
+      val fromNode = from.id.toNameString
+      val toNode   = to.id.toNameString
+      s"${fromNode}->${toNode}"
+    }
+
+    s"""digraph g{
+      |${nodes.map(x => "  " + x + "\n").reduce(_ + _)}
+      |${diedges.map(x => "  " + x + "\n").reduce(_ + _)}
+      |}""".stripMargin
   }
 
   def toplogicalSort(layer: Boolean = false): List[Id] = {

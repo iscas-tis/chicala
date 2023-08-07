@@ -31,6 +31,21 @@ trait MDefImpls { self: ChicalaAst =>
   trait WireDefImpl { self: WireDef =>
     override val relatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
   }
+  trait RegDefImpl { self: RegDef =>
+    override val relatedSignals = {
+      val fully = Set(name.toString() + "$now", name.toString() + "$next")
+      val nextRS = someNext match {
+        case None        => RelatedSignals.empty
+        case Some(value) => value.relatedSignals
+      }
+      val enableRS = someEnable match {
+        case None        => RelatedSignals.empty
+        case Some(value) => value.relatedSignals
+      }
+      RelatedSignals(fully, Set.empty, Set.empty) ++ nextRS ++ enableRS
+    }
+
+  }
   trait NodeDefImpl { self: NodeDef =>
     override val relatedSignals =
       RelatedSignals(Set(name.toString()), Set.empty, Set.empty) ++ rhs.relatedSignals
@@ -44,6 +59,16 @@ trait MDefImpls { self: ChicalaAst =>
       .map { case (name, i) =>
         NodeDef(name, tpe, Lit(SLiteral(i, StInt), tpe))
       }
+  }
+
+  trait SUnapplyDefImpl { self: SUnapplyDef =>
+    override val relatedSignals =
+      RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty) ++
+        rhs.relatedSignals
+  }
+
+  trait SDefDefImpl { self: SDefDef =>
+    override val relatedSignals = RelatedSignals.empty
   }
 
 }

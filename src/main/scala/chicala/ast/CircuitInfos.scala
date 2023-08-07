@@ -93,6 +93,13 @@ trait CircuitInfos { self: ChicalaAst =>
         this.dependency ++ that.dependency
       )
     }
+    def removedAll(set: IterableOnce[String]): RelatedSignals = {
+      RelatedSignals(
+        fully.removedAll(set),
+        partially.removedAll(set),
+        dependency.removedAll(set)
+      )
+    }
   }
   object RelatedSignals {
     def empty = RelatedSignals(Set.empty, Set.empty, Set.empty)

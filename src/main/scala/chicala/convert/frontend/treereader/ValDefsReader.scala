@@ -169,7 +169,7 @@ trait ValDefsReader { self: Scala2Reader =>
           reporter.error(func.pos, "should have 2 args in RegEnable()")
         val next       = MTermLoader(cInfo, args.head).get._2.get
         val enable     = MTermLoader(cInfo, args.tail.head).get._2.get
-        val signalInfo = next.tpe.asInstanceOf[CType]
+        val signalInfo = next.tpe.asInstanceOf[CType].updatedPhysical(Reg)
         val newCInfo   = cInfo.updatedVal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo, None, Some(next), Some(enable))))
       } else {

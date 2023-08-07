@@ -15,6 +15,7 @@ trait MTermsLoader { self: Scala2Reader =>
         case _: Ident   => IdentReader(cInfo, tr)
         case _: Literal => LiteralReader(cInfo, tr)
         case _: Select  => SelectReader(cInfo, tr)
+        case _: If      => IfReader(cInfo, tr)
         case EmptyTree  => None
       }
     }

@@ -35,6 +35,16 @@ trait STermImpls { self: ChicalaAst =>
   trait SForImpl { self: SFor =>
     val tpe: MType = EmptyMType
   }
+  trait SIfImpl { self: SIf =>
+    override val relatedSignals = {
+      val thenRS     = thenp.relatedSignals
+      val elseRS     = elsep.relatedSignals
+      val fully      = thenRS.fully.intersect(elseRS.fully)
+      val partially  = thenRS.partially ++ elseRS.partially ++ (thenRS.fully ++ elseRS.fully -- fully)
+      val dependency = thenRS.dependency ++ elseRS.dependency ++ cond.relatedSignals.dependency
+      RelatedSignals(fully, partially, dependency)
+    }
+  }
   trait STupleImpl { self: STuple =>
     override val relatedSignals = args.map(_.relatedSignals).reduce(_ ++ _)
   }

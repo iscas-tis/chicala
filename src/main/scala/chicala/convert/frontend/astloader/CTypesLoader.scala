@@ -113,6 +113,7 @@ trait CTypesLoader { self: Scala2Reader =>
           case "Int"               => StInt
           case "String"            => StString
           case "scala.math.BigInt" => StBigInt
+          case "Boolean"           => StBoolean
           case _ =>
             errorTree(tr, s"Unknow type `${tr.tpe.erasure}`")
             StInt

@@ -4,7 +4,6 @@ import scala.tools.nsc
 import nsc.Global
 import nsc.Phase
 import nsc.plugins.PluginComponent
-import nsc.transform.TypingTransformers
 
 import java.io._
 
@@ -15,7 +14,7 @@ object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
 }
 
-class ChiselToScalaComponent(val global: Global) extends PluginComponent with TypingTransformers {
+class ChiselToScalaComponent(val global: Global) extends PluginComponent {
   import global._
 
   val runsAfter: List[String] = List("typer")
@@ -25,20 +24,9 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
 
   val phaseName: String = ChiselToScalaComponent.phaseName
 
-  def newPhase(_prev: Phase)                = new ChiselToScalaPhase(_prev)
-  def newTransformer(unit: CompilationUnit) = new ChiselToScalaTransformer(unit)
+  def newPhase(_prev: Phase) = new ChiselToScalaPhase(_prev)
 
-  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) {
-    def apply(unit: CompilationUnit): Unit = {
-      unit.body = newTransformer(unit).transform(unit.body)
-    }
-  }
-
-  class ChiselToScalaTransformer(unit: CompilationUnit)
-      extends TypingTransformer(unit)
-      with Scala2Reader
-      with ToplogicalSort
-      with Format {
+  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) with Scala2Reader with ToplogicalSort with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
 
     val testRunDir = new File("test_run_dir/" + phaseName)
@@ -48,11 +36,11 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
     global.computePhaseAssembly().foreach(s => chicalaLog.write(s.toString + "\n"))
     chicalaLog.close()
 
-    val packageDef  = unit.body.asInstanceOf[PackageDef]
-    val packageName = packageDef.pid.toString()
+    def apply(unit: CompilationUnit): Unit = {
+      val packageDef  = unit.body.asInstanceOf[PackageDef]
+      val packageName = packageDef.pid.toString()
 
-    override def transform(tree: Tree): Tree = tree match {
-      case ClassDef(mods, name, tparams, Template(parents, self, body)) => {
+      for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- packageDef.stats) {
         Format.saveToFile(
           testRunDir.getPath() + s"/${packageName}.${name}.scala",
           show(tree) + "\n"
@@ -84,10 +72,8 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent with Ty
           case Some(BundleDef(_, _)) => cClassDef
           case None                  => None
         }
-
-        tree // for now
       }
-      case _ => super.transform(tree)
+
     }
   }
 

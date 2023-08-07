@@ -7,11 +7,14 @@ trait SelectsReader { self: Scala2Reader =>
   import global._
 
   object SelectReader {
+    val sLibs: List[String] = List("scala.`package`.BigInt.apply")
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
         case s @ Select(qualifier, name: TermName) =>
-          if (isChiselType(tpt)) {
+          if (sLibs.contains(s.toString())) {
+            Some((cInfo, Some(SLib(s.toString(), StFunc))))
+          } else if (isChiselType(tpt)) {
             if (isChiselType(qualifier)) {
               COpLoader(name.toString()) match {
                 case Some(op) =>
@@ -29,8 +32,8 @@ trait SelectsReader { self: Scala2Reader =>
               val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
 
               name.toString() match {
-                case "U" => Some((cInfo, Some(Lit(litExp, UInt(Node, Undirect)))))
-                case "S" => Some((cInfo, Some(Lit(litExp, SInt(Node, Undirect)))))
+                case "U" => Some((cInfo, Some(Lit(litExp, UInt(InferredSize, Node, Undirect)))))
+                case "S" => Some((cInfo, Some(Lit(litExp, SInt(InferredSize, Node, Undirect)))))
                 case _ =>
                   reporter.error(tree.pos, s"Unknow name in CExp ${name}")
                   None
@@ -43,12 +46,12 @@ trait SelectsReader { self: Scala2Reader =>
             qualifier match {
               case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
               case Ident(innerName: TermName) =>
-                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(qualifier)), name, tpe))))
-              case si: Select =>
+                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier)), name, tpe))))
+              case t =>
                 Some(
                   (
                     cInfo,
-                    Some(SSelect(SelectReader(cInfo, si).get._2.get.asInstanceOf[STerm], name, tpe))
+                    Some(SSelect(STermLoader(cInfo, t).get._2.get, name, tpe))
                   )
                 )
             }

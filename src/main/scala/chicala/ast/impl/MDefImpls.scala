@@ -42,7 +42,7 @@ trait MDefImpls { self: ChicalaAst =>
     def inner: List[CValDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
-        NodeDef(name, info, Lit(SLiteral(i, StInt), info))
+        NodeDef(name, tpe, Lit(SLiteral(i, StInt), tpe))
       }
   }
 

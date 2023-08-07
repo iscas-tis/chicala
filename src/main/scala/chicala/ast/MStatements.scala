@@ -45,6 +45,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class SIf(tpe: MType)                                   extends STerm
   case class SMatch(tpe: MType)                                extends STerm
   case class STuple(args: List[MTerm], tpe: StTuple)           extends STerm
+  case class SLib(name: String, tpe: SType)                    extends STerm
 
   case object EmptyMTerm extends MTerm { val tpe = EmptyMType }
 
@@ -70,7 +71,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
 
   sealed abstract class MUnapplyDef extends MDef
 
-  case class EnumDef(names: List[TermName], info: CType)                  extends MUnapplyDef with EnumDefImpl
+  case class EnumDef(names: List[TermName], tpe: CType)                   extends MUnapplyDef with EnumDefImpl
   case class SUnapplyDef(names: List[TermName], rhs: MTerm, tpe: StTuple) extends MUnapplyDef
 
   case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock) extends MDef

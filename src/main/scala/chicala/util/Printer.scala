@@ -26,7 +26,6 @@ trait Printer extends Format {
       .getStackTrace
       .map(_.toString())
     val slicedTraces = stackTraces
-      .slice(1, 11.min(stackTraces.length))
       .reduce(_ + "\n  " + _)
     reporter.error(
       tree.pos,
@@ -38,5 +37,9 @@ trait Printer extends Format {
         |stackTrace:
         |  ${slicedTraces}""".stripMargin
     )
+  }
+
+  def echoTreePos(tree: Tree) = {
+    reporter.echo(tree.pos, "here")
   }
 }

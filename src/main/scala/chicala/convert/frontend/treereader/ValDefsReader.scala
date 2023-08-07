@@ -11,7 +11,7 @@ trait ValDefsReader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val tree = passThrough(tr)._1
       tree match {
-        case v @ ValDef(mods, nameTmp, tpt, rhs) if isChiselType(tpt) => {
+        case v @ ValDef(mods, nameTmp, tpt: TypeTree, rhs) if isChiselType(tpt) => {
           // SignalDef
           val name = nameTmp.stripSuffix(" ")
           passThrough(rhs)._1 match {
@@ -19,7 +19,7 @@ trait ValDefsReader { self: Scala2Reader =>
               if (isModuleThisIO(func, cInfo)) {
                 // IoDef
                 val someBundleDef = args.head match {
-                  case Block(stats, expr) => BundleDefLoader(stats.head)
+                  case Block(stats, expr) => BundleDefLoader(cInfo, stats.head)
                   case _                  => None
                 }
 
@@ -45,9 +45,9 @@ trait ValDefsReader { self: Scala2Reader =>
               // EnumDef step 2
               val (tn, ed) = cInfo.enumTmp.get
               val num      = cInfo.numTmp - 1
-              val enumDef  = EnumDef(ed.names :+ name, ed.info)
+              val enumDef  = EnumDef(ed.names :+ name, ed.tpe)
               val enumTmp  = (tn, enumDef)
-              val newCInfo = cInfo.updatedVal(name, enumDef.info)
+              val newCInfo = cInfo.updatedVal(name, enumDef.tpe)
               if (num == 0)
                 Some((newCInfo.updatedEnumTmp(0, None), Some(enumTmp._2)))
               else
@@ -83,7 +83,11 @@ trait ValDefsReader { self: Scala2Reader =>
                 name,
                 EnumDef(
                   List.empty,
-                  UInt(Node, Undirect) // width: Literal(Constant(BigInt(num - 1).bitLength))
+                  UInt(
+                    KnownSize(SLiteral(BigInt(num - 1).bitLength, StInt)),
+                    Node,
+                    Undirect
+                  ) // width: Literal(Constant(BigInt(num - 1).bitLength))
                 )
               )
               Some((cInfo.updatedEnumTmp(num, Some(enumTmp)), None))
@@ -133,7 +137,7 @@ trait ValDefsReader { self: Scala2Reader =>
     ): (CircuitInfo, Option[CValDef]) = {
       assert(args.length == 1, "should have only 1 arg in Wire()")
 
-      val cType   = CTypeLoader(args.head).updatedPhysical(Wire)
+      val cType   = CTypeLoader(cInfo, args.head).updatedPhysical(Wire)
       val newInfo = cInfo.updatedVal(name, cType)
       (newInfo, Some(WireDef(name, cType)))
     }
@@ -146,7 +150,7 @@ trait ValDefsReader { self: Scala2Reader =>
       if (isChisel3RegApply(func)) {
         assert(args.length == 1, "should have only 1 arg in Reg()")
 
-        val signalInfo = CTypeLoader(args.head).updatedPhysical(Reg)
+        val signalInfo = CTypeLoader(cInfo, args.head).updatedPhysical(Reg)
         val newCInfo   = cInfo.updatedVal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo)))
 

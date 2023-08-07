@@ -33,6 +33,9 @@ trait CClassDefsLoader { self: Scala2Reader =>
 
   object BundleDefLoader {
     def apply(tree: Tree): Option[BundleDef] = {
+      BundleDefLoader(CircuitInfo.empty, tree)
+    }
+    def apply(cInfo: CircuitInfo, tree: Tree): Option[BundleDef] = {
       tree match {
         // only Class inherits chisel3.Bundle directly
         case ClassDef(mods, name, tparams, Template(parents, self, body)) if parents.exists {
@@ -42,7 +45,7 @@ trait CClassDefsLoader { self: Scala2Reader =>
           val signals = body
             .map {
               case ValDef(mods, name, tpt, rhs) =>
-                Some((name.stripSuffix(" "), CTypeLoader(rhs)))
+                Some((name.stripSuffix(" "), CTypeLoader(cInfo, rhs)))
               case _ => None
             }
             .flatten

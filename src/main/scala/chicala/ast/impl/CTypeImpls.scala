@@ -13,52 +13,59 @@ trait CTypeImpls { self: MTypes =>
 
     def updatedPhysical(newPhysical: CPhysical): CType
     def updatedDriction(newDirection: CDirection): CType
+    def setInferredWidth: CType = this
     def subSignals: Set[String] = Set.empty
   }
   object CType {
     def empty: CType = Bool(Node, Undirect)
   }
 
-  trait WithPhysicalInfo {}
-
   trait UIntImpl { self: UInt =>
-    def updatedPhysical(newPhysical: CPhysical): UInt = UInt(newPhysical, direction)
+    def updatedWidth(newWidth: CSize): UInt           = copy(width = newWidth)
+    def updatedPhysical(newPhysical: CPhysical): UInt = copy(physical = newPhysical)
     def updatedDriction(newDirection: CDirection): UInt = newDirection match {
-      case Input    => UInt(physical, Input)
-      case Output   => UInt(physical, Output)
-      case Flipped  => UInt(physical, direction.flipped)
-      case Undirect => UInt(physical, direction)
+      case Input    => copy(direction = Input)
+      case Output   => copy(direction = Output)
+      case Flipped  => copy(direction = direction.flipped)
+      case Undirect => copy(direction = direction)
     }
+    override def setInferredWidth = copy(width = InferredSize)
   }
   trait SIntImpl { self: SInt =>
-    def updatedPhysical(newPhysical: CPhysical): SInt = SInt(newPhysical, direction)
+    def updatedWidth(newWidth: CSize): SInt           = copy(width = newWidth)
+    def updatedPhysical(newPhysical: CPhysical): SInt = copy(physical = newPhysical)
     def updatedDriction(newDirection: CDirection): SInt = newDirection match {
-      case Input    => SInt(physical, Input)
-      case Output   => SInt(physical, Output)
-      case Flipped  => SInt(physical, direction.flipped)
-      case Undirect => SInt(physical, direction)
+      case Input    => copy(direction = Input)
+      case Output   => copy(direction = Output)
+      case Flipped  => copy(direction = direction.flipped)
+      case Undirect => copy(direction = direction)
     }
+    override def setInferredWidth = copy(width = InferredSize)
   }
   trait BoolImpl { self: Bool =>
-    def updatedPhysical(newPhysical: CPhysical): Bool = Bool(newPhysical, direction)
+    def updatedPhysical(newPhysical: CPhysical): Bool = copy(physical = newPhysical)
     def updatedDriction(newDirection: CDirection): Bool = newDirection match {
-      case Input    => Bool(physical, Input)
-      case Output   => Bool(physical, Output)
-      case Flipped  => Bool(physical, direction.flipped)
-      case Undirect => Bool(physical, direction)
+      case Input    => copy(direction = Input)
+      case Output   => copy(direction = Output)
+      case Flipped  => copy(direction = direction.flipped)
+      case Undirect => copy(direction = direction)
     }
   }
+
   trait VecImpl { self: Vec =>
     def updatedPhysical(newPhysical: CPhysical): Vec =
-      Vec(newPhysical, tparam.updatedPhysical(newPhysical))
+      copy(physical = newPhysical, tparam = tparam.updatedPhysical(newPhysical))
     def updatedDriction(newDirection: CDirection): Vec =
-      Vec(physical, tparam.updatedDriction(newDirection))
+      copy(tparam = tparam.updatedDriction(newDirection))
   }
   trait BundleImpl { self: Bundle =>
-    def updatedPhysical(newPhysical: CPhysical): Bundle =
-      Bundle(newPhysical, signals.map { case (n, t) => (n, t.updatedPhysical(newPhysical)) })
-    def updatedDriction(newDirection: CDirection): Bundle =
-      Bundle(physical, signals.map { case (n, t) => (n, t.updatedDriction(newDirection)) })
+    def updatedPhysical(newPhysical: CPhysical): Bundle = copy(
+      physical = newPhysical,
+      signals = signals.map { case (n, t) => (n, t.updatedPhysical(newPhysical)) }
+    )
+    def updatedDriction(newDirection: CDirection): Bundle = copy(
+      signals = signals.map { case (n, t) => (n, t.updatedDriction(newDirection)) }
+    )
 
     override def subSignals: Set[String] = signals
       .map { case (termName, cDataType) =>
@@ -69,5 +76,15 @@ trait CTypeImpls { self: MTypes =>
       }
       .flatten
       .toSet
+  }
+
+  trait UIntObjImpl {
+    def empty = UInt(UnknownSize, Node, Undirect)
+  }
+  trait SIntObjImpl {
+    def empty = SInt(UnknownSize, Node, Undirect)
+  }
+  trait BoolObjImpl {
+    def empty = Bool(Node, Undirect)
   }
 }

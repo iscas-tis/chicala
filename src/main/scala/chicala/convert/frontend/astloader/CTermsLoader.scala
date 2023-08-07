@@ -32,7 +32,7 @@ trait CTermsLoader { self: Scala2Reader =>
           val opName = name.toString()
           COpLoader(opName) match {
             case Some(op) =>
-              val tpe = CTypeLoader(tpt)
+              val tpe = CTypeLoader(tpt).setInferredWidth
               Some((cInfo, Some(CApply(op, tpe, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
             case None =>
               unprocessedTree(tr, "CApplyLoader")
@@ -43,7 +43,7 @@ trait CTermsLoader { self: Scala2Reader =>
           val fName = f.toString()
           COpLoader(fName) match {
             case Some(op) =>
-              val tpe = CTypeLoader.fromTypeTree(tpt)
+              val tpe = CTypeLoader(tpt).setInferredWidth
               Some((cInfo, Some(CApply(op, tpe, args.map(MTermLoader(cInfo, _).get._2.get)))))
             case None => None
           }
@@ -120,11 +120,14 @@ trait CTermsLoader { self: Scala2Reader =>
           // 0.U(1.W)
           val litTree = qualifier.asInstanceOf[Apply].args.head
           val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
-          val width   = CTypeLoader.getSomeWidth(args).get
+          val width = CTypeLoader.getWidth(cInfo, args) match {
+            case k: KnownSize => k
+            case _            => InferredSize
+          }
 
           name.toString() match {
-            case "U" => Some((cInfo, Some(Lit(litExp, UInt(Node, Undirect))))) // width
-            case "S" => Some((cInfo, Some(Lit(litExp, SInt(Node, Undirect))))) // width
+            case "U" => Some((cInfo, Some(Lit(litExp, UInt(width, Node, Undirect))))) // width
+            case "S" => Some((cInfo, Some(Lit(litExp, SInt(width, Node, Undirect))))) // width
             case _ =>
               errorTree(tree, "Unknow name in CExp")
               None

@@ -36,44 +36,79 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
     global.computePhaseAssembly().foreach(s => chicalaLog.write(s.toString + "\n"))
     chicalaLog.close()
 
+    var readerInfo: ReaderInfo = ReaderInfo.empty
+
+    override def run(): Unit = {
+      super.run()
+      readerInfo.todos.foreach(t => reporter.error(t.pos, "This class not processed"))
+    }
+
     def apply(unit: CompilationUnit): Unit = {
       val packageDef  = unit.body.asInstanceOf[PackageDef]
       val packageName = packageDef.pid.toString()
 
       for (tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) <- packageDef.stats) {
-        Format.saveToFile(
-          testRunDir.getPath() + s"/${packageName}.${name}.scala",
-          show(tree) + "\n"
-        )
-        Format.saveToFile(
-          testRunDir.getPath() + s"/${packageName}.${name}.AST.scala",
-          showFormattedRaw(tree) + "\n"
-        )
-
-        val cClassDef = CClassDef.apply(tree)
-
-        Format.saveToFile(
-          testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
-          Format.formatAst(cClassDef.toString) + "\n"
-        )
-
-        val sortedCClassDef = cClassDef match {
-          case Some(m @ ModuleDef(name, info, body)) =>
-            Format.saveToFile(
-              testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
-              body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
-            )
-            val sorted = Some(dependencySort(m))
-            Format.saveToFile(
-              testRunDir.getPath() + s"/${packageName}.${name}.sorted.scala",
-              sorted.get.toString
-            )
-            sorted
-          case Some(BundleDef(_, _)) => cClassDef
-          case None                  => None
-        }
+        applyOnTree(tree, packageName)
       }
+    }
 
+    def applyOnTree(tr: Tree, packageName: String): Unit = {
+      tr match {
+        case tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) =>
+          Format.saveToFile(
+            testRunDir.getPath() + s"/${packageName}.${name}.scala",
+            show(tree) + "\n"
+          )
+          Format.saveToFile(
+            testRunDir.getPath() + s"/${packageName}.${name}.AST.scala",
+            showFormattedRaw(tree) + "\n"
+          )
+
+          val someInfoAndDef = CClassDefLoader(tree)(readerInfo)
+
+          val (newRInfo, someCClassDef) = someInfoAndDef match {
+            case Some((newRInfo, someCClassDef)) => { (newRInfo, someCClassDef) }
+            case None =>
+              reporter.error(tree.pos, "Unknown error in ChiselToScalaPhase #1")
+              return
+          }
+
+          if (newRInfo.needExit) {
+            if (newRInfo.isDependentClassNotDef) {
+              readerInfo = newRInfo.clearedDependentClassNotDef.addedTodo(tree)
+            }
+            if (readerInfo.needExit == true)
+              reporter.error(tree.pos, "Unknown error in ChiselToScalaPhase #2")
+            reporter.echo(s"`${name}` has undefined dependent Class, convert later.")
+            return
+          }
+
+          someCClassDef match {
+            case None =>
+              reporter.error(tree.pos, "Unknown error in ChiselToScalaPhase #3")
+            case Some(cClassDef) =>
+              Format.saveToFile(
+                testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
+                Format.formatAst(cClassDef.toString) + "\n"
+              )
+
+              val sortedCClassDef = cClassDef match {
+                case m @ ModuleDef(name, info, body) =>
+                  Format.saveToFile(
+                    testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
+                    body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
+                  )
+                  val sorted = Some(dependencySort(m))
+                  Format.saveToFile(
+                    testRunDir.getPath() + s"/${packageName}.${name}.sorted.scala",
+                    sorted.get.toString
+                  )
+                  sorted
+                case b: BundleDef => b
+              }
+          }
+
+      }
     }
   }
 

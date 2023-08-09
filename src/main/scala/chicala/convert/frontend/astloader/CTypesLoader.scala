@@ -93,7 +93,7 @@ trait CTypesLoader { self: Scala2Reader =>
           }
 
         case Block(stats, _) =>
-          BundleDefLoader(cInfo, stats.head).get.bundle
+          BundleDefLoader(cInfo, stats.head).get._2.get.bundle
         case _ =>
           unprocessedTree(tree, "CTypeLoader")
           CType.empty

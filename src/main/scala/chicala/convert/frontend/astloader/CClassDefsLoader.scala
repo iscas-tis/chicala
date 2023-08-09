@@ -6,8 +6,8 @@ trait CClassDefsLoader { self: Scala2Reader =>
   val global: Global
   import global._
 
-  object CClassDef {
-    def apply(tree: Tree): Option[CClassDef] = {
+  object CClassDefLoader {
+    def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[CClassDef])] = {
       val someModuleDef = ModuleDefLoader(tree)
       val someBundleDef = BundleDefLoader(tree)
       someModuleDef match {
@@ -18,7 +18,7 @@ trait CClassDefsLoader { self: Scala2Reader =>
   }
 
   object ModuleDefLoader {
-    def apply(tree: Tree): Option[ModuleDef] = tree match {
+    def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[ModuleDef])] = tree match {
       // only Class inherits chisel3.Module directly
       case ClassDef(mods, name, tparams, Template(parents, self, body)) if parents.exists {
             case Select(Ident(TermName("chisel3")), TypeName("Module")) => true
@@ -26,16 +26,19 @@ trait CClassDefsLoader { self: Scala2Reader =>
           } =>
         val (cInfo, cBody): (CircuitInfo, List[MStatement]) =
           StatementReader.fromListTree(CircuitInfo(name), body)
-        Some(ModuleDef(name, cInfo.params.toList, cBody))
+        Some((cInfo.readerInfo, Some(ModuleDef(name, cInfo.params.toList, cBody))))
       case _ => None
     }
   }
 
   object BundleDefLoader {
-    def apply(tree: Tree): Option[BundleDef] = {
-      BundleDefLoader(CircuitInfo.empty, tree)
+    def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[BundleDef])] = {
+      BundleDefLoader(CircuitInfo.empty, tree) match {
+        case None                         => None
+        case Some((cInfo, someBundleDef)) => Some(cInfo.readerInfo, someBundleDef)
+      }
     }
-    def apply(cInfo: CircuitInfo, tree: Tree): Option[BundleDef] = {
+    def apply(cInfo: CircuitInfo, tree: Tree): Option[(CircuitInfo, Option[BundleDef])] = {
       tree match {
         // only Class inherits chisel3.Bundle directly
         case ClassDef(mods, name, tparams, Template(parents, self, body)) if parents.exists {
@@ -50,7 +53,7 @@ trait CClassDefsLoader { self: Scala2Reader =>
             }
             .flatten
             .toMap
-          Some(BundleDef(name, Bundle(Node, signals)))
+          Some((cInfo, Some(BundleDef(name, Bundle(Node, signals)))))
         case _ => None
       }
     }

@@ -18,19 +18,12 @@ trait ValDefsReader { self: Scala2Reader =>
             case a @ Apply(func, args) =>
               if (isModuleThisIO(func, cInfo)) {
                 // IoDef
-                val someBundleDef = args.head match {
-                  case Block(stats, expr) => BundleDefLoader(cInfo, stats.head)
-                  case _                  => None
-                }
-
-                val bundle  = someBundleDef.get.bundle.updatedPhysical(Io)
-                val newInfo = cInfo.updatedVal(name, bundle)
-                val ioDef   = IoDef(name, bundle)
-
-                Some((newInfo, Some(ioDef)))
+                Some(loadIoDef(cInfo, name, args))
               } else if (isChisel3WireApply(func)) {
+                // WireDef
                 Some(loadWireDef(cInfo, name, func, args))
               } else if (isChiselRegDefApply(func)) {
+                // RegDef
                 Some(loadRegDef(cInfo, name, func, args))
               } else {
                 // NodeDef
@@ -127,6 +120,34 @@ trait ValDefsReader { self: Scala2Reader =>
           None
       }
 
+    }
+
+    def loadIoDef(
+        cInfo: CircuitInfo,
+        name: TermName,
+        args: List[Tree]
+    ): (CircuitInfo, Option[IoDef]) = {
+      val someInfoAndDef = args.head match {
+        case Block(stats, expr) => BundleDefLoader(cInfo, stats.head)
+        case a @ Apply(Select(New(tpt), termNames.CONSTRUCTOR), aparams) =>
+          val className = tpt.toString()
+          if (cInfo.readerInfo.bundleDefs.contains(className))
+            Some((cInfo, Some(cInfo.readerInfo.bundleDefs(className))))
+          else
+            Some((cInfo.settedDependentClassNotDef, None))
+        case _ => None // this should not happed
+      }
+      val (tmpCInfo, someBundleDef) = someInfoAndDef.get
+
+      someBundleDef match {
+        case None => (tmpCInfo, None)
+        case Some(bundleDef) =>
+          val bundle  = bundleDef.bundle.updatedPhysical(Io)
+          val newInfo = tmpCInfo.updatedVal(name, bundle)
+          val ioDef   = IoDef(name, bundle)
+
+          (newInfo, Some(ioDef))
+      }
     }
 
     def loadWireDef(

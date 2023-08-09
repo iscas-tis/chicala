@@ -24,5 +24,7 @@ trait Scala2Reader
     with StatementsReader
     with ValDefsReader
     // util
+    with ReaderInfos
+    with CircuitInfos
     with ChiselAstCheck
     with Printer

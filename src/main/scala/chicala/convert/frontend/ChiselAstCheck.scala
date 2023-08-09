@@ -55,13 +55,21 @@ trait ChiselAstCheck { this: Scala2Reader =>
   }
 
   def isChiselType(tree: Tree): Boolean = {
+    val tpe     = tree.tpe
     val typeStr = tree.tpe.erasure.toString()
     List(
       "chisel3.UInt",
       "chisel3.SInt",
       "chisel3.Bool",
       "chisel3.Bundle"
-    ).contains(typeStr) || typeStr.startsWith("chisel3.Vec")
+    ).contains(typeStr) ||
+    typeStr.startsWith("chisel3.Vec") ||
+    (tpe match {
+      case tr @ TypeRef(pre, sym, args) =>
+        sym.asClass.baseClasses.map(_.toString()).contains("class Bundle")
+      case _ => false
+    })
+
   }
 
   def isChiselLiteralType(tree: Tree): Boolean = List(

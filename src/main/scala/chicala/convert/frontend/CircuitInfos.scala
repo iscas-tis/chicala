@@ -1,8 +1,8 @@
-package chicala.ast
+package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait CircuitInfos { self: ChicalaAst =>
+trait CircuitInfos { self: Scala2Reader =>
   val global: Global
   import global._
 
@@ -14,7 +14,9 @@ trait CircuitInfos { self: ChicalaAst =>
       /* use to record EnumDef  */
       val numTmp: Int,
       val enumTmp: Option[(TermName, EnumDef)],
-      val tupleTmp: Option[(TermName, SUnapplyDef)]
+      val tupleTmp: Option[(TermName, SUnapplyDef)],
+      /* info from compile plugin global*/
+      val readerInfo: ReaderInfo
   ) {
     def updatedParam(sValDef: SValDef): CircuitInfo =
       this.copy(params = params :+ sValDef)
@@ -77,31 +79,18 @@ trait CircuitInfos { self: ChicalaAst =>
         case Select(This(this.name), termName: TermName) => funcs(termName)
       }
     }
+
+    def settedDependentClassNotDef = copy(readerInfo = readerInfo.settedDependentClassNotDef)
+    def isDependentClassNotDef     = readerInfo.isDependentClassNotDef
+    def needExit                   = readerInfo.needExit
   }
 
   object CircuitInfo {
-    def apply(name: TypeName) = new CircuitInfo(name, List.empty, Map.empty, Map.empty, 0, None, None)
+    def apply(name: TypeName)(implicit readerInfo: ReaderInfo) =
+      new CircuitInfo(name, List.empty, Map.empty, Map.empty, 0, None, None, readerInfo)
 
-    def empty = new CircuitInfo(TypeName(""), List.empty, Map.empty, Map.empty, 0, None, None)
+    def empty(implicit readerInfo: ReaderInfo) =
+      new CircuitInfo(TypeName(""), List.empty, Map.empty, Map.empty, 0, None, None, readerInfo)
   }
 
-  case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
-    def ++(that: RelatedSignals): RelatedSignals = {
-      RelatedSignals(
-        this.fully ++ that.fully,
-        this.partially ++ that.partially,
-        this.dependency ++ that.dependency
-      )
-    }
-    def removedAll(set: IterableOnce[String]): RelatedSignals = {
-      RelatedSignals(
-        fully.removedAll(set),
-        partially.removedAll(set),
-        dependency.removedAll(set)
-      )
-    }
-  }
-  object RelatedSignals {
-    def empty = RelatedSignals(Set.empty, Set.empty, Set.empty)
-  }
 }

@@ -20,4 +20,24 @@ trait MTermImpls { self: ChicalaAst =>
   object MTerm {
     def empty = EmptyMTerm
   }
+
+  case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
+    def ++(that: RelatedSignals): RelatedSignals = {
+      RelatedSignals(
+        this.fully ++ that.fully,
+        this.partially ++ that.partially,
+        this.dependency ++ that.dependency
+      )
+    }
+    def removedAll(set: IterableOnce[String]): RelatedSignals = {
+      RelatedSignals(
+        fully.removedAll(set),
+        partially.removedAll(set),
+        dependency.removedAll(set)
+      )
+    }
+  }
+  object RelatedSignals {
+    def empty = RelatedSignals(Set.empty, Set.empty, Set.empty)
+  }
 }

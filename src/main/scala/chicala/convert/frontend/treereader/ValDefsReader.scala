@@ -53,13 +53,13 @@ trait ValDefsReader { self: Scala2Reader =>
               val num              = cInfo.numTmp - 1
               val sTupleUnapplyDef = stud.copy(names = stud.names :+ name)
               val tupleTmp         = (tn, sTupleUnapplyDef)
-              val newCInfo         = cInfo.updatedVal(name, MTypeLoader(tpt))
+              val newCInfo         = cInfo.updatedVal(name, MTypeLoader(tpt).get)
               if (num == 0)
                 Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
               else
                 Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
             case EmptyTree =>
-              val tpe      = CTypeLoader(tpt)
+              val tpe      = CTypeLoader(tpt).get
               val newCInfo = cInfo.updatedVal(name, tpe)
               val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
               Some((newCInfo, Some(nodeDef)))
@@ -106,7 +106,7 @@ trait ValDefsReader { self: Scala2Reader =>
         }
         case ValDef(mods, name, tpt, rhs) =>
           // SValDef
-          val tpe      = STypeLoader(tpt)
+          val tpe      = STypeLoader(tpt).get
           val newCInfo = cInfo.updatedVal(name, tpe)
           val r = MTermLoader(cInfo, rhs) match {
             case Some((_, Some(value))) => value
@@ -130,11 +130,12 @@ trait ValDefsReader { self: Scala2Reader =>
       val someInfoAndDef = args.head match {
         case Block(stats, expr) => BundleDefLoader(cInfo, stats.head)
         case a @ Apply(Select(New(tpt), termNames.CONSTRUCTOR), aparams) =>
-          val className = tpt.toString()
-          if (cInfo.readerInfo.bundleDefs.contains(className))
-            Some((cInfo, Some(cInfo.readerInfo.bundleDefs(className))))
-          else
-            Some((cInfo.settedDependentClassNotDef, None))
+          val className     = tpt.toString()
+          val someBundleDef = cInfo.readerInfo.bundleDefs.get(className)
+          someBundleDef match {
+            case Some(bundleDef) => Some((cInfo, Some(bundleDef)))
+            case None            => Some((cInfo.settedDependentClassNotDef, None))
+          }
         case _ => None // this should not happed
       }
       val (tmpCInfo, someBundleDef) = someInfoAndDef.get
@@ -158,7 +159,7 @@ trait ValDefsReader { self: Scala2Reader =>
     ): (CircuitInfo, Option[CValDef]) = {
       assert(args.length == 1, "should have only 1 arg in Wire()")
 
-      val cType   = CTypeLoader(cInfo, args.head).updatedPhysical(Wire)
+      val cType   = CTypeLoader(cInfo, args.head).get.updatedPhysical(Wire)
       val newInfo = cInfo.updatedVal(name, cType)
       (newInfo, Some(WireDef(name, cType)))
     }
@@ -171,7 +172,7 @@ trait ValDefsReader { self: Scala2Reader =>
       if (isChisel3RegApply(func)) {
         assert(args.length == 1, "should have only 1 arg in Reg()")
 
-        val signalInfo = CTypeLoader(cInfo, args.head).updatedPhysical(Reg)
+        val signalInfo = CTypeLoader(cInfo, args.head).get.updatedPhysical(Reg)
         val newCInfo   = cInfo.updatedVal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo)))
 

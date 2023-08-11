@@ -107,10 +107,10 @@ class Div(
     }
     when(divby0 && !isHi) { neg_out := false.B }
   }
-  when(io.resp.fire) {
+  when(io.resp.ready && io.resp.valid) {
     state := s_ready
   }
-  when(io.req.fire) {
+  when(io.req.ready && io.req.valid) {
     state     := Mux(lhs_sign || rhs_sign, s_neg_inputs, s_div)
     isHi      := cmdHi
     resHi     := false.B

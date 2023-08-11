@@ -33,7 +33,8 @@ trait CClassDefsLoader { self: Scala2Reader =>
 
   object BundleDefLoader {
     def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[BundleDef])] = {
-      BundleDefLoader(CircuitInfo.empty, tree) match {
+      val name = tree.asInstanceOf[ClassDef].name
+      BundleDefLoader(CircuitInfo(name), tree) match {
         case None                         => None
         case Some((cInfo, someBundleDef)) => Some(cInfo.readerInfo, someBundleDef)
       }
@@ -45,15 +46,28 @@ trait CClassDefsLoader { self: Scala2Reader =>
               case Select(Ident(TermName("chisel3")), TypeName("Bundle")) => true
               case _                                                      => false
             } =>
-          val signals = body
-            .map {
-              case ValDef(mods, name, tpt, rhs) =>
-                Some((name.stripSuffix(" "), CTypeLoader(cInfo, rhs)))
-              case _ => None
+          val (newCInfo, signals): (CircuitInfo, Map[TermName, CType]) =
+            body.foldLeft((cInfo, Map.empty[TermName, CType])) { case ((nowCInfo, nowSet), tr) =>
+              if (nowCInfo.needExit) (nowCInfo, nowSet)
+              else
+                tr match {
+                  case ValDef(mods, nameTmp, tpt, rhs) =>
+                    val name = nameTmp.stripSuffix(" ")
+                    if (isChiselType(tpt)) {
+                      CTypeLoader(nowCInfo, rhs) match {
+                        case Some(cType) => (nowCInfo, nowSet + (name -> cType))
+                        case None        => (nowCInfo.settedDependentClassNotDef, nowSet)
+                      }
+                    } else
+                      ValDefReader(nowCInfo, tr) match {
+                        case Some((nCInfo, _)) => (nCInfo, nowSet)
+                        case None              => (nowCInfo, nowSet)
+                      }
+                  case _ => (nowCInfo, nowSet)
+                }
             }
-            .flatten
-            .toMap
-          Some((cInfo, Some(BundleDef(name, Bundle(Node, signals)))))
+
+          Some((newCInfo, Some(BundleDef(name, Bundle(Node, signals)))))
         case _ => None
       }
     }

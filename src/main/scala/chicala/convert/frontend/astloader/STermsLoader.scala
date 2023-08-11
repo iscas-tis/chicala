@@ -31,7 +31,7 @@ trait STermsLoader { self: Scala2Reader =>
         case Apply(fun, args) =>
           val sTerm = STermLoader(cInfo, fun).get._2.get
           val mArgs = args.map(MTermLoader(cInfo, _).get._2.get)
-          Some((cInfo, Some(SApply(sTerm, mArgs, MTypeLoader(tpt)))))
+          Some((cInfo, Some(SApply(sTerm, mArgs, MTypeLoader(tpt).get))))
         case _ => None
       }
     }

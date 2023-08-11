@@ -32,7 +32,7 @@ trait CTermsLoader { self: Scala2Reader =>
           val opName = name.toString()
           COpLoader(opName) match {
             case Some(op) =>
-              val tpe = CTypeLoader(tpt).setInferredWidth
+              val tpe = CTypeLoader(tpt).get.setInferredWidth
               Some((cInfo, Some(CApply(op, tpe, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
             case None =>
               unprocessedTree(tr, "CApplyLoader")
@@ -43,7 +43,7 @@ trait CTermsLoader { self: Scala2Reader =>
           val fName = f.toString()
           COpLoader(fName) match {
             case Some(op) =>
-              val tpe = CTypeLoader(tpt).setInferredWidth
+              val tpe = CTypeLoader(tpt).get.setInferredWidth
               Some((cInfo, Some(CApply(op, tpe, args.map(MTermLoader(cInfo, _).get._2.get)))))
             case None => None
           }

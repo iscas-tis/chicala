@@ -31,7 +31,7 @@ trait CTypesLoader { self: Scala2Reader =>
     private def getVecArgs(cInfo: CircuitInfo, args: List[Tree]): (CSize, CType) = {
       if (args.length == 2) {
         val size      = KnownSize(STermLoader(cInfo, args.head).get._2.get)
-        val cDataType = CTypeLoader(cInfo, args.tail.head)
+        val cDataType = CTypeLoader(cInfo, args.tail.head).get
         (size, cDataType)
       } else {
         reporter.error(args.head.pos, "Unknow arg of Vec")
@@ -48,17 +48,14 @@ trait CTypesLoader { self: Scala2Reader =>
       }
     }
 
-    def apply(tree: TypeTree): CType = {
-      fromString(tree.tpe.toString()) match {
-        case Some(value) =>
-          value
-        case None =>
-          reporter.error(tree.pos, "unknow data type in CTypeLoader.apply(tree)")
-          CType.empty
-      }
+    def apply(tree: TypeTree): Option[CType] = {
+      val someCType = fromString(tree.tpe.toString())
+      if (someCType.isEmpty)
+        reporter.error(tree.pos, "unknow data type in CTypeLoader.apply(tree)")
+      someCType
     }
 
-    def apply(cInfo: CircuitInfo, tr: Tree): CType = {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[CType] = {
       val tree = passThrough(tr)._1
       tree match {
         case Apply(fun, args) =>
@@ -67,49 +64,54 @@ trait CTypesLoader { self: Scala2Reader =>
             /* Apply(<Input(_)>, List(<UInt(width.W)>)) */
             case Some(direction) =>
               val tpe = CTypeLoader(cInfo, args.head)
-              tpe.updatedDriction(direction)
+              tpe.map(_.updatedDriction(direction))
 
             /* Apply(<UInt(_)>, List(<width.W>)) */
+            /* Apply(<new SomeBundle(_)>, List(<args>)) */
             case None =>
               val f = passThrough(fun)._1
               f match {
                 case Select(Select(cp, name), TermName("apply")) if isChisel3Package(cp) =>
                   val width = getWidth(cInfo, args)
                   name match {
-                    case TermName("UInt") => UInt.empty.updatedWidth(width)
-                    case TermName("SInt") => SInt.empty.updatedWidth(width)
-                    case TermName("Bool") => Bool.empty
+                    case TermName("UInt") => Some(UInt.empty.updatedWidth(width))
+                    case TermName("SInt") => Some(SInt.empty.updatedWidth(width))
+                    case TermName("Bool") => Some(Bool.empty)
                     case TermName("Vec") =>
                       val (size, cType) = getVecArgs(cInfo, args)
-                      Vec(size, Node, cType) // size
+                      Some(Vec(size, Node, cType))
                     case _ =>
-                      unprocessedTree(f, "CTypeLoader")
-                      CType.empty
+                      unprocessedTree(f, "CTypeLoader #1")
+                      Some(CType.empty)
                   }
+                case Select(New(tpt), termNames.CONSTRUCTOR) =>
+                  val className     = tpt.toString()
+                  val someBundleDef = cInfo.readerInfo.bundleDefs.get(className)
+                  someBundleDef.map(_.bundle)
                 case _ =>
-                  unprocessedTree(f, "CTypeLoader")
-                  CType.empty
+                  unprocessedTree(f, "CTypeLoader #2")
+                  Some(CType.empty)
               }
           }
 
         case Block(stats, _) =>
-          BundleDefLoader(cInfo, stats.head).get._2.get.bundle
+          Some(BundleDefLoader(cInfo, stats.head).get._2.get.bundle)
         case _ =>
-          unprocessedTree(tree, "CTypeLoader")
-          CType.empty
+          errorTree(tree, "CTypeLoader #3")
+          Some(CType.empty)
       }
     }
   }
 
   object STypeLoader {
 
-    def apply(tr: Tree): SType = {
+    def apply(tr: Tree): Option[SType] = {
       if (isScala2TupleType(tr)) {
-        StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x))))
+        Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x)).get)))
       } else if ("""(.*): .*""".r.matches(tr.tpe.toString())) {
-        StFunc
+        Some(StFunc)
       } else {
-        tr.tpe.erasure.toString() match {
+        Some(tr.tpe.erasure.toString() match {
           case "Int"               => StInt
           case "String"            => StString
           case "scala.math.BigInt" => StBigInt
@@ -117,18 +119,19 @@ trait CTypesLoader { self: Scala2Reader =>
           case _ =>
             errorTree(tr, s"Unknow type `${tr.tpe.erasure}`")
             StInt
-        }
+        })
       }
     }
   }
 
   object MTypeLoader {
-    def apply(tr: TypeTree): MType = {
+    def apply(tr: TypeTree): Option[MType] = {
       if (isChiselType(tr)) CTypeLoader(tr)
       else STypeLoader(tr)
     }
-    def apply(cInfo: CircuitInfo, tr: Tree): MType = {
-      if (isChiselType(tr)) CTypeLoader(cInfo, tr)
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[MType] = {
+      if (isChiselType(tr))
+        CTypeLoader(cInfo, tr)
       else STypeLoader(tr)
     }
   }

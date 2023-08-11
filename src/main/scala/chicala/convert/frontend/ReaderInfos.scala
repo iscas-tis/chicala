@@ -9,14 +9,18 @@ trait ReaderInfos { this: Scala2Reader =>
   case class ReaderInfo(
       moduleDefs: Map[String, ModuleDef],
       bundleDefs: Map[String, BundleDef],
-      todos: List[Tree],
+      todos: List[(Tree, String)],
       dependentClassNotDef: Boolean
   ) {
     def settedDependentClassNotDef  = copy(dependentClassNotDef = true)
     def clearedDependentClassNotDef = copy(dependentClassNotDef = false)
     def isDependentClassNotDef      = dependentClassNotDef
 
-    def addedTodo(tree: Tree) = copy(todos = todos.appended(tree))
+    def addedModuleDef(moduleDef: ModuleDef) =
+      copy(moduleDefs = moduleDefs + (moduleDef.name.toString() -> moduleDef))
+    def addedBundleDef(bundleDef: BundleDef) =
+      copy(bundleDefs = bundleDefs + (bundleDef.name.toString() -> bundleDef))
+    def addedTodo(tree: Tree, packageName: String) = copy(todos = todos.appended((tree, packageName)))
 
     def needExit = isDependentClassNotDef
   }

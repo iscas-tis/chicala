@@ -18,7 +18,7 @@ trait SelectsReader { self: Scala2Reader =>
             if (isChiselType(qualifier)) {
               COpLoader(name.toString()) match {
                 case Some(op) =>
-                  Some((cInfo, Some(CApply(op, CTypeLoader(tpt), List(MTermLoader(cInfo, qualifier).get._2.get)))))
+                  Some((cInfo, Some(CApply(op, CTypeLoader(tpt).get, List(MTermLoader(cInfo, qualifier).get._2.get)))))
                 case None =>
                   if (isChiselType(s))
                     Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
@@ -42,11 +42,11 @@ trait SelectsReader { self: Scala2Reader =>
               Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
             }
           } else {
-            val tpe = MTypeLoader(tpt)
+            val tpe = MTypeLoader(tpt).get
             qualifier match {
               case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
               case Ident(innerName: TermName) =>
-                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier)), name, tpe))))
+                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier).get), name, tpe))))
               case t =>
                 Some(
                   (

@@ -36,7 +36,7 @@ trait DefDefsReader { self: Scala2Reader =>
                   SBlock(List(mTerm), mTerm.tpe)
               }
               assert(body.body.nonEmpty, s"function $name should have body")
-              val tpe = MTypeLoader(tpt)
+              val tpe = MTypeLoader(tpt).get
               Some((cInfo.updatedFunc(name, tpe), Some(SDefDef(name, vpss, tpe, body))))
             }
           }

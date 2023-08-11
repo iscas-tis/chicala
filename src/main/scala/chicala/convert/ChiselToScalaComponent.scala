@@ -9,6 +9,7 @@ import java.io._
 
 import chicala.util.Format
 import chicala.convert.frontend.Scala2Reader
+import chicala.util.Printer
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
@@ -40,7 +41,8 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
 
     override def run(): Unit = {
       super.run()
-      readerInfo.todos.foreach(t => reporter.error(t.pos, "This class not processed"))
+      processTodos()
+      readerInfo.todos.foreach { case (t, pname) => reporter.error(t.pos, "This class not processed") }
     }
 
     def apply(unit: CompilationUnit): Unit = {
@@ -75,11 +77,10 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
 
           if (newRInfo.needExit) {
             if (newRInfo.isDependentClassNotDef) {
-              readerInfo = newRInfo.clearedDependentClassNotDef.addedTodo(tree)
+              readerInfo = newRInfo.clearedDependentClassNotDef.addedTodo(tree, packageName)
             }
             if (readerInfo.needExit == true)
               reporter.error(tree.pos, "Unknown error in ChiselToScalaPhase #2")
-            reporter.echo(s"`${name}` has undefined dependent Class, convert later.")
             return
           }
 
@@ -94,6 +95,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
 
               val sortedCClassDef = cClassDef match {
                 case m @ ModuleDef(name, info, body) =>
+                  readerInfo = readerInfo.addedModuleDef(m)
                   Format.saveToFile(
                     testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
                     body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
@@ -104,12 +106,26 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                     sorted.get.toString
                   )
                   sorted
-                case b: BundleDef => b
+                case b: BundleDef =>
+                  readerInfo = readerInfo.addedBundleDef(b)
+                  b
               }
+
           }
 
       }
     }
+
+    def processTodos(): Unit = {
+      var lastNum = readerInfo.todos.size + 1
+      while (readerInfo.todos.size > 0 && lastNum > readerInfo.todos.size) {
+        val todos = readerInfo.todos
+        lastNum = todos.size
+        readerInfo = readerInfo.copy(todos = List.empty)
+        todos.foreach { case (t, pname) => applyOnTree(t, pname) }
+      }
+    }
+
   }
 
 }

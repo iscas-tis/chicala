@@ -17,8 +17,16 @@ class MultiplierResp(dataBits: Int, tagBits: Int) extends Bundle {
 }
 
 class MultiplierIO(val dataBits: Int, val tagBits: Int) extends Bundle {
-  val req  = Flipped(Decoupled(new MultiplierReq(dataBits, tagBits)))
-  val resp = Decoupled(new MultiplierResp(dataBits, tagBits))
+  val req = Flipped(new Bundle {
+    val ready = Input(Bool())
+    val valid = Output(Bool())
+    val bits  = Output(new MultiplierReq(dataBits, tagBits))
+  })
+  val resp = new Bundle {
+    val ready = Input(Bool())
+    val valid = Output(Bool())
+    val bits  = Output(new MultiplierResp(dataBits, tagBits))
+  }
 }
 
 class Mul(
@@ -112,10 +120,10 @@ class Mul(
       resHi := isHi
     }
   }
-  when(io.resp.fire) {
+  when(io.resp.ready && io.resp.valid) {
     state := s_ready
   }
-  when(io.req.fire) {
+  when(io.req.ready && io.req.valid) {
     state     := Mux(cmdMul, s_mul, s_ready)
     isHi      := cmdHi
     resHi     := false.B

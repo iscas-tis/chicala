@@ -64,6 +64,9 @@ trait ChiselAstCheck { this: Scala2Reader =>
     case _ => false
   }
 
+  def isChisel3UtilSwitchContextType(tree: Tree): Boolean =
+    """chisel3.util.SwitchContext\[.*\]""".r.matches(tree.tpe.toString())
+
   def isChiselType(tree: Tree): Boolean = {
     val tpe     = tree.tpe
     val typeStr = tree.tpe.erasure.toString()

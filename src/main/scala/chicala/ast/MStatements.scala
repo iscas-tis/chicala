@@ -31,8 +31,12 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   ) extends CTerm
       with WhenImpl
   case class Assert(exp: MTerm) extends CTerm with AssertImpl
-  case class Switch()           extends CTerm with SwitchImpl
-  case class SubModuleRun()     extends CTerm with SubModuleRunImpl
+  case class Switch(
+      cond: MTerm,
+      branchs: List[(MTerm, List[MStatement])]
+  ) extends CTerm
+      with SwitchImpl
+  case class SubModuleRun() extends CTerm with SubModuleRunImpl
 
   // STerm
   sealed abstract class STerm                                         extends MTerm

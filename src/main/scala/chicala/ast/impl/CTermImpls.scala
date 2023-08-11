@@ -50,6 +50,9 @@ trait CTermImpls { self: ChicalaAst =>
   }
   trait SwitchImpl { self: Switch =>
     val tpe = EmptyMType
+    def appended(v: MTerm, body: List[MStatement]): Switch = {
+      this.copy(branchs = branchs.appended((v, body)))
+    }
   }
   trait SubModuleRunImpl { self: SubModuleRun =>
     val tpe = EmptyMType

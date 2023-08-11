@@ -99,13 +99,39 @@ trait CTermsLoader { self: Scala2Reader =>
     }
   }
 
+  object SwitchLoader extends MTermLoader {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Switch])] = {
+      val (tree, tpt) = passThrough(tr)
+      if (!isChisel3UtilSwitchContextType(tpt)) return None
+
+      tree match {
+        case Apply(Apply(Select(qualifier, TermName("is")), vArgs), bodyArgs) =>
+          val switch = SwitchLoader(cInfo, qualifier).get._2.get
+
+          val v = MTermLoader(cInfo, vArgs.head).get._2.get
+          val body = MTermLoader(cInfo, bodyArgs.head).get._2.get match {
+            case SBlock(body, _) => body
+            case x               => List(x)
+          }
+          Some((cInfo, Some(switch.appended(v, body))))
+        case Apply(Select(New(t), termNames.CONSTRUCTOR), args) if isChisel3UtilSwitchContextType(t) =>
+          val cond = MTermLoader(cInfo, args.head).get._2.get
+          Some((cInfo, Some(Switch(cond, List.empty))))
+        case _ =>
+          errorTree(tr, "Unknow structure in SwitchLoader")
+          None
+      }
+
+    }
+  }
+
   object AssertLoader extends MTermLoader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Assert])] = {
       val (tree, _) = passThrough(tr)
       if (isReturnAssert(tree)) {
         tree match {
           case Apply(Ident(TermName("_applyWithSourceLinePrintable")), args) =>
-            Some(cInfo, Some(Assert(StatementReader(cInfo, args.head).get._2.get.asInstanceOf[MTerm])))
+            Some(cInfo, Some(Assert(MTermLoader(cInfo, args.head).get._2.get)))
           case _ => None
         }
       } else None

@@ -52,13 +52,13 @@ class Mul(
 
   val state = RegInit(s_ready)
 
-  val req       = Reg(chiselTypeOf(io.req.bits))
+  val req       = Reg(new MultiplierReq(width, log2Up(nXpr)))
   val count     = Reg(UInt(log2Ceil(mulw / mulUnroll).W))
   val neg_out   = Reg(Bool())
   val isHi      = Reg(Bool())
   val resHi     = Reg(Bool())
-  val divisor   = Reg(Bits((w + 1).W))        // div only needs w bits
-  val remainder = Reg(Bits((2 * mulw + 2).W)) // div only needs 2*w+1 bits
+  val divisor   = Reg(UInt((w + 1).W))        // div only needs w bits
+  val remainder = Reg(UInt((2 * mulw + 2).W)) // div only needs 2*w+1 bits
 
   val cmdMul, cmdHi, lhsSigned, rhsSigned = WireInit(false.B)
   if (mulUnroll != 0) {
@@ -75,7 +75,7 @@ class Mul(
   require(w == 32 || w == 64)
   def halfWidth(req: MultiplierReq) = (w > 32).B && req.dw === false.B
 
-  def sext(x: Bits, halfW: Bool, signed: Bool) = {
+  def sext(x: UInt, halfW: Bool, signed: Bool) = {
     val sign = signed && Mux(halfW, x(w / 2 - 1), x(w - 1))
     val hi   = Mux(halfW, Fill(w / 2, sign), x(w - 1, w / 2))
     (Cat(hi, x(w / 2 - 1, 0)), sign)

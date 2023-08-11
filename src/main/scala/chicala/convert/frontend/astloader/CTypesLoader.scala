@@ -111,15 +111,15 @@ trait CTypesLoader { self: Scala2Reader =>
       } else if ("""(.*): .*""".r.matches(tr.tpe.toString())) {
         Some(StFunc)
       } else {
-        Some(tr.tpe.erasure.toString() match {
-          case "Int"               => StInt
-          case "String"            => StString
-          case "scala.math.BigInt" => StBigInt
-          case "Boolean"           => StBoolean
+        tr.tpe.erasure.toString() match {
+          case "Int"               => Some(StInt)
+          case "String"            => Some(StString)
+          case "scala.math.BigInt" => Some(StBigInt)
+          case "Boolean"           => Some(StBoolean)
           case _ =>
             errorTree(tr, s"Unknow type `${tr.tpe.erasure}`")
-            StInt
-        })
+            None
+        }
       }
     }
   }

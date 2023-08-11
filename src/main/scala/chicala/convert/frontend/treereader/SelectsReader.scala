@@ -7,7 +7,7 @@ trait SelectsReader { self: Scala2Reader =>
   import global._
 
   object SelectReader {
-    val sLibs: List[String] = List("scala.`package`.BigInt.apply")
+    val sLibs: List[String] = List("scala.`package`.BigInt.apply", "chisel3.util.log2Ceil.apply")
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
@@ -51,7 +51,7 @@ trait SelectsReader { self: Scala2Reader =>
                 Some(
                   (
                     cInfo,
-                    Some(SSelect(STermLoader(cInfo, t).get._2.get, name, tpe))
+                    Some(SSelect(MTermLoader(cInfo, t).get._2.get, name, tpe))
                   )
                 )
             }

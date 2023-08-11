@@ -113,6 +113,14 @@ trait CTermsLoader { self: Scala2Reader =>
   }
 
   object LitLoader extends MTermLoader {
+    private def nameToSomeLitGen(name: Name): (STerm, CSize) => Option[Lit] = {
+      name.toString() match {
+        case "U" => (litExp, width) => Some(Lit(litExp, UInt(width, Node, Undirect)))
+        case "S" => (litExp, width) => Some(Lit(litExp, SInt(width, Node, Undirect)))
+        case "B" => (litExp, width) => Some(Lit(litExp, Bool(Node, Undirect)))
+        case _   => (litExp, width) => None
+      }
+    }
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Lit])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
@@ -124,11 +132,22 @@ trait CTermsLoader { self: Scala2Reader =>
             case k: KnownSize => k
             case _            => InferredSize
           }
+          nameToSomeLitGen(name)(litExp, width) match {
+            case Some(lit) => Some((cInfo, Some(lit)))
+            case None =>
+              errorTree(tree, "Unknow name in CExp")
+              None
+          }
 
-          name.toString() match {
-            case "U" => Some((cInfo, Some(Lit(litExp, UInt(width, Node, Undirect))))) // width
-            case "S" => Some((cInfo, Some(Lit(litExp, SInt(width, Node, Undirect))))) // width
-            case _ =>
+        }
+        case Select(qualifier, name) if isChiselLiteralType(qualifier) => {
+          // someInt.U without width
+          val litTree = qualifier.asInstanceOf[Apply].args.head
+          val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
+
+          nameToSomeLitGen(name)(litExp, InferredSize) match {
+            case Some(lit) => Some((cInfo, Some(lit)))
+            case None =>
               errorTree(tree, "Unknow name in CExp")
               None
           }

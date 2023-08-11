@@ -57,8 +57,13 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
 
   sealed abstract class CValDef extends MValDef with CValDefImpl
 
-  case class IoDef(name: TermName, tpe: CType)   extends CValDef with IoDefImpl
-  case class WireDef(name: TermName, tpe: CType) extends CValDef with WireDefImpl
+  case class IoDef(name: TermName, tpe: CType) extends CValDef with IoDefImpl
+  case class WireDef(
+      name: TermName,
+      tpe: CType,
+      someInit: Option[MTerm] = None
+  ) extends CValDef
+      with WireDefImpl
   case class RegDef(
       name: TermName,
       tpe: CType,

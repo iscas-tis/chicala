@@ -29,7 +29,10 @@ trait MDefImpls { self: ChicalaAst =>
     )
   }
   trait WireDefImpl { self: WireDef =>
-    override val relatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty)
+    override val relatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty) ++
+      someInit
+        .map(_.relatedSignals)
+        .getOrElse(RelatedSignals.empty)
   }
   trait RegDefImpl { self: RegDef =>
     override val relatedSignals = {

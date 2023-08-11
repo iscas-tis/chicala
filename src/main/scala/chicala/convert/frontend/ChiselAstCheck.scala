@@ -11,17 +11,23 @@ trait ChiselAstCheck { this: Scala2Reader =>
   def isChisel3WhenApply(tree: Tree): Boolean = tree.toString() == "chisel3.when.apply"
 
   def isChiselWireDefApply(tree: Tree): Boolean = List(
-    isChisel3WireApply(_)
+    isChisel3WireApply(_),
+    isChisel3WireInitApply(_)
   ).exists(_(tree))
-  def isChisel3WireApply(tree: Tree): Boolean = passThrough(tree)._1.toString() == "chisel3.Wire.apply"
+  def isChisel3WireApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.Wire.apply"
+  def isChisel3WireInitApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.`package`.WireInit.apply"
 
   def isChiselRegDefApply(tree: Tree): Boolean = List(
     isChisel3RegApply(_),
     isChisel3RegInitApply(_),
     isChisel3UtilRegEnableApply(_)
   ).exists(_(tree))
-  def isChisel3RegApply(tree: Tree): Boolean     = passThrough(tree)._1.toString() == "chisel3.Reg.apply"
-  def isChisel3RegInitApply(tree: Tree): Boolean = passThrough(tree)._1.toString() == "chisel3.RegInit.apply"
+  def isChisel3RegApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.Reg.apply"
+  def isChisel3RegInitApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.RegInit.apply"
   def isChisel3UtilRegEnableApply(tree: Tree): Boolean =
     passThrough(tree)._1.toString() == "chisel3.util.RegEnable.apply"
 
@@ -32,6 +38,10 @@ trait ChiselAstCheck { this: Scala2Reader =>
   def isChisel3FromStringToLiteralType(tree: Tree): Boolean = List(
     "chisel3.fromStringToLiteral",
     "chisel3.package.fromStringToLiteral"
+  ).contains(tree.tpe.toString())
+  def isChisel3FromBooleanToLiteralType(tree: Tree): Boolean = List(
+    "chisel3.fromBooleanToLiteral",
+    "chisel3.package.fromBooleanToLiteral"
   ).contains(tree.tpe.toString())
 
   def isChisel3UtilEnumApply(tree: Tree): Boolean = tree.toString() == "chisel3.util.Enum.apply"
@@ -74,7 +84,8 @@ trait ChiselAstCheck { this: Scala2Reader =>
 
   def isChiselLiteralType(tree: Tree): Boolean = List(
     isChisel3FromIntToLiteralType(_),
-    isChisel3FromStringToLiteralType(_)
+    isChisel3FromStringToLiteralType(_),
+    isChisel3FromBooleanToLiteralType(_)
   ).exists(_(tree))
 
   /** pass through all unneed AST

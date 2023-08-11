@@ -19,7 +19,7 @@ trait ValDefsReader { self: Scala2Reader =>
               if (isModuleThisIO(func, cInfo)) {
                 // IoDef
                 Some(loadIoDef(cInfo, name, args))
-              } else if (isChisel3WireApply(func)) {
+              } else if (isChiselWireDefApply(func)) {
                 // WireDef
                 Some(loadWireDef(cInfo, name, func, args))
               } else if (isChiselRegDefApply(func)) {
@@ -158,10 +158,20 @@ trait ValDefsReader { self: Scala2Reader =>
         args: List[Tree]
     ): (CircuitInfo, Option[CValDef]) = {
       assert(args.length == 1, "should have only 1 arg in Wire()")
+      if (isChisel3WireApply(func)) {
+        val cType   = CTypeLoader(cInfo, args.head).get.updatedPhysical(Wire)
+        val newInfo = cInfo.updatedVal(name, cType)
+        (newInfo, Some(WireDef(name, cType)))
+      } else if (isChisel3WireInitApply(func)) {
+        val init    = MTermLoader(cInfo, args.head).get._2.get
+        val cType   = init.tpe.asInstanceOf[CType].updatedPhysical(Wire)
+        val newInfo = cInfo.updatedVal(name, cType)
+        (newInfo, Some(WireDef(name, cType, Some(init))))
+      } else {
+        reporter.error(func.pos, "Unknow WireDef function")
+        (cInfo, None)
+      }
 
-      val cType   = CTypeLoader(cInfo, args.head).get.updatedPhysical(Wire)
-      val newInfo = cInfo.updatedVal(name, cType)
-      (newInfo, Some(WireDef(name, cType)))
     }
     def loadRegDef(
         cInfo: CircuitInfo,

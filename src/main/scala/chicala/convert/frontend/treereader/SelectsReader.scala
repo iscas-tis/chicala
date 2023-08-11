@@ -28,16 +28,7 @@ trait SelectsReader { self: Scala2Reader =>
                   }
               }
             } else if (isChiselLiteralType(qualifier)) {
-              val litTree = qualifier.asInstanceOf[Apply].args.head
-              val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
-
-              name.toString() match {
-                case "U" => Some((cInfo, Some(Lit(litExp, UInt(InferredSize, Node, Undirect)))))
-                case "S" => Some((cInfo, Some(Lit(litExp, SInt(InferredSize, Node, Undirect)))))
-                case _ =>
-                  reporter.error(tree.pos, s"Unknow name in CExp ${name}")
-                  None
-              }
+              LitLoader(cInfo, tr)
             } else {
               Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
             }

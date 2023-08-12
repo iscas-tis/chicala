@@ -82,7 +82,7 @@ trait ChiselAstCheck { this: Scala2Reader =>
       "chisel3.Data"
     ).contains(typeStr) ||
     typeStr.startsWith("chisel3.Vec") ||
-    (tpe match {
+    List(tpe, tpe.erasure).exists({
       case tr @ TypeRef(pre, sym, args) =>
         sym.asClass.baseClasses.map(_.toString()).contains("class Bundle")
       case _ => false

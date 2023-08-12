@@ -112,10 +112,11 @@ trait CTypesLoader { self: Scala2Reader =>
         Some(StFunc)
       } else {
         tr.tpe.erasure.toString() match {
-          case "Int"               => Some(StInt)
-          case "String"            => Some(StString)
-          case "scala.math.BigInt" => Some(StBigInt)
-          case "Boolean"           => Some(StBoolean)
+          case "Int"                     => Some(StInt)
+          case "String"                  => Some(StString)
+          case "scala.math.BigInt"       => Some(StBigInt)
+          case "Boolean"                 => Some(StBoolean)
+          case "scala.runtime.BoxedUnit" => Some(StUnit)
           case _ =>
             errorTree(tr, s"Unknow type `${tr.tpe.erasure}`")
             None

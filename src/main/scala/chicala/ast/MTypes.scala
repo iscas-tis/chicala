@@ -48,6 +48,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object StBoolean                    extends SType
   case class StTuple(tparams: List[MType]) extends SType
   case object StFunc                       extends SType
+  case object StUnit                       extends SType
 
   case object EmptyMType extends MType
 

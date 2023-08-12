@@ -72,16 +72,16 @@ class Mul(
     }
   }
 
-  require(w == 32 || w == 64)
-  def halfWidth(req: MultiplierReq) = (w > 32).B && req.dw === false.B
+  // require(w == 32 || w == 64)
+  def halfWidth(reqDw: UInt) = (w > 32).B && reqDw === false.B
 
   def sext(x: UInt, halfW: Bool, signed: Bool) = {
     val sign = signed && Mux(halfW, x(w / 2 - 1), x(w - 1))
     val hi   = Mux(halfW, Fill(w / 2, sign), x(w - 1, w / 2))
     (Cat(hi, x(w / 2 - 1, 0)), sign)
   }
-  val (lhs_in, lhs_sign) = sext(io.req.bits.in1, halfWidth(io.req.bits), lhsSigned)
-  val (rhs_in, rhs_sign) = sext(io.req.bits.in2, halfWidth(io.req.bits), rhsSigned)
+  val (lhs_in, lhs_sign) = sext(io.req.bits.in1, halfWidth(io.req.bits.dw), lhsSigned)
+  val (rhs_in, rhs_sign) = sext(io.req.bits.in2, halfWidth(io.req.bits.dw), rhsSigned)
 
   val subtractor        = remainder(2 * w, w) - divisor
   val result            = Mux(resHi, remainder(2 * w, w + 1), remainder(w - 1, 0))
@@ -127,7 +127,7 @@ class Mul(
     state     := Mux(cmdMul, s_mul, s_ready)
     isHi      := cmdHi
     resHi     := false.B
-    count     := (if (fastMulW) Mux[UInt](cmdMul && halfWidth(io.req.bits), (w / mulUnroll / 2).U, 0.U) else 0.U)
+    count     := (if (fastMulW) Mux[UInt](cmdMul && halfWidth(io.req.bits.dw), (w / mulUnroll / 2).U, 0.U) else 0.U)
     neg_out   := Mux(cmdHi, lhs_sign, lhs_sign =/= rhs_sign)
     divisor   := Cat(rhs_sign, rhs_in)
     remainder := lhs_in
@@ -135,8 +135,8 @@ class Mul(
   }
 
   val outMul = (state & (s_done_mul)) === (s_done_mul)
-  val loOut  = Mux(fastMulW.B && halfWidth(req) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0))
-  val hiOut  = Mux(halfWidth(req), Fill(w / 2, loOut(w / 2 - 1)), result(w - 1, w / 2))
+  val loOut  = Mux(fastMulW.B && halfWidth(req.dw) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0))
+  val hiOut  = Mux(halfWidth(req.dw), Fill(w / 2, loOut(w / 2 - 1)), result(w - 1, w / 2))
   io.resp.bits.tag := req.tag
 
   io.resp.bits.data := Cat(hiOut, loOut)

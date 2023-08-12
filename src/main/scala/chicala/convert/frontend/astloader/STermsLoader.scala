@@ -17,7 +17,10 @@ trait STermsLoader { self: Scala2Reader =>
       val (tree, tpt) = passThrough(tr)
       tree match {
         case Apply(fun, args) if isScala2TupleApply(fun) =>
-          val sTuple = STuple(args.map(MTermLoader(cInfo, _).get._2.get), MTypeLoader(tpt).asInstanceOf[StTuple])
+          val sTuple = STuple(
+            args.map(MTermLoader(cInfo, _).get._2.get),
+            MTypeLoader(tpt).get.asInstanceOf[StTuple]
+          )
           Some(cInfo, Some(sTuple))
         case _ => None
       }

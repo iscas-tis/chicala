@@ -35,7 +35,7 @@ trait CTermsLoader { self: Scala2Reader =>
               val tpe = CTypeLoader(tpt).get.setInferredWidth
               Some((cInfo, Some(CApply(op, tpe, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
             case None =>
-              unprocessedTree(tr, "CApplyLoader")
+              unprocessedTree(tr, s"CApplyLoader `${opName}`")
               None
           }
         case a @ Apply(fun, args) => {

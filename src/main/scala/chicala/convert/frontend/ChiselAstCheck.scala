@@ -43,6 +43,10 @@ trait ChiselAstCheck { this: Scala2Reader =>
     "chisel3.fromBooleanToLiteral",
     "chisel3.package.fromBooleanToLiteral"
   ).contains(tree.tpe.toString())
+  def isChisel3FromBigIntToLiteralType(tree: Tree): Boolean = List(
+    "chisel3.fromBigIntToLiteral",
+    "chisel3.package.fromBigIntToLiteral"
+  ).contains(tree.tpe.toString())
 
   def isChisel3UtilEnumApply(tree: Tree): Boolean = tree.toString() == "chisel3.util.Enum.apply"
 
@@ -88,7 +92,8 @@ trait ChiselAstCheck { this: Scala2Reader =>
   def isChiselLiteralType(tree: Tree): Boolean = List(
     isChisel3FromIntToLiteralType(_),
     isChisel3FromStringToLiteralType(_),
-    isChisel3FromBooleanToLiteralType(_)
+    isChisel3FromBooleanToLiteralType(_),
+    isChisel3FromBigIntToLiteralType(_)
   ).exists(_(tree))
 
   /** pass through all unneed AST

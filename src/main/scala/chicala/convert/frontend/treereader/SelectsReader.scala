@@ -7,7 +7,12 @@ trait SelectsReader { self: Scala2Reader =>
   import global._
 
   object SelectReader {
-    val sLibs: List[String] = List("scala.`package`.BigInt.apply", "chisel3.util.log2Ceil.apply")
+    val sLibs: List[String] = List(
+      "scala.`package`.BigInt.apply",
+      "math.this.BigInt.int2bigInt",
+      "chisel3.util.log2Ceil.apply",
+      "chisel3.util.log2Up.apply"
+    )
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
@@ -18,7 +23,9 @@ trait SelectsReader { self: Scala2Reader =>
             if (isChiselType(qualifier)) {
               COpLoader(name.toString()) match {
                 case Some(op) =>
-                  Some((cInfo, Some(CApply(op, CTypeLoader(tpt).get, List(MTermLoader(cInfo, qualifier).get._2.get)))))
+                  val operands = List(MTermLoader(cInfo, qualifier).get._2.get)
+                  val cApply   = CApply(op, CTypeLoader(tpt).get, operands)
+                  Some((cInfo, Some(cApply)))
                 case None =>
                   if (isChiselType(s))
                     Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
@@ -37,14 +44,11 @@ trait SelectsReader { self: Scala2Reader =>
             qualifier match {
               case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
               case Ident(innerName: TermName) =>
-                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier).get), name, tpe))))
+                val sSelect = SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier).get), name, tpe)
+                Some((cInfo, Some(sSelect)))
               case t =>
-                Some(
-                  (
-                    cInfo,
-                    Some(SSelect(MTermLoader(cInfo, t).get._2.get, name, tpe))
-                  )
-                )
+                val sSelect = SSelect(MTermLoader(cInfo, t).get._2.get, name, tpe)
+                Some((cInfo, Some(sSelect)))
             }
           }
         case _ =>

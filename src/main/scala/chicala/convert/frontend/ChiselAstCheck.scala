@@ -78,7 +78,8 @@ trait ChiselAstCheck { this: Scala2Reader =>
       "chisel3.UInt",
       "chisel3.SInt",
       "chisel3.Bool",
-      "chisel3.Bundle"
+      "chisel3.Bundle",
+      "chisel3.Data"
     ).contains(typeStr) ||
     typeStr.startsWith("chisel3.Vec") ||
     (tpe match {

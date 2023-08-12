@@ -60,10 +60,6 @@ trait ValDefsReader { self: Scala2Reader =>
               val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
               Some((newCInfo, Some(nodeDef)))
             case _ =>
-              if (tr.toString().startsWith("private[this] val negated_remainder")) {
-                println(tr)
-                println(tpt)
-              }
               None
           }
         }

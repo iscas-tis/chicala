@@ -44,6 +44,7 @@ trait CTypesLoader { self: Scala2Reader =>
         case "chisel3.UInt" => Some(UInt.empty)
         case "chisel3.SInt" => Some(SInt.empty)
         case "chisel3.Bool" => Some(Bool.empty)
+        case "chisel3.Data" => Some(UInt.empty)
         case _              => None
       }
     }
@@ -110,6 +111,8 @@ trait CTypesLoader { self: Scala2Reader =>
         Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x)).get)))
       } else if ("""(.*): .*""".r.matches(tr.tpe.toString())) {
         Some(StFunc)
+      } else if (tr.toString() == "Any") {
+        Some(StAny)
       } else {
         tr.tpe.erasure.toString() match {
           case "Int"                     => Some(StInt)

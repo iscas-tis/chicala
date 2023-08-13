@@ -11,7 +11,7 @@ trait Scala2Reader
     with MTermsLoader
     with CTermsLoader
     with STermsLoader
-    with CTypesLoader
+    with MTypesLoader
     with COpsLoader
     // TreeReader
     with ApplysReader

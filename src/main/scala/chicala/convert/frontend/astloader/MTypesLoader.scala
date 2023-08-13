@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait CTypesLoader { self: Scala2Reader =>
+trait MTypesLoader { self: Scala2Reader =>
   val global: Global
   import global._
 
@@ -113,6 +113,12 @@ trait CTypesLoader { self: Scala2Reader =>
         Some(StFunc)
       } else if (tr.toString() == "Any") {
         Some(StAny)
+      } else if (
+        List("""IndexedSeq\[.*\]""")
+          .exists(_.r.matches(tr.tpe.toString()))
+      ) {
+        val tparam = MTypeLoader(TypeTree(tr.tpe.typeArgs.head)).get
+        Some(StSeq(tparam))
       } else {
         tr.tpe.erasure.toString() match {
           case "Int"                     => Some(StInt)

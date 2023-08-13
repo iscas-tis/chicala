@@ -75,6 +75,15 @@ class Div(
     state     := s_done_div
     resHi     := false.B
   }
+
+  val divby0      = count === 0.U && !subtractor(w)
+  val align       = 1 << log2Floor(divUnroll max divEarlyOutGranularity)
+  val alignMask   = ~((align - 1).U(log2Ceil(w).W))
+  val divisorMSB  = Log2(divisor(w - 1, 0), w) & alignMask
+  val dividendMSB = Log2(remainder(w - 1, 0), w) | ~alignMask
+  val eOutPos     = ~(dividendMSB - divisorMSB)
+  val eOut        = count === 0.U && !divby0 && eOutPos >= align.U
+
   if (divUnroll != 0) when(state === s_div) {
     val unrolls = ((0 until divUnroll) scanLeft remainder) { case (rem, i) =>
       // the special case for iteration 0 is to save HW, not for correctness
@@ -92,14 +101,7 @@ class Div(
     }
     count := count + 1.U
 
-    val divby0 = count === 0.U && !subtractor(w)
     if (divEarlyOut) {
-      val align       = 1 << log2Floor(divUnroll max divEarlyOutGranularity)
-      val alignMask   = ~((align - 1).U(log2Ceil(w).W))
-      val divisorMSB  = Log2(divisor(w - 1, 0), w) & alignMask
-      val dividendMSB = Log2(remainder(w - 1, 0), w) | ~alignMask
-      val eOutPos     = ~(dividendMSB - divisorMSB)
-      val eOut        = count === 0.U && !divby0 && eOutPos >= align.U
       when(eOut) {
         remainder := remainder(w - 1, 0) << eOutPos
         count     := eOutPos >> log2Floor(divUnroll)

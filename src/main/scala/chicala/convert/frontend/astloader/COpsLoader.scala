@@ -20,6 +20,7 @@ trait COpsLoader { self: Scala2Reader =>
       "do_$times" -> Multiply,
       //
       "do_$amp"             -> And,
+      "do_$bar"             -> Or,
       "do_$up"              -> Xor,
       "do_$less$less"       -> LShift,
       "do_$greater$greater" -> RShift,

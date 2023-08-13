@@ -21,6 +21,7 @@ trait COps { self: ChicalaAst =>
   case object Multiply extends CCalculOp // *
 
   case object And    extends CCalculOp // &
+  case object Or     extends CCalculOp // |
   case object Xor    extends CCalculOp // ^
   case object LShift extends CCalculOp // <<
   case object RShift extends CCalculOp // >>

@@ -17,73 +17,133 @@ trait ToplogicalSort { self: ChicalaAst =>
     val edges   = mutable.Set.empty[DirectedEdge]
 
     def getVertexAndLastConnectDependcy(
+        id: Id,
+        statement: MStatement,
+        last: Map[String, Set[Id]]
+    ): Map[String, Set[Id]] = {
+
+      def mergeTwoBranch(
+          lastMapOne: Map[String, Set[Id]],
+          lastMapTwo: Map[String, Set[Id]]
+      ): Map[String, Set[Id]] = {
+        lastMapTwo.foldLeft(lastMapOne) { case (m, (key, set)) =>
+          if (m.contains(key)) m.updated(key, m(key) ++ set)
+          else m.updated(key, set)
+        }
+      }
+
+      statement match {
+        case c: Connect =>
+          vertexs += Vertex(id)
+          val lefts = c.relatedSignals.fully
+          lefts.map(last(_)).flatten.foreach(x => edges += DirectedEdge(Vertex(id), Vertex(x)))
+          lefts.foldLeft(last)(_.updated(_, Set(id)))
+        case md: MDef =>
+          vertexs += Vertex(id)
+          last ++ md.relatedSignals.fully
+            .map(x => moduleDef.name.toString() + ".this." + x -> Set(id))
+            .toMap
+        case a: Assert =>
+          vertexs += Vertex(id)
+          last
+        case w: When =>
+          val whenMap  = getVertexAndLastConnectDependcyFromList(id :+ 1, w.whenBody, last)
+          val otherMap = getVertexAndLastConnectDependcyFromList(id :+ 2, w.otherBody, last)
+          otherMap.foldLeft(whenMap) { case (m, (key, set)) =>
+            if (m.contains(key)) m.updated(key, m(key) ++ set)
+            else m.updated(key, set)
+          }
+        case switch: Switch =>
+          switch.branchs
+            .map(_._2)
+            .zip((1 to switch.branchs.size).map(id :+ _))
+            .map({ case (body, subId) => getVertexAndLastConnectDependcyFromList(subId, body, last) })
+            .foldLeft(last)(mergeTwoBranch(_, _))
+        case sIf: SIf =>
+          val thenLastMap = getVertexAndLastConnectDependcy(id :+ 1, sIf.thenp, last)
+          val elseLastMap = getVertexAndLastConnectDependcy(id :+ 2, sIf.elsep, last)
+          mergeTwoBranch(thenLastMap, elseLastMap)
+        case sBlock: SBlock =>
+          getVertexAndLastConnectDependcyFromList(id, sBlock.body, last)
+        case EmptyMTerm =>
+          last
+        case _ =>
+          println(
+            s"(-_-) not processed ${moduleDef.name} statement in "
+              + "ToplogicalSort.getDependencyGraph.getVertexAndLastConnectDependcy: " +
+              s"${statement.toString()}"
+          )
+          last
+      }
+    }
+
+    def getVertexAndLastConnectDependcyFromList(
         idPrefix: Id,
         statements: List[MStatement],
         lastConnect: Map[String, Set[Id]]
     ): Map[String, Set[Id]] = {
-      var last = lastConnect
-      (1 to statements.length).map(idPrefix :+ _).zip(statements).foreach { case (id, statement) =>
-        statement match {
-          case c: Connect =>
-            vertexs += Vertex(id)
-            val left = c.relatedSignals.fully.head
-            last(left).foreach(x => edges += DirectedEdge(Vertex(id), Vertex(x)))
-            last = last.updated(left, Set(id))
-          case w: When =>
-            val whenMap  = getVertexAndLastConnectDependcy(id :+ 1, w.whenBody, last)
-            val otherMap = getVertexAndLastConnectDependcy(id :+ 2, w.otherBody, last)
-            last = otherMap.foldLeft(whenMap) { case (m, (key, set)) =>
-              if (m.contains(key)) m.updated(key, m(key) ++ set)
-              else m.updated(key, set)
-            }
-          case md: MDef =>
-            vertexs += Vertex(id)
-            last = last ++ md.relatedSignals.fully
-              .map(x => moduleDef.name.toString() + ".this." + x -> Set(id))
-              .toMap
-          case a: Assert =>
-            vertexs += Vertex(id)
-          case _ =>
-            println(
-              s"(-_-) not processed ${moduleDef.name} statement in "
-                + "ToplogicalSort.getDependencyGraph.getVertexAndLastConnectDependcy: " +
-                s"${statement.toString()}"
-            )
-        }
-      }
-      last
+      statements
+        .zip((1 to statements.length).map(idPrefix :+ _))
+        .foldLeft(lastConnect)({ case (last, (statement, id)) =>
+          getVertexAndLastConnectDependcy(id, statement, last)
+        })
     }
 
     def getConnectDependcy(
+        id: Id,
+        statement: MStatement,
+        lastConnect: Map[String, Set[Id]],
+        dependency: Set[String]
+    ): Unit = {
+      statement match {
+        case c: Connect =>
+          val left = c.relatedSignals.fully.head
+          if (lastConnect(left).contains(id)) { // only valid connection
+            edges ++= (dependency ++ c.relatedSignals.dependency)
+              .map(lastConnect(_))
+              .flatten
+              .map(x => DirectedEdge(Vertex(id), Vertex(x)))
+          }
+        case w: When =>
+          val newDependency = dependency ++ w.cond.relatedSignals.dependency
+          getConnectDependcyFromList(id :+ 1, w.whenBody, lastConnect, newDependency)
+          getConnectDependcyFromList(id :+ 2, w.otherBody, lastConnect, newDependency)
+        case sIf: SIf =>
+          getConnectDependcy(id :+ 1, sIf.thenp, lastConnect, dependency)
+          getConnectDependcy(id :+ 2, sIf.elsep, lastConnect, dependency)
+        case switch: Switch =>
+          /** dependency with `switch.cond`. `v` for each `branch` should be
+            * `Lit` that has no dependency
+            */
+          val newDependency = dependency ++ switch.cond.relatedSignals.dependency
+          switch.branchs
+            .zip((1 to switch.branchs.size).map(id :+ _))
+            .foreach { case ((v, body), idPrefix) =>
+              getConnectDependcyFromList(idPrefix, body, lastConnect, newDependency)
+            }
+        case s =>
+          edges ++= (dependency ++ s.relatedSignals.dependency)
+            .map(lastConnect(_))
+            .flatten
+            .map(x => DirectedEdge(Vertex(id), Vertex(x)))
+      }
+    }
+
+    def getConnectDependcyFromList(
         idPrefix: Id,
         statements: List[MStatement],
         lastConnect: Map[String, Set[Id]],
         dependency: Set[String]
     ): Unit = {
-      (1 to statements.length).map(idPrefix :+ _).zip(statements).foreach { case (id, statement) =>
-        statement match {
-          case c: Connect =>
-            val left = c.relatedSignals.fully.head
-            if (lastConnect(left).contains(id)) { // valid connection
-              edges ++= (dependency ++ c.relatedSignals.dependency)
-                .map(lastConnect(_))
-                .flatten
-                .map(x => DirectedEdge(Vertex(id), Vertex(x)))
-            }
-          case w: When =>
-            getConnectDependcy(id :+ 1, w.whenBody, lastConnect, dependency ++ w.cond.relatedSignals.dependency)
-            getConnectDependcy(id :+ 2, w.otherBody, lastConnect, dependency ++ w.cond.relatedSignals.dependency)
-          case s =>
-            edges ++= (dependency ++ s.relatedSignals.dependency)
-              .map(lastConnect(_))
-              .flatten
-              .map(x => DirectedEdge(Vertex(id), Vertex(x)))
+      statements
+        .zip((1 to statements.length).map(idPrefix :+ _))
+        .foreach { case (statement, id) =>
+          getConnectDependcy(id, statement, lastConnect, dependency)
         }
-      }
     }
 
-    val lastConnect = getVertexAndLastConnectDependcy(Id.empty, moduleDef.body, Map.empty)
-    getConnectDependcy(Id.empty, moduleDef.body, lastConnect, Set.empty)
+    val lastConnect = getVertexAndLastConnectDependcyFromList(Id.empty, moduleDef.body, Map.empty)
+    getConnectDependcyFromList(Id.empty, moduleDef.body, lastConnect, Set.empty)
 
     DirectedGraph(vertexs.toSet, edges.toSet)
   }

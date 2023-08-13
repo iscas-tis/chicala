@@ -36,7 +36,7 @@ trait MDefImpls { self: ChicalaAst =>
   }
   trait RegDefImpl { self: RegDef =>
     override val relatedSignals = {
-      val fully = Set(name.toString() + "$now", name.toString() + "$next")
+      val fully = tpe.allSignals(name.toString(), false) ++ tpe.allSignals(name.toString(), true)
       val nextRS = someNext match {
         case None        => RelatedSignals.empty
         case Some(value) => value.relatedSignals

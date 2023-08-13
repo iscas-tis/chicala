@@ -9,9 +9,9 @@ trait CTermImpls { self: ChicalaAst =>
   import global._
 
   trait SignalRefImpl { self: SignalRef =>
-    override val relatedSignals = tpe.physical match {
-      case Reg => RelatedSignals(Set.empty, Set.empty, Set(name.toString() + "$now"))
-      case _   => RelatedSignals(Set.empty, Set.empty, Set(name.toString()))
+    override val relatedSignals = {
+      val dependency = tpe.allSignals(name.toString(), false)
+      RelatedSignals(Set.empty, Set.empty, dependency)
     }
   }
   trait CApplyImpl { self: CApply =>
@@ -22,12 +22,10 @@ trait CTermImpls { self: ChicalaAst =>
 
   trait ConnectImpl { self: Connect =>
     val tpe = left.tpe.updatedPhysical(Node)
-    override val relatedSignals: RelatedSignals = (left.tpe.physical match {
-      case Reg =>
-        RelatedSignals(Set(left.name.toString() + "$next"), Set.empty, Set.empty)
-      case _ =>
-        RelatedSignals(Set(left.name.toString()), Set.empty, Set.empty)
-    }) ++ expr.relatedSignals
+    override val relatedSignals: RelatedSignals = {
+      val fully = left.tpe.allSignals(left.name.toString(), true)
+      RelatedSignals(fully, Set.empty, Set.empty)
+    } ++ expr.relatedSignals
   }
   trait BulkConnectImpl { self: BulkConnect =>
     val tpe = EmptyMType

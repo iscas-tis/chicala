@@ -87,31 +87,32 @@ class Mul(
   val result            = Mux(resHi, remainder(2 * w, w + 1), remainder(w - 1, 0))
   val negated_remainder = -result
 
-  if (mulUnroll != 0) when(state === s_mul) {
-    val mulReg         = Cat(remainder(2 * mulw + 1, w + 1), remainder(w - 1, 0))
-    val mplierSign     = remainder(w)
-    val mplier         = mulReg(mulw - 1, 0)
-    val accum          = mulReg(2 * mulw, mulw).asSInt
-    val mpcand         = divisor.asSInt
-    val prod           = Cat(mplierSign, mplier(mulUnroll - 1, 0)).asSInt * mpcand + accum
-    val nextMulReg     = Cat(prod, mplier(mulw - 1, mulUnroll))
-    val nextMplierSign = count === (mulw / mulUnroll - 2).U && neg_out
+  val mulReg         = Cat(remainder(2 * mulw + 1, w + 1), remainder(w - 1, 0))
+  val mplierSign     = remainder(w)
+  val mplier         = mulReg(mulw - 1, 0)
+  val accum          = mulReg(2 * mulw, mulw).asSInt
+  val mpcand         = divisor.asSInt
+  val prod           = Cat(mplierSign, mplier(mulUnroll - 1, 0)).asSInt * mpcand + accum
+  val nextMulReg     = Cat(prod, mplier(mulw - 1, mulUnroll))
+  val nextMplierSign = count === (mulw / mulUnroll - 2).U && neg_out
 
-    val eOutMask = (
-      (BigInt(-1) << mulw).S >>
-        (count * mulUnroll.U)(log2Up(mulw) - 1, 0)
-    )(mulw - 1, 0)
-    val eOut = (mulEarlyOut).B &&
-      count =/= (mulw / mulUnroll - 1).U &&
-      count =/= 0.U &&
-      !isHi &&
-      (mplier & ~eOutMask) === 0.U
-    val eOutRes = mulReg >>
-      (mulw.U - count * mulUnroll.U)(log2Up(mulw) - 1, 0)
-    val nextMulReg1 = Cat(
-      nextMulReg(2 * mulw, mulw),
-      Mux(eOut, eOutRes, nextMulReg)(mulw - 1, 0)
-    )
+  val eOutMask = (
+    (BigInt(-1) << mulw).S >>
+      (count * mulUnroll.U)(log2Up(mulw) - 1, 0)
+  )(mulw - 1, 0)
+  val eOut = (mulEarlyOut).B &&
+    count =/= (mulw / mulUnroll - 1).U &&
+    count =/= 0.U &&
+    !isHi &&
+    (mplier & ~eOutMask) === 0.U
+  val eOutRes = mulReg >>
+    (mulw.U - count * mulUnroll.U)(log2Up(mulw) - 1, 0)
+  val nextMulReg1 = Cat(
+    nextMulReg(2 * mulw, mulw),
+    Mux(eOut, eOutRes, nextMulReg)(mulw - 1, 0)
+  )
+
+  if (mulUnroll != 0) when(state === s_mul) {
     remainder := Cat(nextMulReg1 >> w, nextMplierSign, nextMulReg1(w - 1, 0))
 
     count := count + 1.U

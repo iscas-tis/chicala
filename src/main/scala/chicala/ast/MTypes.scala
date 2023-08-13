@@ -24,7 +24,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   sealed abstract class CPhysical
   case object Io   extends CPhysical
   case object Wire extends CPhysical
-  case object Reg  extends CPhysical
+  case object Reg  extends CPhysical with RegImpl
   case object Node extends CPhysical
 
   // CDirection

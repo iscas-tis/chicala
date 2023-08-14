@@ -15,6 +15,10 @@ trait CTypeImpls { self: MTypes =>
     def updatedDriction(newDirection: CDirection): CType
     def setInferredWidth: CType = this
     def subSignals: Set[String] = Set.empty
+    def allSignals(parentName: String, leftSide: Boolean): Set[String] = physical match {
+      case Reg => Set(if (leftSide) Reg.nowSignal(parentName) else Reg.nextSignal(parentName))
+      case _   => Set(parentName)
+    }
   }
   object CType {
     def empty: CType = Bool(Node, Undirect)
@@ -76,6 +80,25 @@ trait CTypeImpls { self: MTypes =>
       }
       .flatten
       .toSet
+
+    override def allSignals(parentName: String, leftSide: Boolean): Set[String] = {
+      val signals = subSignals.map(parentName + "." + _)
+      physical match {
+        case Reg => if (leftSide) Reg.nextSignals(signals) else Reg.nowSignals(signals)
+        case _   => signals
+      }
+    }
+  }
+
+  trait RegImpl {
+    private val nowSuffix  = "$now"
+    private val nextSuffix = "$next"
+
+    def nowSignal(signal: String)  = signal + "." + nowSuffix
+    def nextSignal(signal: String) = signal + "." + nextSuffix
+
+    def nowSignals(signals: Set[String])  = signals.map(nowSignal(_))
+    def nextSignals(signals: Set[String]) = signals.map(nextSignal(_))
   }
 
   trait UIntObjImpl {

@@ -14,6 +14,7 @@ trait ApplysReader { self: Scala2Reader =>
         List(
           AssertLoader(_, _),
           WhenLoader(_, _),
+          SwitchLoader(_, _),
           ConnectLoader(_, _),
           CApplyLoader(_, _),
           LitLoader(_, _),

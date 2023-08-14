@@ -24,7 +24,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   sealed abstract class CPhysical
   case object Io   extends CPhysical
   case object Wire extends CPhysical
-  case object Reg  extends CPhysical
+  case object Reg  extends CPhysical with RegImpl
   case object Node extends CPhysical
 
   // CDirection
@@ -45,8 +45,13 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object StInt                        extends SType
   case object StString                     extends SType
   case object StBigInt                     extends SType
+  case object StBoolean                    extends SType
   case class StTuple(tparams: List[MType]) extends SType
+  case class StSeq(tparam: MType)          extends SType
   case object StFunc                       extends SType
+  case object StUnit                       extends SType
+  case object StAny                        extends SType
+  case class StWrapped(str: String)        extends SType
 
   case object EmptyMType extends MType
 

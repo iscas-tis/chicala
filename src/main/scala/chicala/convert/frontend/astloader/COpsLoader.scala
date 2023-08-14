@@ -11,19 +11,31 @@ trait COpsLoader { self: Scala2Reader =>
       // CCalculOp
       "apply"           -> VecSelect,
       "do_apply"        -> Slice,
-      "do_unary_$bang"  -> Not,
-      "do_unary_$minus" -> UnaryMinus,
+      "do_unary_$bang"  -> LogiNot,
+      "do_unary_$tilde" -> Not,
+      "do_unary_$minus" -> Negative,
       //
-      "do_$plus"       -> Add,
-      "do_$minus"      -> Minus,
-      "do_$bar$bar"    -> Or,
-      "do_$amp$amp"    -> And,
-      "do_$up"         -> Xor,
-      "do_$less$less"  -> LShift,
+      "do_$plus"  -> Add,
+      "do_$minus" -> Minus,
+      "do_$times" -> Multiply,
+      //
+      "do_$amp"             -> And,
+      "do_$bar"             -> Or,
+      "do_$up"              -> Xor,
+      "do_$less$less"       -> LShift,
+      "do_$greater$greater" -> RShift,
+      //
       "do_$eq$eq$eq"   -> Equal,
+      "do_$eq$div$eq"  -> NotEqual,
       "do_$greater$eq" -> GreaterEq,
       //
+      "do_$amp$amp" -> LogiAnd,
+      "do_$bar$bar" -> LogiOr,
+
+      //
       "do_asUInt" -> AsUInt,
+      "do_asSInt" -> AsSInt,
+
       // CUtilOp
       "chisel3.Mux.do_apply"    -> Mux,
       "chisel3.util.Cat.apply"  -> Cat,

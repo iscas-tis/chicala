@@ -11,17 +11,22 @@ trait Scala2Reader
     with MTermsLoader
     with CTermsLoader
     with STermsLoader
-    with CTypesLoader
+    with MTypesLoader
     with COpsLoader
     // TreeReader
     with ApplysReader
     with BlocksReader
     with DefDefsReader
+    with FunctionsReader
     with IdentsReader
+    with IfsReader
     with LiteralsReader
+    with MatchsReader
     with SelectsReader
     with StatementsReader
     with ValDefsReader
     // util
+    with ReaderInfos
+    with CircuitInfos
     with ChiselAstCheck
     with Printer

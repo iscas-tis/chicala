@@ -10,8 +10,10 @@ trait LiteralsReader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
+        case Literal(Constant(())) =>
+          Some((cInfo, Some(EmptyMTerm)))
         case l @ Literal(Constant(value)) =>
-          Some((cInfo, Some(SLiteral(value, STypeLoader(tpt)))))
+          Some((cInfo, Some(SLiteral(value, STypeLoader(tpt).get))))
         case _ =>
           unprocessedTree(tree, "LiteralReader")
           None

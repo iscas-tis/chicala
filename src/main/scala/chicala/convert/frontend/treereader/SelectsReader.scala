@@ -7,53 +7,54 @@ trait SelectsReader { self: Scala2Reader =>
   import global._
 
   object SelectReader {
-    val sLibs: List[String] = List("scala.`package`.BigInt.apply")
+    val sLibs: List[String] = List(
+      "scala.`package`.BigInt.apply",
+      "math.this.BigInt.int2bigInt",
+      "chisel3.util.log2Ceil.apply",
+      "chisel3.util.log2Floor.apply",
+      "chisel3.util.log2Up.apply",
+      "scala.Predef.intWrapper"
+    )
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
         case s @ Select(qualifier, name: TermName) =>
-          if (sLibs.contains(s.toString())) {
-            Some((cInfo, Some(SLib(s.toString(), StFunc))))
-          } else if (isChiselType(tpt)) {
-            if (isChiselType(qualifier)) {
-              COpLoader(name.toString()) match {
-                case Some(op) =>
-                  Some((cInfo, Some(CApply(op, CTypeLoader(tpt), List(MTermLoader(cInfo, qualifier).get._2.get)))))
-                case None =>
-                  if (isChiselType(s))
+          if (sLibs.contains(s.toString())) Some((cInfo, Some(SLib(s.toString(), StFunc))))
+          else {
+            if (isChiselType(tpt)) {
+              if (isChiselType(qualifier)) {
+                COpLoader(name.toString()) match {
+                  case Some(op) =>
+                    val operands = List(MTermLoader(cInfo, qualifier).get._2.get)
+                    val cApply   = CApply(op, CTypeLoader(tpt).get, operands)
+                    Some((cInfo, Some(cApply)))
+                  case None => // select from bundle
                     Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
-                  else {
-                    reporter.error(tree.pos, s"Unknow op name in CExp ${name}")
-                    None
-                  }
-              }
-            } else if (isChiselLiteralType(qualifier)) {
-              val litTree = qualifier.asInstanceOf[Apply].args.head
-              val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
-
-              name.toString() match {
-                case "U" => Some((cInfo, Some(Lit(litExp, UInt(InferredSize, Node, Undirect)))))
-                case "S" => Some((cInfo, Some(Lit(litExp, SInt(InferredSize, Node, Undirect)))))
-                case _ =>
-                  reporter.error(tree.pos, s"Unknow name in CExp ${name}")
-                  None
+                }
+              } else if (isChiselLiteralType(qualifier)) {
+                LitLoader(cInfo, tr)
+              } else {
+                qualifier match {
+                  case t: This =>
+                    // select from `This(Module)`
+                    Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
+                  case _ =>
+                    val from = MTermLoader(cInfo, qualifier).get._2.get
+                    val tpe  = MTypeLoader(tpt).get
+                    Some((cInfo, Some(SSelect(from, name, tpe))))
+                }
               }
             } else {
-              Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
-            }
-          } else {
-            val tpe = MTypeLoader(tpt)
-            qualifier match {
-              case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
-              case Ident(innerName: TermName) =>
-                Some((cInfo, Some(SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier)), name, tpe))))
-              case t =>
-                Some(
-                  (
-                    cInfo,
-                    Some(SSelect(STermLoader(cInfo, t).get._2.get, name, tpe))
-                  )
-                )
+              val tpe = MTypeLoader(tpt).get
+              qualifier match {
+                case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
+                case Ident(innerName: TermName) =>
+                  val sSelect = SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier).get), name, tpe)
+                  Some((cInfo, Some(sSelect)))
+                case t =>
+                  val sSelect = SSelect(MTermLoader(cInfo, t).get._2.get, name, tpe)
+                  Some((cInfo, Some(sSelect)))
+              }
             }
           }
         case _ =>

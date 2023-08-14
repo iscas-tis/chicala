@@ -168,39 +168,90 @@ trait ToplogicalSort { self: ChicalaAst =>
         .map(x => (x._1, x._2.reverse)) // reverse 1
         .reverse                        // reverse 2
     }
+    def splitParts(
+        mergeIds: List[(Int, List[Id])],
+        maxPartIndex: Int
+    ): List[List[(Int, List[Id])]] = {
+      var parts     = List.empty[List[(Int, List[Id])]]
+      var lastIndex = maxPartIndex
+      mergeIds.foreach { x =>
+        if (lastIndex >= x._1) parts = List(x) :: parts // reversed append #1
+        else parts = (x :: parts.head) :: parts.tail    // reversed append #2
+        lastIndex = x._1
+      }
+      parts.map(_.reverse).reverse // reverse #1 #2
+    }
 
-    def doReorder(bodyList: List[MStatement], idList: List[Id]): List[MStatement] = {
+    def doReorderList(bodyList: List[MStatement], idList: List[Id]): List[MStatement] = {
       val body = bodyList.toArray
-
       mergeId(idList).map { case (index, restList) =>
-        body(index - 1) match {
-          case _: Connect | _: Assert | _: CValDef => body(index - 1)
-          case w: When =>
-            val merged = mergeId(restList).toMap
-            val whenBody =
-              if (merged.contains(1)) doReorder(w.whenBody, merged(1))
-              else List.empty
-            val otherBody =
-              if (merged.contains(2)) doReorder(w.otherBody, merged(2))
-              else List.empty
-            val hasElseWhen =
-              if (w.hasElseWhen && otherBody.nonEmpty) true
-              else false
-            When(w.cond, whenBody, otherBody, hasElseWhen)
-          case b: BulkConnect =>
-            reporter.echo(s"(-_-) not processed in ToplogicalSort.doReorder: ${b}")
-            b
-          case s => s
-        }
+        doReorder(body(index - 1), restList)
+      }.flatten
+    }
+    def doReorder(mStatement: MStatement, restList: List[Id]): List[MStatement] = {
+      restList match {
+        case Nil | List(Id(Nil)) => List(mStatement)
+        case _ =>
+          mStatement match {
+            case w: When =>
+              val merged = mergeId(restList)
+              val parts  = splitParts(merged, 2)
+              parts.map(_.toMap).map { mergedOne =>
+                val whenBody =
+                  if (mergedOne.contains(1)) doReorderList(w.whenBody, mergedOne(1))
+                  else List.empty
+                val otherBody =
+                  if (mergedOne.contains(2)) doReorderList(w.otherBody, mergedOne(2))
+                  else List.empty
+                val hasElseWhen =
+                  if (w.hasElseWhen && otherBody.nonEmpty) true
+                  else false
+                When(w.cond, whenBody, otherBody, hasElseWhen)
+              }
+            case sIf: SIf =>
+              val merged = mergeId(restList)
+              val parts  = splitParts(merged, 2)
+
+              parts.map(_.toMap).map { mergedOne =>
+                val thenp =
+                  if (mergedOne.contains(1)) doReorder(sIf.thenp, mergedOne(1)).head.asInstanceOf[MTerm]
+                  else EmptyMTerm
+                val elsep =
+                  if (mergedOne.contains(2)) doReorder(sIf.elsep, mergedOne(2)).head.asInstanceOf[MTerm]
+                  else EmptyMTerm
+                SIf(sIf.cond, thenp, elsep, sIf.tpe)
+              }
+            case switch: Switch =>
+              val merged     = mergeId(restList)
+              val parts      = splitParts(merged, switch.branchs.size)
+              val branchsArr = switch.branchs.toIndexedSeq
+              parts.map { ls =>
+                val branchs = ls.map { case (index, rest) =>
+                  val body = doReorderList(branchsArr(index - 1)._2, rest)
+                  (branchsArr(index - 1)._1, body)
+                }
+                Switch(switch.cond, branchs)
+              }
+
+            case sBlock: SBlock =>
+              doReorderList(sBlock.body, restList)
+            case s =>
+              reporter.error(
+                NoPosition,
+                s"Not processed in ToplogicalSort.doReorder: ${s}\n${restList}"
+              )
+              List()
+          }
       }
     }
 
-    ModuleDef(moduleDef.name, moduleDef.vparams, doReorder(moduleDef.body, topologicalOrder))
+    ModuleDef(moduleDef.name, moduleDef.vparams, doReorderList(moduleDef.body, topologicalOrder))
   }
 
   def dependencySort(moduleDef: ModuleDef): ModuleDef = {
+
     val dependencyGraph  = getDependencyGraph(moduleDef)
-    val topologicalOrder = dependencyGraph.toplogicalSort(layer = true)
+    val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
     Format.saveToFile(
       s"./test_run_dir/chiselToScala/${moduleDef.name}.dot",
       dependencyGraph.toDot

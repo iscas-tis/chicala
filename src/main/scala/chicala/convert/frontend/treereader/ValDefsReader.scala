@@ -99,8 +99,9 @@ trait ValDefsReader { self: Scala2Reader =>
             )
           )
         }
-        case ValDef(mods, name, tpt, rhs) =>
+        case ValDef(mods, nameTmp, tpt, rhs) =>
           // SValDef
+          val name     = nameTmp.stripSuffix(" ")
           val tpe      = STypeLoader(tpt).get
           val newCInfo = cInfo.updatedVal(name, tpe)
           val r = MTermLoader(cInfo, rhs) match {

@@ -1,7 +1,6 @@
 package chicala.convert.frontend
 
 import scala.tools.nsc.Global
-import javax.xml.catalog.CatalogManager
 
 trait MatchsReader { self: Scala2Reader =>
   val global: Global

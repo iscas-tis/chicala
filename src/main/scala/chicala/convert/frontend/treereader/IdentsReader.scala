@@ -10,12 +10,11 @@ trait IdentsReader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
-        case i @ Ident(name) =>
+        case i @ Ident(name: TermName) =>
           if (isChiselType(i))
             Some((cInfo, Some(SignalRef(i, cInfo.getCType(i)))))
           else {
-            unprocessedTree(tree, "IdentReader")
-            None
+            Some((cInfo, Some(SIdent(name, MTypeLoader(tpt).get))))
           }
         case _ =>
           unprocessedTree(tree, "IdentReader")

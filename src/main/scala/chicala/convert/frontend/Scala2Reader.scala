@@ -17,9 +17,11 @@ trait Scala2Reader
     with ApplysReader
     with BlocksReader
     with DefDefsReader
+    with FunctionsReader
     with IdentsReader
     with IfsReader
     with LiteralsReader
+    with MatchsReader
     with SelectsReader
     with StatementsReader
     with ValDefsReader

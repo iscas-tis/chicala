@@ -51,6 +51,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object StFunc                       extends SType
   case object StUnit                       extends SType
   case object StAny                        extends SType
+  case class StWrapped(str: String)        extends SType
 
   case object EmptyMType extends MType
 

@@ -48,5 +48,8 @@ trait STermImpls { self: ChicalaAst =>
   trait STupleImpl { self: STuple =>
     override val relatedSignals = args.map(_.relatedSignals).reduce(_ ++ _)
   }
+  trait SFunctionImpl { self: SFunction =>
+    val tpe = StFunc
+  }
 
 }

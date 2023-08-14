@@ -53,14 +53,13 @@ trait ValDefsReader { self: Scala2Reader =>
                 Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
               else
                 Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
-            case s: Select => Some(loadNodeDef(cInfo, name, rhs))
             case EmptyTree =>
               val tpe      = CTypeLoader(tpt).get
               val newCInfo = cInfo.updatedVal(name, tpe)
               val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
               Some((newCInfo, Some(nodeDef)))
             case _ =>
-              None
+              Some(loadNodeDef(cInfo, name, rhs))
           }
         }
         case v @ ValDef(mods, name, tpt, rhs) if isChisel3EnumTmpValDef(v) => {

@@ -106,6 +106,10 @@ trait MTypesLoader { self: Scala2Reader =>
 
   object STypeLoader {
 
+    private val wrappedTypes = List(
+      "scala.collection.immutable.Range"
+    )
+
     def apply(tr: Tree): Option[SType] = {
       if (isScala2TupleType(tr)) {
         Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x)).get)))
@@ -126,9 +130,12 @@ trait MTypesLoader { self: Scala2Reader =>
           case "scala.math.BigInt"       => Some(StBigInt)
           case "Boolean"                 => Some(StBoolean)
           case "scala.runtime.BoxedUnit" => Some(StUnit)
-          case _ =>
-            errorTree(tr, s"Unknow type `${tr.tpe.erasure}`")
-            None
+          case s =>
+            if (!wrappedTypes.contains(s)) {
+              reporter.warning(tr.pos, s"this type `${s}` need check")
+            }
+            Some(StWrapped(s))
+
         }
       }
     }

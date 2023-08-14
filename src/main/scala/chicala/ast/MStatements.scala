@@ -39,17 +39,19 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class SubModuleRun() extends CTerm with SubModuleRunImpl
 
   // STerm
-  sealed abstract class STerm                                         extends MTerm
-  case class SApply(fun: STerm, args: List[MTerm], tpe: MType)        extends STerm with SApplyImpl
-  case class SSelect(from: MTerm, name: TermName, tpe: MType)         extends STerm
-  case class SBlock(body: List[MStatement], tpe: MType)               extends STerm with SBlockImpl
-  case class SLiteral(value: Any, tpe: MType)                         extends STerm
-  case class SIdent(name: TermName, tpe: MType)                       extends STerm
-  case class SFor()                                                   extends STerm with SForImpl
-  case class SIf(cond: STerm, thenp: MTerm, elsep: MTerm, tpe: MType) extends STerm with SIfImpl
-  case class SMatch(tpe: MType)                                       extends STerm
-  case class STuple(args: List[MTerm], tpe: StTuple)                  extends STerm with STupleImpl
-  case class SLib(name: String, tpe: SType)                           extends STerm
+  sealed abstract class STerm                                                       extends MTerm
+  case class SApply(fun: STerm, args: List[MTerm], tpe: MType)                      extends STerm with SApplyImpl
+  case class SSelect(from: MTerm, name: TermName, tpe: MType)                       extends STerm
+  case class SBlock(body: List[MStatement], tpe: MType)                             extends STerm with SBlockImpl
+  case class SLiteral(value: Any, tpe: MType)                                       extends STerm
+  case class SIdent(name: TermName, tpe: MType)                                     extends STerm
+  case class SFor()                                                                 extends STerm with SForImpl
+  case class SIf(cond: STerm, thenp: MTerm, elsep: MTerm, tpe: MType)               extends STerm with SIfImpl
+  case class SMatch(selector: MTerm, cases: List[SCaseDef], tpe: MType)             extends STerm
+  case class SCaseDef(tupleNames: List[(TermName, MType)], body: MTerm, tpe: MType) extends STerm
+  case class STuple(args: List[MTerm], tpe: StTuple)                                extends STerm with STupleImpl
+  case class SLib(name: String, tpe: SType)                                         extends STerm
+  case class SFunction(vparams: List[MValDef], body: MTerm)                         extends STerm with SFunctionImpl
 
   case object EmptyMTerm extends MTerm { val tpe = EmptyMType }
 

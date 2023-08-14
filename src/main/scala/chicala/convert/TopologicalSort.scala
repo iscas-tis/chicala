@@ -121,6 +121,7 @@ trait ToplogicalSort { self: ChicalaAst =>
             .foreach { case ((v, body), idPrefix) =>
               getConnectDependcyFromList(idPrefix, body, lastConnect, newDependency)
             }
+        case EmptyMTerm =>
         case s =>
           edges ++= (dependency ++ s.relatedSignals.dependency)
             .map(lastConnect(_))

@@ -84,7 +84,7 @@ class Div(
   val eOutPos     = ~(dividendMSB - divisorMSB)
   val eOut        = count === 0.U && !divby0 && eOutPos >= align.U
 
-  if (divUnroll != 0) when(state === s_div) {
+  if (divUnroll != 0) when(state === s_div) { // 41
     val unrolls = ((0 until divUnroll) scanLeft remainder) { case (rem, i) =>
       // the special case for iteration 0 is to save HW, not for correctness
       val difference = if (i == 0) subtractor else rem(2 * w, w) - divisor(w - 1, 0)
@@ -124,7 +124,7 @@ class Div(
   }
 
   val outMul = (state & (s_done_div)) === (false.B & ~s_done_div)
-  val loOut  = Mux(fastMulW.B && halfWidth(req.dw) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0))
+  val loOut  = Mux(fastMulW.B && halfWidth(req.dw) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0)) // 41
   val hiOut  = Mux(halfWidth(req.dw), Fill(w / 2, loOut(w / 2 - 1)), result(w - 1, w / 2))
   io.resp.bits.tag := req.tag
 

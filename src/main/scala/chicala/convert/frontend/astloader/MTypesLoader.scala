@@ -109,19 +109,21 @@ trait MTypesLoader { self: Scala2Reader =>
     private val wrappedTypes = List(
       "scala.collection.immutable.Range"
     )
+    private def isSeq(tpe: Type): Boolean = {
+      List("""IndexedSeq\[.*\]""")
+        .exists(_.r.matches(tpe.toString()))
+    }
 
     def apply(tr: Tree): Option[SType] = {
-      if (isScala2TupleType(tr)) {
+      val tpe = if (tr.tpe.toString().endsWith(".type")) tr.tpe.erasure else tr.tpe
+      if (isScala2TupleType(TypeTree(tpe))) {
         Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x)).get)))
-      } else if ("""(.*): .*""".r.matches(tr.tpe.toString())) {
+      } else if ("""(.*): .*""".r.matches(tpe.toString())) {
         Some(StFunc)
       } else if (tr.toString() == "Any") {
         Some(StAny)
-      } else if (
-        List("""IndexedSeq\[.*\]""")
-          .exists(_.r.matches(tr.tpe.toString()))
-      ) {
-        val tparam = MTypeLoader(TypeTree(tr.tpe.typeArgs.head)).get
+      } else if (isSeq(tpe)) {
+        val tparam = MTypeLoader(TypeTree(tpe.typeArgs.head)).get
         Some(StSeq(tparam))
       } else {
         tr.tpe.erasure.toString() match {

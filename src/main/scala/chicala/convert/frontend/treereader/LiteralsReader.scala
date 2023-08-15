@@ -13,7 +13,7 @@ trait LiteralsReader { self: Scala2Reader =>
         case Literal(Constant(())) =>
           Some((cInfo, Some(EmptyMTerm)))
         case l @ Literal(Constant(value)) =>
-          Some((cInfo, Some(SLiteral(value, STypeLoader(tpt).get))))
+          Some((cInfo, Some(SLiteral(value, STypeLoader.fromTpt(tpt).get))))
         case _ =>
           unprocessedTree(tree, "LiteralReader")
           None

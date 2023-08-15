@@ -14,7 +14,7 @@ trait IdentsReader { self: Scala2Reader =>
           if (isChiselType(i))
             Some((cInfo, Some(SignalRef(i, cInfo.getCType(i)))))
           else {
-            Some((cInfo, Some(SIdent(name, MTypeLoader(tpt).get))))
+            Some((cInfo, Some(SIdent(name, MTypeLoader.fromTpt(tpt).get))))
           }
         case _ =>
           unprocessedTree(tree, "IdentReader")

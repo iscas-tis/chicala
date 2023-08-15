@@ -48,13 +48,13 @@ trait ValDefsReader { self: Scala2Reader =>
               val num              = cInfo.numTmp - 1
               val sTupleUnapplyDef = stud.copy(names = stud.names :+ name)
               val tupleTmp         = (tn, sTupleUnapplyDef)
-              val newCInfo         = cInfo.updatedVal(name, MTypeLoader(tpt).get)
+              val newCInfo         = cInfo.updatedVal(name, MTypeLoader.fromTpt(tpt).get)
               if (num == 0)
                 Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
               else
                 Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
             case EmptyTree =>
-              val tpe      = CTypeLoader(tpt).get
+              val tpe      = CTypeLoader.fromTpt(tpt).get
               val newCInfo = cInfo.updatedVal(name, tpe)
               val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
               Some((newCInfo, Some(nodeDef)))
@@ -88,7 +88,7 @@ trait ValDefsReader { self: Scala2Reader =>
           val cExp =
             if (isScala2TupleUnapplyTmpValDef(v)) MTermLoader(cInfo, args.head).get._2.get
             else MTermLoader(cInfo, t).get._2.get // ? what is this ?
-          val tpe = STypeLoader(tpt).get.asInstanceOf[StTuple]
+          val tpe = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
           Some(
             (
               cInfo.updatedTupleTmp(
@@ -102,7 +102,7 @@ trait ValDefsReader { self: Scala2Reader =>
         case ValDef(mods, nameTmp, tpt, rhs) =>
           // SValDef
           val name     = nameTmp.stripSuffix(" ")
-          val tpe      = STypeLoader(tpt).get
+          val tpe      = STypeLoader.fromTpt(tpt).get
           val newCInfo = cInfo.updatedVal(name, tpe)
           val r = MTermLoader(cInfo, rhs) match {
             case Some((_, Some(value))) => value

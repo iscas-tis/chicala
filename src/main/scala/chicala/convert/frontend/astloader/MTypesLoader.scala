@@ -49,7 +49,7 @@ trait MTypesLoader { self: Scala2Reader =>
       }
     }
 
-    def apply(tree: TypeTree): Option[CType] = {
+    def fromTpt(tree: Tree): Option[CType] = {
       val someCType = fromString(tree.tpe.toString())
       if (someCType.isEmpty)
         reporter.error(tree.pos, "unknow data type in CTypeLoader.apply(tree)")
@@ -114,16 +114,16 @@ trait MTypesLoader { self: Scala2Reader =>
         .exists(_.r.matches(tpe.toString()))
     }
 
-    def apply(tr: Tree): Option[SType] = {
+    def fromTpt(tr: Tree): Option[SType] = {
       val tpe = if (tr.tpe.toString().endsWith(".type")) tr.tpe.erasure else tr.tpe
       if (isScala2TupleType(TypeTree(tpe))) {
-        Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader(TypeTree(x)).get)))
+        Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader.fromTpt(TypeTree(x)).get)))
       } else if ("""(.*): .*""".r.matches(tpe.toString())) {
         Some(StFunc)
       } else if (tr.toString() == "Any") {
         Some(StAny)
       } else if (isSeq(tpe)) {
-        val tparam = MTypeLoader(TypeTree(tpe.typeArgs.head)).get
+        val tparam = MTypeLoader.fromTpt(TypeTree(tpe.typeArgs.head)).get
         Some(StSeq(tparam))
       } else {
         tr.tpe.erasure.toString() match {
@@ -144,14 +144,14 @@ trait MTypesLoader { self: Scala2Reader =>
   }
 
   object MTypeLoader {
-    def apply(tr: TypeTree): Option[MType] = {
-      if (isChiselType(tr)) CTypeLoader(tr)
-      else STypeLoader(tr)
+    def fromTpt(tr: Tree): Option[MType] = {
+      if (isChiselType(tr)) CTypeLoader.fromTpt(tr)
+      else STypeLoader.fromTpt(tr)
     }
     def apply(cInfo: CircuitInfo, tr: Tree): Option[MType] = {
       if (isChiselType(tr))
         CTypeLoader(cInfo, tr)
-      else STypeLoader(tr)
+      else STypeLoader.fromTpt(tr)
     }
   }
 }

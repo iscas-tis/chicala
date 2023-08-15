@@ -26,7 +26,7 @@ trait SelectsReader { self: Scala2Reader =>
                 COpLoader(name.toString()) match {
                   case Some(op) =>
                     val operands = List(MTermLoader(cInfo, qualifier).get._2.get)
-                    val cApply   = CApply(op, CTypeLoader(tpt).get, operands)
+                    val cApply   = CApply(op, CTypeLoader.fromTpt(tpt).get, operands)
                     Some((cInfo, Some(cApply)))
                   case None => // select from bundle
                     Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
@@ -40,16 +40,16 @@ trait SelectsReader { self: Scala2Reader =>
                     Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
                   case _ =>
                     val from = MTermLoader(cInfo, qualifier).get._2.get
-                    val tpe  = MTypeLoader(tpt).get
+                    val tpe  = MTypeLoader.fromTpt(tpt).get
                     Some((cInfo, Some(SSelect(from, name, tpe))))
                 }
               }
             } else {
-              val tpe = MTypeLoader(tpt).get
+              val tpe = MTypeLoader.fromTpt(tpt).get
               qualifier match {
                 case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))
                 case Ident(innerName: TermName) =>
-                  val sSelect = SSelect(SIdent(innerName, MTypeLoader(cInfo, qualifier).get), name, tpe)
+                  val sSelect = SSelect(SIdent(innerName, MTypeLoader.fromTpt(qualifier).get), name, tpe)
                   Some((cInfo, Some(sSelect)))
                 case t =>
                   val sSelect = SSelect(MTermLoader(cInfo, t).get._2.get, name, tpe)

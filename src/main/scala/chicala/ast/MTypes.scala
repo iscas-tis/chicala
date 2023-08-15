@@ -2,9 +2,9 @@ package chicala.ast
 
 import scala.tools.nsc.Global
 
-import chicala.ast.impl.CTypeImpls
+import chicala.ast.impl._
 
-trait MTypes extends CTypeImpls { self: ChicalaAst =>
+trait MTypes extends CTypeImpls with STypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -51,7 +51,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object StFunc                       extends SType
   case object StUnit                       extends SType
   case object StAny                        extends SType
-  case class StWrapped(str: String)        extends SType
+  case class StWrapped(str: String)        extends SType with StWrappedImpl
 
   case object EmptyMType extends MType
 

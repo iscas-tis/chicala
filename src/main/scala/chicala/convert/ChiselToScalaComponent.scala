@@ -90,7 +90,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
             case Some(cClassDef) =>
               Format.saveToFile(
                 testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
-                Format.formatAst(cClassDef.toString) + "\n"
+                cClassDef.toString + "\n"
               )
 
               val sortedCClassDef = cClassDef match {

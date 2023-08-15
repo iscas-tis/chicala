@@ -20,7 +20,13 @@ trait MTypesLoader { self: Scala2Reader =>
     }
   }
 
-  object CTypeLoader {
+  trait MTypeLoaderLib {
+    def autoTypeErasure(tr: Tree): Type = {
+      if (tr.tpe.toString().endsWith(".type")) tr.tpe.erasure else tr.tpe
+    }
+  }
+
+  object CTypeLoader extends MTypeLoaderLib {
     def getWidth(cInfo: CircuitInfo, args: List[Tree]): CSize = args match {
       case Select(Apply(Select(cp, TermName("fromIntToWidth")), List(w)), TermName("W")) :: next
           if isChisel3Package(cp) =>
@@ -50,9 +56,10 @@ trait MTypesLoader { self: Scala2Reader =>
     }
 
     def fromTpt(tree: Tree): Option[CType] = {
-      val someCType = fromString(tree.tpe.toString())
+      val tpe       = autoTypeErasure(tree)
+      val someCType = fromString(tpe.toString())
       if (someCType.isEmpty)
-        reporter.error(tree.pos, "unknow data type in CTypeLoader.apply(tree)")
+        reporter.error(tree.pos, s"unknow data type `${tpe}` in CTypeLoader.fromTpt")
       someCType
     }
 
@@ -104,10 +111,11 @@ trait MTypesLoader { self: Scala2Reader =>
     }
   }
 
-  object STypeLoader {
+  object STypeLoader extends MTypeLoaderLib {
 
     private val wrappedTypes = List(
-      "scala.collection.immutable.Range"
+      "scala.collection.immutable.Range",
+      "scala.collection.WithFilter[Any,[_]Any]"
     )
     private def isSeq(tpe: Type): Boolean = {
       List("""IndexedSeq\[.*\]""")
@@ -115,7 +123,7 @@ trait MTypesLoader { self: Scala2Reader =>
     }
 
     def fromTpt(tr: Tree): Option[SType] = {
-      val tpe = if (tr.tpe.toString().endsWith(".type")) tr.tpe.erasure else tr.tpe
+      val tpe = autoTypeErasure(tr)
       if (isScala2TupleType(TypeTree(tpe))) {
         Some(StTuple(tr.tpe.typeArgs.map(x => MTypeLoader.fromTpt(TypeTree(x)).get)))
       } else if ("""(.*): .*""".r.matches(tpe.toString())) {
@@ -126,7 +134,7 @@ trait MTypesLoader { self: Scala2Reader =>
         val tparam = MTypeLoader.fromTpt(TypeTree(tpe.typeArgs.head)).get
         Some(StSeq(tparam))
       } else {
-        tr.tpe.erasure.toString() match {
+        tpe.erasure.toString() match {
           case "Int"                     => Some(StInt)
           case "String"                  => Some(StString)
           case "scala.math.BigInt"       => Some(StBigInt)

@@ -10,14 +10,14 @@ trait CTermsLoader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Connect])] = {
       val (tree, _) = passThrough(tr)
       tree match {
-        case Apply(Select(termName: Select, TermName("$colon$eq")), args) if isChiselType(termName) =>
+        case Apply(Select(qualifier, TermName("$colon$eq")), args) if isChiselType(qualifier) =>
           assert(args.length == 1, "should have one right expr")
-          val left  = MTermLoader(cInfo, termName).get._2.get
+          val left  = MTermLoader(cInfo, qualifier).get._2.get
           val right = MTermLoader(cInfo, args.head).get._2.get
           left match {
             case x: SignalRef => Some(cInfo, Some(Connect(x, right)))
             case _ =>
-              unprocessedTree(termName, "ConnectLoader")
+              unprocessedTree(qualifier, "ConnectLoader")
               None
           }
         case _ => None

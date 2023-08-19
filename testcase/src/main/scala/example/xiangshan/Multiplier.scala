@@ -15,7 +15,9 @@ class C22 extends Module {
     val cout   = a & b
     t := Cat(cout, sum)
   }
-  io.out.zipWithIndex.foreach({ case (x, i) => x := Cat(temp.reverse map (_(i))) })
+  io.out.zipWithIndex.foreach({ case (x, i) =>
+    x := Cat(temp.reverse map (_(i)))
+  })
 }
 class C32 extends Module {
   val io = IO(new Bundle() {
@@ -31,7 +33,9 @@ class C32 extends Module {
     val cout        = a_and_b | (a_xor_b & cin)
     t := Cat(cout, sum)
   }
-  io.out.zipWithIndex.foreach({ case (x, i) => x := Cat(temp.reverse map (_(i))) })
+  io.out.zipWithIndex.foreach({ case (x, i) =>
+    x := Cat(temp.reverse map (_(i)))
+  })
 }
 class C53 extends Module {
   val io = IO(new Bundle() {
@@ -68,7 +72,10 @@ class ArrayMulDataModule(len: Int) extends Module {
 
   var last_x = WireInit(0.U(3.W))
   for (i <- Range(0, len, 2)) {
-    val x = if (i == 0) Cat(a(1, 0), 0.U(1.W)) else if (i + 1 == len) signExt(a(i, i - 1), 3) else a(i + 1, i - 1)
+    val x =
+      if (i == 0) Cat(a(1, 0), 0.U(1.W))
+      else if (i + 1 == len) signExt(a(i, i - 1), 3)
+      else a(i + 1, i - 1)
     val pp_temp = MuxLookup(
       x,
       0.U,

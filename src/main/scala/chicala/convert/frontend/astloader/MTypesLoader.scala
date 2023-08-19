@@ -118,8 +118,11 @@ trait MTypesLoader { self: Scala2Reader =>
       "scala.collection.WithFilter[Any,[_]Any]"
     )
     private def isSeq(tpe: Type): Boolean = {
-      List("""IndexedSeq\[.*\]""")
-        .exists(_.r.matches(tpe.toString()))
+      val typeStr = tpe.toString()
+      List(
+        """IndexedSeq\[.*\]""",
+        """Array\[.*\]"""
+      ).exists(_.r.matches(typeStr))
     }
 
     def fromTpt(tr: Tree): Option[SType] = {

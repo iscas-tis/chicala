@@ -15,7 +15,7 @@ trait Printer extends Format {
         |tree:
         |  ${tree}
         |tree AST:
-        |  ${showFormattedRaw(tree, 3).replace("\n", "\n  ")}
+        |  ${showFormattedRaw(tree).replace("\n", "\n  ")}
         |source code:""".stripMargin
     )
   }
@@ -34,7 +34,7 @@ trait Printer extends Format {
         |tree.tpe:
         |  ${tree.tpe.erasure}
         |tree AST:
-        |  ${showFormattedRaw(tree, 3).replace("\n", "\n  ")}
+        |  ${showFormattedRaw(tree).replace("\n", "\n  ")}
         |stackTrace:
         |  ${slicedTraces}""".stripMargin
     )

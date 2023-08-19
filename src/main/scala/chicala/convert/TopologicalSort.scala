@@ -22,7 +22,7 @@ trait ToplogicalSort { self: ChicalaAst =>
         last: Map[String, Set[Id]]
     ): Map[String, Set[Id]] = {
 
-      def mergeTwoBranch(
+      def mergedTwoBranchLast(
           lastMapOne: Map[String, Set[Id]],
           lastMapTwo: Map[String, Set[Id]]
       ): Map[String, Set[Id]] = {
@@ -31,47 +31,57 @@ trait ToplogicalSort { self: ChicalaAst =>
           else m.updated(key, set)
         }
       }
+      def updatedLast(
+          last: Map[String, Set[Id]],
+          id: Id,
+          signals: Set[String]
+      ): Map[String, Set[Id]] = {
+        val lastIds = signals.map(last(_)).flatten
+        edges ++= lastIds.map(x => DirectedEdge(Vertex(id), Vertex(x)))
+
+        signals.foldLeft(last)(_.updated(_, Set(id))) // overwrite `signals` last connection id
+      }
 
       statement match {
         case c: Connect =>
           vertexs += Vertex(id)
-          val lefts = c.relatedSignals.fully
-          lefts.map(last(_)).flatten.foreach(x => edges += DirectedEdge(Vertex(id), Vertex(x)))
-          lefts.foldLeft(last)(_.updated(_, Set(id)))
+          updatedLast(last, id, c.relatedSignals.fully)
         case md: MDef =>
           vertexs += Vertex(id)
-          last ++ md.relatedSignals.fully
-            .map(x => moduleDef.name.toString() + ".this." + x -> Set(id))
-            .toMap
+          last ++
+            md.relatedSignals.fully
+              .map(moduleDef.name.toString() + ".this." + _)
+              .map(_ -> Set(id))
         case a: Assert =>
           vertexs += Vertex(id)
           last
         case w: When =>
-          val whenMap  = getVertexAndLastConnectDependcyFromList(id :+ 1, w.whenBody, last)
-          val otherMap = getVertexAndLastConnectDependcyFromList(id :+ 2, w.otherBody, last)
-          otherMap.foldLeft(whenMap) { case (m, (key, set)) =>
-            if (m.contains(key)) m.updated(key, m(key) ++ set)
-            else m.updated(key, set)
-          }
+          val whenLast  = getVertexAndLastConnectDependcyFromList(id :+ 1, w.whenBody, last)
+          val otherLast = getVertexAndLastConnectDependcyFromList(id :+ 2, w.otherBody, last)
+          mergedTwoBranchLast(whenLast, otherLast)
         case switch: Switch =>
           switch.branchs
             .map(_._2)
             .zip((1 to switch.branchs.size).map(id :+ _))
             .map({ case (body, subId) => getVertexAndLastConnectDependcyFromList(subId, body, last) })
-            .foldLeft(last)(mergeTwoBranch(_, _))
+            .foldLeft(last)(mergedTwoBranchLast(_, _))
+        case sApply: SApply =>
+          vertexs += Vertex(id)
+          updatedLast(last, id, sApply.relatedSignals.fully)
         case sIf: SIf =>
-          val thenLastMap = getVertexAndLastConnectDependcy(id :+ 1, sIf.thenp, last)
-          val elseLastMap = getVertexAndLastConnectDependcy(id :+ 2, sIf.elsep, last)
-          mergeTwoBranch(thenLastMap, elseLastMap)
+          val thenLast = getVertexAndLastConnectDependcy(id :+ 1, sIf.thenp, last)
+          val elseLast = getVertexAndLastConnectDependcy(id :+ 2, sIf.elsep, last)
+          mergedTwoBranchLast(thenLast, elseLast)
         case sBlock: SBlock =>
           getVertexAndLastConnectDependcyFromList(id, sBlock.body, last)
         case EmptyMTerm =>
           last
         case _ =>
-          println(
-            s"(-_-) not processed ${moduleDef.name} statement in "
-              + "ToplogicalSort.getDependencyGraph.getVertexAndLastConnectDependcy: " +
-              s"${statement.toString()}"
+          reporter.error(
+            NoPosition,
+            s"Not processed ${moduleDef.name} statement in " +
+              "ToplogicalSort.getDependencyGraph.getVertexAndLastConnectDependcy:\n" +
+              s"  ${statement.toString()}"
           )
           last
       }

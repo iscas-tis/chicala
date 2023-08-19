@@ -55,14 +55,17 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
     }
 
     def applyOnTree(tr: Tree, packageName: String): Unit = {
+      val packageDir = testRunDir.getPath() + s"/${packageName.replace(".", "/")}"
+      (new File(packageDir)).mkdirs()
+
       tr match {
         case tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) =>
           Format.saveToFile(
-            testRunDir.getPath() + s"/${packageName}.${name}.scala",
+            packageDir + s"/${name}.scala",
             show(tree) + "\n"
           )
           Format.saveToFile(
-            testRunDir.getPath() + s"/${packageName}.${name}.AST.scala",
+            packageDir + s"/${name}.AST.scala",
             showFormattedRaw(tree) + "\n"
           )
 
@@ -89,7 +92,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
               reporter.error(tree.pos, "Unknown error in ChiselToScalaPhase #3")
             case Some(cClassDef) =>
               Format.saveToFile(
-                testRunDir.getPath() + s"/${packageName}.${name}.chicala.scala",
+                packageDir + s"/${name}.chicala.scala",
                 cClassDef.toString + "\n"
               )
 
@@ -97,12 +100,12 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                 case m @ ModuleDef(name, info, body) =>
                   readerInfo = readerInfo.addedModuleDef(m)
                   Format.saveToFile(
-                    testRunDir.getPath() + s"/${packageName}.${name}.related.scala",
+                    packageDir + s"/${name}.related.scala",
                     body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
                   )
                   val sorted = Some(dependencySort(m))
                   Format.saveToFile(
-                    testRunDir.getPath() + s"/${packageName}.${name}.sorted.scala",
+                    packageDir + s"/${name}.sorted.scala",
                     sorted.get.toString
                   )
                   sorted

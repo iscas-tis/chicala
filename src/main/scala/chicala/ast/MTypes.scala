@@ -4,11 +4,11 @@ import scala.tools.nsc.Global
 
 import chicala.ast.impl._
 
-trait MTypes extends CTypeImpls with STypeImpls { self: ChicalaAst =>
+trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
-  sealed abstract class MType
+  sealed abstract class MType extends MTypeImpl
 
   // CType
   sealed abstract class CType extends MType with CTypeImpl

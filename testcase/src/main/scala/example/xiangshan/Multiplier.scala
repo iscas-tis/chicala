@@ -146,9 +146,8 @@ class ArrayMulDataModule(len: Int) extends Module {
     (sum, cout1, cout2)
   }
 
-  def max(in: Iterable[Int]): Int = in.reduce((a, b) => if (a > b) a else b)
   def addAll(cols: Array[Seq[Bool]], depth: Int): (UInt, UInt) = {
-    if (max(cols.map(_.size)) <= 2) {
+    if (cols.forall(_.size <= 2)) {
       val sum = Cat(cols.map(_(0)).toIndexedSeq.reverse)
       var k   = 0
       while (cols(k).size == 1) k = k + 1

@@ -255,7 +255,7 @@ trait ToplogicalSort { self: ChicalaAst =>
       }
     }
 
-    ModuleDef(moduleDef.name, moduleDef.vparams, doReorderList(moduleDef.body, topologicalOrder))
+    moduleDef.copy(body = doReorderList(moduleDef.body, topologicalOrder))
   }
 
   def dependencySort(moduleDef: ModuleDef): ModuleDef = {

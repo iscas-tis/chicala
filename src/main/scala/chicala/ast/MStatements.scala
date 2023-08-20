@@ -61,14 +61,18 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // MValDef
   sealed abstract class MValDef extends MDef with MValDefImpl
 
-  sealed abstract class CValDef extends MValDef with CValDefImpl
+  sealed abstract class CValDef extends MValDef
 
-  case class IoDef(name: TermName, tpe: SignalType) extends CValDef with IoDefImpl
+  case class SubModuleDef(name: TermName, tpe: SubModule, args: List[MTerm]) extends CValDef with SubModuleDefImpl
+
+  sealed abstract class SignalDef extends CValDef with SignalDefImpl
+
+  case class IoDef(name: TermName, tpe: SignalType) extends SignalDef with IoDefImpl
   case class WireDef(
       name: TermName,
       tpe: SignalType,
       someInit: Option[MTerm] = None
-  ) extends CValDef
+  ) extends SignalDef
       with WireDefImpl
   case class RegDef(
       name: TermName,
@@ -76,9 +80,9 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
       someInit: Option[MTerm] = None,
       someNext: Option[MTerm] = None,
       someEnable: Option[MTerm] = None
-  ) extends CValDef
+  ) extends SignalDef
       with RegDefImpl
-  case class NodeDef(name: TermName, tpe: SignalType, rhs: MTerm) extends CValDef with NodeDefImpl
+  case class NodeDef(name: TermName, tpe: SignalType, rhs: MTerm) extends SignalDef with NodeDefImpl
 
   case class SValDef(name: TermName, tpe: SType, rhs: MTerm, isVar: Boolean = false) extends MValDef
 
@@ -91,6 +95,4 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock)
       extends MDef
       with SDefDefImpl
-  case class SubModuleDef() extends MDef
-
 }

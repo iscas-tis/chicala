@@ -20,11 +20,7 @@ trait MTypesLoader { self: Scala2Reader =>
     }
   }
 
-  trait MTypeLoaderLib {
-    def autoTypeErasure(tr: Tree): Type = {
-      if (tr.tpe.toString().endsWith(".type")) tr.tpe.erasure else tr.tpe
-    }
-  }
+  trait MTypeLoaderLib {}
 
   object SignalTypeLoader extends MTypeLoaderLib {
     def getWidth(cInfo: CircuitInfo, args: List[Tree]): CSize = args match {
@@ -93,8 +89,8 @@ trait MTypesLoader { self: Scala2Reader =>
                       Some(SignalType.empty)
                   }
                 case Select(New(tpt), termNames.CONSTRUCTOR) =>
-                  val className     = tpt.toString()
-                  val someBundleDef = cInfo.readerInfo.bundleDefs.get(className)
+                  val bundleFullName = tpt.tpe.toString()
+                  val someBundleDef  = cInfo.readerInfo.bundleDefs.get(bundleFullName)
                   someBundleDef.map(_.bundle)
                 case _ =>
                   unprocessedTree(f, "SignalTypeLoader #2")
@@ -103,7 +99,7 @@ trait MTypesLoader { self: Scala2Reader =>
           }
 
         case Block(stats, _) =>
-          Some(BundleDefLoader(cInfo, stats.head).get._2.get.bundle)
+          Some(BundleDefLoader(cInfo, stats.head, "").get._2.get.bundle)
         case _ =>
           errorTree(tree, "SignalTypeLoader #3")
           Some(SignalType.empty)
@@ -156,11 +152,11 @@ trait MTypesLoader { self: Scala2Reader =>
 
   object MTypeLoader {
     def fromTpt(tr: Tree): Option[MType] = {
-      if (isChiselType(tr)) SignalTypeLoader.fromTpt(tr)
+      if (isChiselSignalType(tr)) SignalTypeLoader.fromTpt(tr)
       else STypeLoader.fromTpt(tr)
     }
     def apply(cInfo: CircuitInfo, tr: Tree): Option[MType] = {
-      if (isChiselType(tr))
+      if (isChiselSignalType(tr))
         SignalTypeLoader(cInfo, tr)
       else STypeLoader.fromTpt(tr)
     }

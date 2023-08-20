@@ -13,7 +13,9 @@ trait MDefImpls { self: ChicalaAst =>
     def tpe: MType
   }
 
-  trait CValDefImpl { self: CValDef =>
+  trait SubModuleDefImpl { self: SubModuleDef => }
+
+  trait SignalDefImpl { self: SignalDef =>
     def name: TermName
     def tpe: SignalType
   }
@@ -56,7 +58,7 @@ trait MDefImpls { self: ChicalaAst =>
   trait EnumDefImpl { self: EnumDef =>
     override val relatedSignals =
       RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
-    def inner: List[CValDef] = names
+    def inner: List[SignalDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
         NodeDef(name, tpe, Lit(SLiteral(i, StInt), tpe))

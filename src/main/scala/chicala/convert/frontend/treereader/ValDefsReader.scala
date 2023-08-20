@@ -11,11 +11,11 @@ trait ValDefsReader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
       val tree = passThrough(tr)._1
       tree match {
-        // SignalDef
-        case v @ ValDef(mods, nameTmp, tpt: TypeTree, rhs) if isChiselType(tpt) => {
+        // SignalDef and SubModuleDef
+        case v @ ValDef(mods, nameTmp, tpt: TypeTree, rhs) if isChiselSignalType(tpt) || isChiselModuleType(tpt) => {
           val name = nameTmp.stripSuffix(" ")
           passThrough(rhs)._1 match {
-            // normal SignalDef
+            // normal SignalDef and SubModuleDef
             case a @ Apply(func, args) =>
               if (isModuleThisIO(func, cInfo)) { // IoDef
                 Some(loadIoDef(cInfo, name, args))
@@ -23,6 +23,8 @@ trait ValDefsReader { self: Scala2Reader =>
                 Some(loadWireDef(cInfo, name, func, args))
               } else if (isChiselRegDefApply(func)) { // RegDef
                 Some(loadRegDef(cInfo, name, func, args))
+              } else if (isChisel3ModuleDoApply(func)) { // SubModuleDef
+                Some(loadSubModuleDef(cInfo, name, args))
               } else { // NodeDef called function or operator
                 Some(loadNodeDef(cInfo, name, rhs))
               }
@@ -62,8 +64,8 @@ trait ValDefsReader { self: Scala2Reader =>
               Some(loadNodeDef(cInfo, name, rhs))
           }
         }
+        // EnumDef step 1
         case v @ ValDef(mods, name, tpt, rhs) if isChisel3EnumTmpValDef(v) => {
-          // EnumDef step 1
           rhs match {
             case Match(Typed(Apply(cuea, number), _), _) => {
               val num = number.head.asInstanceOf[Literal].value.value.asInstanceOf[Int]
@@ -82,8 +84,8 @@ trait ValDefsReader { self: Scala2Reader =>
             }
           }
         }
+        // STupleUnapplyDef step 1
         case v @ ValDef(mods, name, tpt, Match(t @ Typed(Apply(appl, args), _), _)) => {
-          // STupleUnapplyDef step 1
           val num = tpt.tpe.typeArgs.length
           val cExp =
             if (isScala2TupleUnapplyTmpValDef(v)) MTermLoader(cInfo, args.head).get._2.get
@@ -99,8 +101,8 @@ trait ValDefsReader { self: Scala2Reader =>
             )
           )
         }
+        // SValDef
         case ValDef(mods, nameTmp, tpt, rhs) =>
-          // SValDef
           val name     = nameTmp.stripSuffix(" ")
           val tpe      = STypeLoader.fromTpt(tpt).get
           val newCInfo = cInfo.updatedVal(name, tpe)
@@ -124,10 +126,10 @@ trait ValDefsReader { self: Scala2Reader =>
         args: List[Tree]
     ): (CircuitInfo, Option[IoDef]) = {
       val someInfoAndDef = args.head match {
-        case Block(stats, expr) => BundleDefLoader(cInfo, stats.head)
+        case Block(stats, expr) => BundleDefLoader(cInfo, stats.head, "")
         case a @ Apply(Select(New(tpt), termNames.CONSTRUCTOR), aparams) =>
-          val className     = tpt.toString()
-          val someBundleDef = cInfo.readerInfo.bundleDefs.get(className)
+          val bundleFullName = tpt.tpe.toString()
+          val someBundleDef  = cInfo.readerInfo.bundleDefs.get(bundleFullName)
           someBundleDef match {
             case Some(bundleDef) => Some((cInfo, Some(bundleDef)))
             case None            => Some((cInfo.settedDependentClassNotDef, None))
@@ -216,6 +218,28 @@ trait ValDefsReader { self: Scala2Reader =>
       val newInfo    = cInfo.updatedVal(name, signalInfo)
       (newInfo, Some(NodeDef(name, signalInfo, cExp)))
     }
+
+    def loadSubModuleDef(
+        cInfo: CircuitInfo,
+        name: TermName,
+        args: List[Tree]
+    ): (CircuitInfo, Option[SubModuleDef]) = {
+      args.head match {
+        case Apply(Select(New(tpt), termNames.CONSTRUCTOR), args) =>
+          val moduleFullName = tpt.tpe.toString()
+          val someModuleDef  = cInfo.readerInfo.moduleDefs.get(moduleFullName)
+          someModuleDef match {
+            case Some(value) =>
+              val tpe          = SubModule(moduleFullName)
+              val subModuleDef = SubModuleDef(name, tpe, args.map(x => MTermLoader(cInfo, x).get._2.get))
+              (cInfo.updatedVal(name, tpe), Some(subModuleDef))
+            case None =>
+              (cInfo.settedDependentClassNotDef, None)
+          }
+        case _ => (cInfo, None)
+      }
+    }
+
   }
 
 }

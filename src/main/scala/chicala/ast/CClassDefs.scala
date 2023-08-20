@@ -6,25 +6,16 @@ trait CClassDefs { self: ChicalaAst =>
   val global: Global
   import global._
 
-  sealed abstract class CClassDef {
-    def convert: Tree
+  sealed abstract class CClassDef(name: TypeName, pkg: String) {
+    def fullName: String = pkg + "." + name
   }
 
   case class ModuleDef(
       name: TypeName,
       vparams: List[SValDef],
-      body: List[MStatement]
-  ) extends CClassDef {
-    def convert: Tree = {
-      // TODO
-      Literal(Constant(()))
-    }
-  }
+      body: List[MStatement],
+      pkg: String
+  ) extends CClassDef(name, pkg) {}
 
-  case class BundleDef(name: TypeName, bundle: Bundle) extends CClassDef {
-    def convert: Tree = {
-      // TODO
-      Literal(Constant(()))
-    }
-  }
+  case class BundleDef(name: TypeName, bundle: Bundle, pkg: String) extends CClassDef(name, pkg) {}
 }

@@ -17,9 +17,9 @@ trait ReaderInfos { this: Scala2Reader =>
     def isDependentClassNotDef      = dependentClassNotDef
 
     def addedModuleDef(moduleDef: ModuleDef) =
-      copy(moduleDefs = moduleDefs + (moduleDef.name.toString() -> moduleDef))
+      copy(moduleDefs = moduleDefs + (moduleDef.fullName -> moduleDef))
     def addedBundleDef(bundleDef: BundleDef) =
-      copy(bundleDefs = bundleDefs + (bundleDef.name.toString() -> bundleDef))
+      copy(bundleDefs = bundleDefs + (bundleDef.fullName -> bundleDef))
     def addedTodo(tree: Tree, packageName: String) = copy(todos = todos.appended((tree, packageName)))
 
     def needExit = isDependentClassNotDef

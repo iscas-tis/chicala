@@ -7,9 +7,9 @@ trait CClassDefsLoader { self: Scala2Reader =>
   import global._
 
   object CClassDefLoader {
-    def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[CClassDef])] = {
-      val someModuleDef = ModuleDefLoader(tree)
-      val someBundleDef = BundleDefLoader(tree)
+    def apply(tree: Tree, pkg: String)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[CClassDef])] = {
+      val someModuleDef = ModuleDefLoader(tree, pkg)
+      val someBundleDef = BundleDefLoader(tree, pkg)
       someModuleDef match {
         case Some(_) => someModuleDef
         case None    => someBundleDef
@@ -18,7 +18,12 @@ trait CClassDefsLoader { self: Scala2Reader =>
   }
 
   object ModuleDefLoader {
-    def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[ModuleDef])] = tree match {
+    def apply(
+        tree: Tree,
+        pkg: String
+    )(implicit
+        readerInfo: ReaderInfo
+    ): Option[(ReaderInfo, Option[ModuleDef])] = tree match {
       // only Class inherits chisel3.Module directly
       case ClassDef(mods, name, tparams, Template(parents, self, body)) if parents.exists {
             case Select(Ident(TermName("chisel3")), TypeName("Module")) => true
@@ -26,20 +31,20 @@ trait CClassDefsLoader { self: Scala2Reader =>
           } =>
         val (cInfo, cBody): (CircuitInfo, List[MStatement]) =
           StatementReader.fromListTree(CircuitInfo(name), body)
-        Some((cInfo.readerInfo, Some(ModuleDef(name, cInfo.params.toList, cBody))))
+        Some((cInfo.readerInfo, Some(ModuleDef(name, cInfo.params.toList, cBody, pkg))))
       case _ => None
     }
   }
 
   object BundleDefLoader {
-    def apply(tree: Tree)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[BundleDef])] = {
+    def apply(tree: Tree, pkg: String)(implicit readerInfo: ReaderInfo): Option[(ReaderInfo, Option[BundleDef])] = {
       val name = tree.asInstanceOf[ClassDef].name
-      BundleDefLoader(CircuitInfo(name), tree) match {
+      BundleDefLoader(CircuitInfo(name), tree, pkg) match {
         case None                         => None
         case Some((cInfo, someBundleDef)) => Some(cInfo.readerInfo, someBundleDef)
       }
     }
-    def apply(cInfo: CircuitInfo, tree: Tree): Option[(CircuitInfo, Option[BundleDef])] = {
+    def apply(cInfo: CircuitInfo, tree: Tree, pkg: String): Option[(CircuitInfo, Option[BundleDef])] = {
       tree match {
         // only Class inherits chisel3.Bundle directly
         case ClassDef(mods, name, tparams, Template(parents, self, body)) if parents.exists {
@@ -53,7 +58,7 @@ trait CClassDefsLoader { self: Scala2Reader =>
                 tr match {
                   case ValDef(mods, nameTmp, tpt, rhs) =>
                     val name = nameTmp.stripSuffix(" ")
-                    if (isChiselType(tpt)) {
+                    if (isChiselSignalType(tpt)) {
                       SignalTypeLoader(nowCInfo, rhs) match {
                         case Some(sigType) => (nowCInfo, nowSet + (name -> sigType))
                         case None          => (nowCInfo.settedDependentClassNotDef, nowSet)
@@ -67,7 +72,7 @@ trait CClassDefsLoader { self: Scala2Reader =>
                 }
             }
 
-          Some((newCInfo, Some(BundleDef(name, Bundle(Node, signals)))))
+          Some((newCInfo, Some(BundleDef(name, Bundle(Node, signals), pkg))))
         case _ => None
       }
     }

@@ -21,8 +21,8 @@ trait SelectsReader { self: Scala2Reader =>
         case s @ Select(qualifier, name: TermName) =>
           if (sLibs.contains(s.toString())) Some((cInfo, Some(SLib(s.toString(), StFunc))))
           else {
-            if (isChiselType(tpt)) {
-              if (isChiselType(qualifier)) {
+            if (isChiselSignalType(tpt)) {
+              if (isChiselSignalType(qualifier)) {
                 COpLoader(name.toString()) match {
                   case Some(op) =>
                     val operands = List(MTermLoader(cInfo, qualifier).get._2.get)

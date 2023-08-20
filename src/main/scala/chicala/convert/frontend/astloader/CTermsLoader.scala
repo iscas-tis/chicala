@@ -10,7 +10,7 @@ trait CTermsLoader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Connect])] = {
       val (tree, _) = passThrough(tr)
       tree match {
-        case Apply(Select(qualifier, TermName("$colon$eq")), args) if isChiselType(qualifier) =>
+        case Apply(Select(qualifier, TermName("$colon$eq")), args) if isChiselSignalType(qualifier) =>
           assert(args.length == 1, "should have one right expr")
           val left  = MTermLoader(cInfo, qualifier).get._2.get
           val right = MTermLoader(cInfo, args.head).get._2.get
@@ -28,7 +28,7 @@ trait CTermsLoader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CApply])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
-        case Apply(Select(qualifier, name), args) if isChiselType(qualifier) =>
+        case Apply(Select(qualifier, name), args) if isChiselSignalType(qualifier) =>
           val opName = name.toString()
           COpLoader(opName) match {
             case Some(op) =>

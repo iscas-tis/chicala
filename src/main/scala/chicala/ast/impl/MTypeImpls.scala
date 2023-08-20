@@ -9,9 +9,9 @@ trait MTypeImpls { self: MTypes =>
   import global._
 
   trait MTypeImpl { self: MType =>
-    final def isCType = this match {
-      case _: CType => true
-      case _        => false
+    final def isSignalType = this match {
+      case _: SignalType => true
+      case _             => false
     }
     final def isSType = this match {
       case _: SType => true

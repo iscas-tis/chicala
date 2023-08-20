@@ -26,10 +26,10 @@ trait SelectsReader { self: Scala2Reader =>
                 COpLoader(name.toString()) match {
                   case Some(op) =>
                     val operands = List(MTermLoader(cInfo, qualifier).get._2.get)
-                    val cApply   = CApply(op, CTypeLoader.fromTpt(tpt).get, operands)
+                    val cApply   = CApply(op, SignalTypeLoader.fromTpt(tpt).get, operands)
                     Some((cInfo, Some(cApply)))
                   case None => // select from bundle
-                    Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
+                    Some((cInfo, Some(SignalRef(s, cInfo.getSignalType(s)))))
                 }
               } else if (isChiselLiteralType(qualifier)) {
                 LitLoader(cInfo, tr)
@@ -37,7 +37,7 @@ trait SelectsReader { self: Scala2Reader =>
                 qualifier match {
                   case t: This =>
                     // select from `This(Module)`
-                    Some((cInfo, Some(SignalRef(s, cInfo.getCType(s)))))
+                    Some((cInfo, Some(SignalRef(s, cInfo.getSignalType(s)))))
                   case _ =>
                     val from = MTermLoader(cInfo, qualifier).get._2.get
                     val tpe  = MTypeLoader.fromTpt(tpt).get

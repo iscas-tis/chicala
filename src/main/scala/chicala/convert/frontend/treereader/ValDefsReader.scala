@@ -54,7 +54,7 @@ trait ValDefsReader { self: Scala2Reader =>
               else
                 Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
             case EmptyTree =>
-              val tpe      = CTypeLoader.fromTpt(tpt).get
+              val tpe      = SignalTypeLoader.fromTpt(tpt).get
               val newCInfo = cInfo.updatedVal(name, tpe)
               val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
               Some((newCInfo, Some(nodeDef)))
@@ -155,14 +155,14 @@ trait ValDefsReader { self: Scala2Reader =>
     ): (CircuitInfo, Option[WireDef]) = {
       assert(args.length == 1, "should have only 1 arg in Wire()")
       if (isChisel3WireApply(func)) {
-        val cType   = CTypeLoader(cInfo, args.head).get.updatedPhysical(Wire)
-        val newInfo = cInfo.updatedVal(name, cType)
-        (newInfo, Some(WireDef(name, cType)))
+        val sigType = SignalTypeLoader(cInfo, args.head).get.updatedPhysical(Wire)
+        val newInfo = cInfo.updatedVal(name, sigType)
+        (newInfo, Some(WireDef(name, sigType)))
       } else if (isChisel3WireInitApply(func)) {
         val init    = MTermLoader(cInfo, args.head).get._2.get
-        val cType   = init.tpe.asInstanceOf[CType].updatedPhysical(Wire)
-        val newInfo = cInfo.updatedVal(name, cType)
-        (newInfo, Some(WireDef(name, cType, Some(init))))
+        val sigType = init.tpe.asInstanceOf[SignalType].updatedPhysical(Wire)
+        val newInfo = cInfo.updatedVal(name, sigType)
+        (newInfo, Some(WireDef(name, sigType, Some(init))))
       } else {
         reporter.error(func.pos, "Unknow WireDef function")
         (cInfo, None)
@@ -178,14 +178,14 @@ trait ValDefsReader { self: Scala2Reader =>
       if (isChisel3RegApply(func)) {
         assert(args.length == 1, "should have only 1 arg in Reg()")
 
-        val signalInfo = CTypeLoader(cInfo, args.head).get.updatedPhysical(Reg)
+        val signalInfo = SignalTypeLoader(cInfo, args.head).get.updatedPhysical(Reg)
         val newCInfo   = cInfo.updatedVal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo)))
 
       } else if (isChisel3RegInitApply(func)) {
         if (args.length == 1) {
           val init       = MTermLoader(cInfo, args.head).get._2.get
-          val signalInfo = init.tpe.asInstanceOf[CType].updatedPhysical(Reg)
+          val signalInfo = init.tpe.asInstanceOf[SignalType].updatedPhysical(Reg)
           val newCInfo   = cInfo.updatedVal(name, signalInfo)
           (newCInfo, Some(RegDef(name, signalInfo, Some(init))))
         } else {
@@ -197,7 +197,7 @@ trait ValDefsReader { self: Scala2Reader =>
           reporter.error(func.pos, "should have 2 args in RegEnable()")
         val next       = MTermLoader(cInfo, args.head).get._2.get
         val enable     = MTermLoader(cInfo, args.tail.head).get._2.get
-        val signalInfo = next.tpe.asInstanceOf[CType].updatedPhysical(Reg)
+        val signalInfo = next.tpe.asInstanceOf[SignalType].updatedPhysical(Reg)
         val newCInfo   = cInfo.updatedVal(name, signalInfo)
         (newCInfo, Some(RegDef(name, signalInfo, None, Some(next), Some(enable))))
       } else {
@@ -212,7 +212,7 @@ trait ValDefsReader { self: Scala2Reader =>
         rhs: Tree
     ): (CircuitInfo, Option[NodeDef]) = {
       val cExp       = MTermLoader(cInfo, rhs).get._2.get
-      val signalInfo = cExp.tpe.asInstanceOf[CType].updatedPhysical(Node)
+      val signalInfo = cExp.tpe.asInstanceOf[SignalType].updatedPhysical(Node)
       val newInfo    = cInfo.updatedVal(name, signalInfo)
       (newInfo, Some(NodeDef(name, signalInfo, cExp)))
     }

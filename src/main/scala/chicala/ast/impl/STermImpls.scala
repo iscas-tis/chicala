@@ -11,7 +11,7 @@ trait STermImpls { self: ChicalaAst =>
   trait SApplyImpl { self: SApply =>
     override val relatedSignals = {
       val argsDependency = args
-        .filter(_.tpe.isCType)
+        .filter(_.tpe.isSignalType)
         .map(_.relatedSignals.dependency)
         .foldLeft(Set.empty[String])(_ ++ _)
       // FIXME: inner block dependency

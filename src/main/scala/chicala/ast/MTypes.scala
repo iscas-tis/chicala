@@ -11,14 +11,19 @@ trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaA
   sealed abstract class MType extends MTypeImpl
 
   // CType
-  sealed abstract class CType extends MType with CTypeImpl
+  sealed abstract class CType extends MType
 
-  case class UInt(width: CSize, physical: CPhysical, direction: CDirection) extends CType with UIntImpl
-  case class SInt(width: CSize, physical: CPhysical, direction: CDirection) extends CType with SIntImpl
-  case class Bool(physical: CPhysical, direction: CDirection)               extends CType with BoolImpl
+  case class SubModule(name: TypeName) extends CType
 
-  case class Vec(size: CSize, physical: CPhysical, tparam: CType)       extends CType with VecImpl
-  case class Bundle(physical: CPhysical, signals: Map[TermName, CType]) extends CType with BundleImpl
+  // SignalType
+  sealed abstract class SignalType extends CType with SignalTypeImpl
+
+  case class UInt(width: CSize, physical: CPhysical, direction: CDirection) extends SignalType with UIntImpl
+  case class SInt(width: CSize, physical: CPhysical, direction: CDirection) extends SignalType with SIntImpl
+  case class Bool(physical: CPhysical, direction: CDirection)               extends SignalType with BoolImpl
+
+  case class Vec(size: CSize, physical: CPhysical, tparam: SignalType)       extends SignalType with VecImpl
+  case class Bundle(physical: CPhysical, signals: Map[TermName, SignalType]) extends SignalType with BundleImpl
 
   // CPhysical
   sealed abstract class CPhysical

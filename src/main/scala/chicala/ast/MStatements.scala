@@ -16,9 +16,9 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // CTerm
   sealed abstract class CTerm extends MTerm
 
-  case class Lit(litExp: STerm, tpe: CType)                     extends CTerm
-  case class SignalRef(name: Tree, tpe: CType)                  extends CTerm with SignalRefImpl
-  case class CApply(op: COp, tpe: CType, operands: List[MTerm]) extends CTerm with CApplyImpl
+  case class Lit(litExp: STerm, tpe: SignalType)                     extends CTerm
+  case class SignalRef(name: Tree, tpe: SignalType)                  extends CTerm with SignalRefImpl
+  case class CApply(op: COp, tpe: SignalType, operands: List[MTerm]) extends CTerm with CApplyImpl
 
   case class Connect(left: SignalRef, expr: MTerm) extends CTerm with ConnectImpl
   case class BulkConnect()                         extends CTerm with BulkConnectImpl
@@ -63,29 +63,29 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
 
   sealed abstract class CValDef extends MValDef with CValDefImpl
 
-  case class IoDef(name: TermName, tpe: CType) extends CValDef with IoDefImpl
+  case class IoDef(name: TermName, tpe: SignalType) extends CValDef with IoDefImpl
   case class WireDef(
       name: TermName,
-      tpe: CType,
+      tpe: SignalType,
       someInit: Option[MTerm] = None
   ) extends CValDef
       with WireDefImpl
   case class RegDef(
       name: TermName,
-      tpe: CType,
+      tpe: SignalType,
       someInit: Option[MTerm] = None,
       someNext: Option[MTerm] = None,
       someEnable: Option[MTerm] = None
   ) extends CValDef
       with RegDefImpl
-  case class NodeDef(name: TermName, tpe: CType, rhs: MTerm) extends CValDef with NodeDefImpl
+  case class NodeDef(name: TermName, tpe: SignalType, rhs: MTerm) extends CValDef with NodeDefImpl
 
   case class SValDef(name: TermName, tpe: SType, rhs: MTerm, isVar: Boolean = false) extends MValDef
 
   // other Def
   sealed abstract class MUnapplyDef extends MDef
 
-  case class EnumDef(names: List[TermName], tpe: CType)                   extends MUnapplyDef with EnumDefImpl
+  case class EnumDef(names: List[TermName], tpe: SignalType)              extends MUnapplyDef with EnumDefImpl
   case class SUnapplyDef(names: List[TermName], rhs: MTerm, tpe: StTuple) extends MUnapplyDef with SUnapplyDefImpl
 
   case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock)

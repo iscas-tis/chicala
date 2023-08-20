@@ -43,33 +43,33 @@ trait CircuitInfos { self: Scala2Reader =>
       }
     }
 
-    def getCType(tree: Tree): CType = {
+    def getSignalType(tree: Tree): SignalType = {
       val tpe = getMType(tree)
       tpe match {
-        case c: CType => c
+        case c: SignalType => c
         case _ =>
-          reporter.error(tree.pos, "Not CType")
-          CType.empty
+          reporter.error(tree.pos, "Not SignalType")
+          SignalType.empty
       }
     }
 
     def getMType(tree: Tree): MType = {
-      def select(tpe: CType, termName: TermName): MType = tpe match {
+      def select(tpe: SignalType, termName: TermName): MType = tpe match {
         case Bundle(physical, signals) if signals.contains(termName) =>
           signals(termName)
         case _ => {
           reporter.error(tree.pos, s"TermName ${termName} not found in ${tpe}")
-          CType.empty
+          SignalType.empty
         }
       }
       tree match {
         case Select(This(this.name), termName: TermName) => vals(termName)
-        case Select(qualifier, termName: TermName)       => select(getCType(qualifier), termName)
+        case Select(qualifier, termName: TermName)       => select(getSignalType(qualifier), termName)
         case Ident(termName: TermName)                   => vals(termName)
         case _ => {
-          unprocessedTree(tree, "CircuitInfo.getCType")
-          reporter.error(tree.pos, s"CircuitInfo.getCType not process")
-          CType.empty
+          unprocessedTree(tree, "CircuitInfo.getSignalType")
+          reporter.error(tree.pos, s"CircuitInfo.getSignalType not process")
+          SignalType.empty
         }
       }
     }

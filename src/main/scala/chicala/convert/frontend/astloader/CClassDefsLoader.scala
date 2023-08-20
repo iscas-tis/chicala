@@ -46,17 +46,17 @@ trait CClassDefsLoader { self: Scala2Reader =>
               case Select(Ident(TermName("chisel3")), TypeName("Bundle")) => true
               case _                                                      => false
             } =>
-          val (newCInfo, signals): (CircuitInfo, Map[TermName, CType]) =
-            body.foldLeft((cInfo, Map.empty[TermName, CType])) { case ((nowCInfo, nowSet), tr) =>
+          val (newCInfo, signals): (CircuitInfo, Map[TermName, SignalType]) =
+            body.foldLeft((cInfo, Map.empty[TermName, SignalType])) { case ((nowCInfo, nowSet), tr) =>
               if (nowCInfo.needExit) (nowCInfo, nowSet)
               else
                 tr match {
                   case ValDef(mods, nameTmp, tpt, rhs) =>
                     val name = nameTmp.stripSuffix(" ")
                     if (isChiselType(tpt)) {
-                      CTypeLoader(nowCInfo, rhs) match {
-                        case Some(cType) => (nowCInfo, nowSet + (name -> cType))
-                        case None        => (nowCInfo.settedDependentClassNotDef, nowSet)
+                      SignalTypeLoader(nowCInfo, rhs) match {
+                        case Some(sigType) => (nowCInfo, nowSet + (name -> sigType))
+                        case None          => (nowCInfo.settedDependentClassNotDef, nowSet)
                       }
                     } else
                       ValDefReader(nowCInfo, tr) match {

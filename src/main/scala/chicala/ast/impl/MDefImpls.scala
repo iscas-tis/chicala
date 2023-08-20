@@ -15,7 +15,7 @@ trait MDefImpls { self: ChicalaAst =>
 
   trait CValDefImpl { self: CValDef =>
     def name: TermName
-    def tpe: CType
+    def tpe: SignalType
   }
 
   trait IoDefImpl { self: IoDef =>

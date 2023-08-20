@@ -8,20 +8,20 @@ trait CTypeImpls { self: MTypes =>
   val global: Global
   import global._
 
-  trait CTypeImpl { self: CType =>
+  trait SignalTypeImpl { self: SignalType =>
     def physical: CPhysical
 
-    def updatedPhysical(newPhysical: CPhysical): CType
-    def updatedDriction(newDirection: CDirection): CType
-    def setInferredWidth: CType = this
-    def subSignals: Set[String] = Set.empty
+    def updatedPhysical(newPhysical: CPhysical): SignalType
+    def updatedDriction(newDirection: CDirection): SignalType
+    def setInferredWidth: SignalType = this
+    def subSignals: Set[String]      = Set.empty
     def allSignals(parentName: String, leftSide: Boolean): Set[String] = physical match {
       case Reg => Set(if (leftSide) Reg.nowSignal(parentName) else Reg.nextSignal(parentName))
       case _   => Set(parentName)
     }
   }
-  object CType {
-    def empty: CType = Bool(Node, Undirect)
+  object SignalType {
+    def empty: SignalType = Bool(Node, Undirect)
   }
 
   trait UIntImpl { self: UInt =>

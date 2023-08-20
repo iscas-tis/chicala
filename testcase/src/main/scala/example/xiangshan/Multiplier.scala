@@ -42,10 +42,10 @@ class C53 extends Module {
     val in  = Input(Vec(5, UInt(1.W)))
     val out = Output(Vec(3, UInt(1.W)))
   })
-  val FAs = Array.fill(2)(Module(new C32))
-  FAs(0).io.in := io.in.take(3)
-  FAs(1).io.in := VecInit(FAs(0).io.out(0), io.in(3), io.in(4))
-  io.out       := VecInit(FAs(1).io.out(0), FAs(0).io.out(1), FAs(1).io.out(1))
+  val FAs0, FAs1 = Module(new C32)
+  FAs0.io.in := io.in.take(3)
+  FAs1.io.in := VecInit(FAs0.io.out(0), io.in(3), io.in(4))
+  io.out     := VecInit(FAs1.io.out(0), FAs0.io.out(1), FAs1.io.out(1))
 }
 
 class ArrayMulDataModule(len: Int) extends Module {

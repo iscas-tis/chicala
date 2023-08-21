@@ -63,9 +63,19 @@ trait CircuitInfos { self: Scala2Reader =>
         }
       }
       tree match {
-        case Select(This(this.name), termName: TermName) => vals(termName)
-        case Select(qualifier, termName: TermName)       => select(getSignalType(qualifier), termName)
         case Ident(termName: TermName)                   => vals(termName)
+        case Select(This(this.name), termName: TermName) => vals(termName)
+        case Select(s @ Select(This(this.name), termName: TermName), TermName("io")) if isChiselModuleType(s) =>
+          val tpe       = vals(termName).asInstanceOf[SubModule]
+          val moduleDef = readerInfo.moduleDefs(tpe.fullName)
+          val ioDefs = moduleDef.body
+            .filter({
+              case IoDef(name, tpe) => true
+              case _                => false
+            })
+          assert(ioDefs.tail == Nil, "ModuleDef should has only one IoDef")
+          ioDefs.head.tpe
+        case Select(qualifier, termName: TermName) => select(getSignalType(qualifier), termName)
         case _ => {
           unprocessedTree(tree, "CircuitInfo.getSignalType")
           reporter.error(tree.pos, s"CircuitInfo.getSignalType not process")

@@ -69,7 +69,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
             showFormattedRaw(tree) + "\n"
           )
 
-          val someInfoAndDef = CClassDefLoader(tree)(readerInfo)
+          val someInfoAndDef = CClassDefLoader(tree, packageName)(readerInfo)
 
           val (newRInfo, someCClassDef) = someInfoAndDef match {
             case Some((newRInfo, someCClassDef)) => { (newRInfo, someCClassDef) }
@@ -97,7 +97,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
               )
 
               val sortedCClassDef = cClassDef match {
-                case m @ ModuleDef(name, info, body) =>
+                case m @ ModuleDef(name, info, body, pkg) =>
                   readerInfo = readerInfo.addedModuleDef(m)
                   Format.saveToFile(
                     packageDir + s"/${name}.related.scala",

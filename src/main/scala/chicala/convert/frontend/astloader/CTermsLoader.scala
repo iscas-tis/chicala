@@ -32,8 +32,16 @@ trait CTermsLoader { self: Scala2Reader =>
           val opName = name.toString()
           COpLoader(opName) match {
             case Some(op) =>
-              val tpe = SignalTypeLoader.fromTpt(tpt).get.setInferredWidth
-              Some((cInfo, Some(CApply(op, tpe, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
+              val tpe = MTypeLoader.fromTpt(tpt).get match {
+                case StSeq(tparam: SignalType) => Vec(InferredSize, Node, tparam.setInferredWidth)
+                case x: SignalType             => x.setInferredWidth
+                case x =>
+                  errorTree(tpt, s"Not a processable MType `${x}`")
+                  SignalType.empty
+              }
+              val operands = (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)
+              val cApply   = CApply(op, tpe, operands)
+              Some((cInfo, Some(cApply)))
             case None =>
               unprocessedTree(tr, s"CApplyLoader `${opName}`")
               None

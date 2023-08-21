@@ -9,7 +9,6 @@ trait COpsLoader { self: Scala2Reader =>
   object COpLoader {
     val nameToObj: Map[String, COp] = Map(
       // CCalculOp
-      "apply"           -> VecSelect,
       "do_apply"        -> Slice,
       "do_unary_$bang"  -> LogiNot,
       "do_unary_$tilde" -> Not,
@@ -31,6 +30,9 @@ trait COpsLoader { self: Scala2Reader =>
       //
       "do_$amp$amp" -> LogiAnd,
       "do_$bar$bar" -> LogiOr,
+      //
+      "apply" -> VecSelect,
+      "take"  -> VecTake,
 
       //
       "do_asUInt" -> AsUInt,

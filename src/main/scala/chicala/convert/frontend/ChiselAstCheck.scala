@@ -12,12 +12,15 @@ trait ChiselAstCheck extends Utils { this: Scala2Reader =>
 
   def isChiselWireDefApply(tree: Tree): Boolean = List(
     isChisel3WireApply(_),
-    isChisel3WireInitApply(_)
+    isChisel3WireInitApply(_),
+    isChisel3VecInitDoApply(_)
   ).exists(_(tree))
   def isChisel3WireApply(tree: Tree): Boolean =
     passThrough(tree)._1.toString() == "chisel3.Wire.apply"
   def isChisel3WireInitApply(tree: Tree): Boolean =
     passThrough(tree)._1.toString() == "chisel3.`package`.WireInit.apply"
+  def isChisel3VecInitDoApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.VecInit.do_apply"
 
   def isChiselRegDefApply(tree: Tree): Boolean = List(
     isChisel3RegApply(_),
@@ -105,7 +108,10 @@ trait ChiselAstCheck extends Utils { this: Scala2Reader =>
     """chisel3\.Bundle\{.*\}""".r.matches(tpe.toString()) ||
     (tpe match {
       case tr @ TypeRef(pre, sym, args) =>
-        sym.asClass.baseClasses.map(_.toString()).contains("class Bundle")
+        if (sym.isClass)
+          sym.asClass.baseClasses.map(_.toString()).contains("class Bundle")
+        else
+          false
       case _ => false
     })
   }

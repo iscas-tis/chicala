@@ -140,9 +140,11 @@ trait MTypesLoader { self: Scala2Reader =>
           case "Boolean"                 => Some(StBoolean)
           case "scala.runtime.BoxedUnit" => Some(StUnit)
           case s =>
-            if (!wrappedTypes.contains(s)) {
-              reporter.warning(tr.pos, s"this type `${s}` need check")
-            }
+            assertWarning(
+              wrappedTypes.contains(s),
+              tr.pos,
+              s"This type `${s}` need check"
+            )
             Some(StWrapped(s))
 
         }

@@ -155,8 +155,8 @@ trait ValDefsReader { self: Scala2Reader =>
         func: Tree,
         args: List[Tree]
     ): (CircuitInfo, Option[WireDef]) = {
-      assert(args.length == 1, "should have only 1 arg in Wire()")
       if (isChisel3WireApply(func)) {
+        assertError(args.length == 1, func.pos, "Should have only 1 arg in Wire()")
         val sigType = SignalTypeLoader(cInfo, args.head).get.updatedPhysical(Wire)
         val newInfo = cInfo.updatedVal(name, sigType)
         (newInfo, Some(WireDef(name, sigType)))
@@ -165,6 +165,17 @@ trait ValDefsReader { self: Scala2Reader =>
         val sigType = init.tpe.asInstanceOf[SignalType].updatedPhysical(Wire)
         val newInfo = cInfo.updatedVal(name, sigType)
         (newInfo, Some(WireDef(name, sigType, Some(init))))
+      } else if (isChisel3VecInitDoApply(func)) {
+        assertError(args.length >= 1, func.pos, "Should have at last 1 arg in VecInit()")
+        val mArgs = args.map(MTermLoader(cInfo, _).get._2.get)
+        val init  = STuple(mArgs, StTuple(mArgs.map(_.tpe)))
+        val tpe = Vec(
+          KnownSize.fromInt(init.size),
+          Wire,
+          init.tpe.tparams.head.asInstanceOf[SignalType]
+        )
+        val newInfo = cInfo.updatedVal(name, tpe)
+        (newInfo, Some(WireDef(name, tpe, Some(init))))
       } else {
         reporter.error(func.pos, "Unknow WireDef function")
         (cInfo, None)

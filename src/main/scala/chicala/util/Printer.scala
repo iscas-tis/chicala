@@ -21,13 +21,7 @@ trait Printer extends Format {
   }
 
   def errorTree(tree: Tree, msg: String) = {
-    val stackTraces = Thread
-      .currentThread()
-      .getStackTrace
-      .map(_.toString())
-    val slicedTraces = stackTraces
-      .drop(4)
-      .reduce(_ + "\n  " + _)
+    val slicedTraces = stackTraces.drop(1).reduce(_ + "\n  " + _)
     reporter.error(
       tree.pos,
       s"""${msg}:
@@ -40,7 +34,23 @@ trait Printer extends Format {
     )
   }
 
+  def stackTraces = {
+    Thread
+      .currentThread()
+      .getStackTrace
+      .map(_.toString())
+      .toList
+      .drop(4)
+  }
+
   def echoTreePos(tree: Tree) = {
     reporter.echo(tree.pos, "here")
+  }
+
+  def assertWarning(cond: Boolean, pos: Position, msg: String) = if (!cond) {
+    reporter.warning(pos, msg)
+  }
+  def assertError(cond: Boolean, pos: Position, msg: String) = if (!cond) {
+    reporter.error(pos, msg)
   }
 }

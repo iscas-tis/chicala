@@ -72,6 +72,8 @@ trait ChiselAstCheck extends Utils { this: Scala2Reader =>
     fun.tpe.toString().startsWith("(implicit sourceInfo: chisel3.internal.sourceinfo.SourceInfo")
   def isCompileOptionsFun(fun: Tree): Boolean =
     fun.tpe.toString().startsWith("(implicit compileOptions: chisel3.CompileOptions):")
+  def isReflectClassTagFun(fun: Tree): Boolean =
+    """\(implicit evidence.*: scala\.reflect\.ClassTag\[.*\]\): .*""".r.matches(fun.tpe.toString())
 
   def isChisel3EnumTmpValDef(tree: Tree): Boolean = tree match {
     case ValDef(mods, name, tpt, Match(Typed(Apply(cuea, number), _), _))
@@ -152,10 +154,13 @@ trait Utils { self: ChiselAstCheck =>
     *   sub tree, optional typed info
     */
   def passThrough(tree: Tree): (Tree, TypeTree) = tree match {
-    case Typed(expr, tpt: TypeTree)                   => (passThrough(expr)._1, tpt)
-    case Apply(fun, args) if isSourceInfoFun(fun)     => (passThrough(fun)._1, TypeTree(tree.tpe))
-    case Apply(fun, args) if isCompileOptionsFun(fun) => (passThrough(fun)._1, TypeTree(tree.tpe))
-    case TypeApply(fun, args)                         => (passThrough(fun)._1, TypeTree(tree.tpe))
-    case _                                            => (tree, TypeTree(tree.tpe))
+    case Typed(expr, tpt: TypeTree)                    => (passThrough(expr)._1, tpt)
+    case Apply(fun, args) if isSourceInfoFun(fun)      => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case Apply(fun, args) if isCompileOptionsFun(fun)  => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case Apply(fun, args) if isReflectClassTagFun(fun) => passThrough(fun)
+    case TypeApply(fun, args)                          => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case _                                             => (tree, TypeTree(tree.tpe))
   }
+
+  def strippedName(name: TermName) = name.stripSuffix(" ")
 }

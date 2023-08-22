@@ -22,18 +22,24 @@ trait CircuitInfos { self: Scala2Reader =>
       this.copy(params = params :+ sValDef)
 
     def updatedVal(termName: TermName, tpe: MType): CircuitInfo =
-      this.copy(vals = vals + (termName -> tpe))
+      this.copy(vals = vals + (strippedName(termName) -> tpe))
 
     def updatedFunc(termName: TermName, tpe: MType): CircuitInfo =
-      this.copy(funcs = funcs + (termName -> tpe))
+      this.copy(funcs = funcs + (strippedName(termName) -> tpe))
 
-    def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo =
-      this.copy(numTmp = num, enumTmp = et)
-    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo =
-      this.copy(numTmp = num, tupleTmp = tt)
+    def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo = {
+      val newET = et.map { case (name, enumDef) => (strippedName(name), enumDef) }
+      this.copy(numTmp = num, enumTmp = newET)
+    }
+    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo = {
+      val newTT = tt.map { case (name, sUnapplyDef) => (strippedName(name), sUnapplyDef) }
+      this.copy(numTmp = num, tupleTmp = newTT)
+    }
 
-    def contains(termName: TermName): Boolean =
-      vals.contains(termName) || funcs.contains(termName)
+    def contains(termName: TermName): Boolean = {
+      val name = strippedName(termName)
+      vals.contains(termName) || funcs.contains(name)
+    }
     def contains(tree: Tree): Boolean = {
       tree match {
         case Select(This(this.name), termName: TermName) => contains(termName)
@@ -41,6 +47,10 @@ trait CircuitInfos { self: Scala2Reader =>
           unprocessedTree(tree, "CircuitInfo.contains")
           false
       }
+    }
+
+    def getVal(name: TermName): Option[MType] = {
+      Some(vals(strippedName(name)))
     }
 
     def getSignalType(tree: Tree): SignalType = {
@@ -63,8 +73,8 @@ trait CircuitInfos { self: Scala2Reader =>
         }
       }
       tree match {
-        case Ident(termName: TermName)                   => vals(termName)
-        case Select(This(this.name), termName: TermName) => vals(termName)
+        case Ident(termName: TermName)                   => getVal(termName).get
+        case Select(This(this.name), termName: TermName) => getVal(termName).get
         case Select(s @ Select(This(this.name), termName: TermName), TermName("io")) if isChiselModuleType(s) =>
           val tpe       = vals(termName).asInstanceOf[SubModule]
           val moduleDef = readerInfo.moduleDefs(tpe.fullName)

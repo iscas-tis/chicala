@@ -13,7 +13,9 @@ trait SelectsReader { self: Scala2Reader =>
       "chisel3.util.log2Ceil.apply",
       "chisel3.util.log2Floor.apply",
       "chisel3.util.log2Up.apply",
-      "scala.Predef.intWrapper"
+      "scala.Predef.intWrapper",
+      "scala.Array.fill",
+      "scala.`package`.Seq.apply"
     )
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)

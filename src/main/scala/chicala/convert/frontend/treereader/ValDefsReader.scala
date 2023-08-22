@@ -20,7 +20,7 @@ trait ValDefsReader { self: Scala2Reader =>
               if (isModuleThisIO(func, cInfo)) { // IoDef
                 Some(loadIoDef(cInfo, name, args))
               } else if (isChiselWireDefApply(func)) { // WireDef
-                Some(loadWireDef(cInfo, name, func, args))
+                Some(loadWireDef(cInfo, name, func, args, mods.isMutable))
               } else if (isChiselRegDefApply(func)) { // RegDef
                 Some(loadRegDef(cInfo, name, func, args))
               } else if (isChisel3ModuleDoApply(func)) { // SubModuleDef
@@ -153,7 +153,8 @@ trait ValDefsReader { self: Scala2Reader =>
         cInfo: CircuitInfo,
         name: TermName,
         func: Tree,
-        args: List[Tree]
+        args: List[Tree],
+        isVar: Boolean
     ): (CircuitInfo, Option[WireDef]) = {
       if (isChisel3WireApply(func)) {
         assertError(args.length == 1, func.pos, "Should have only 1 arg in Wire()")
@@ -164,7 +165,9 @@ trait ValDefsReader { self: Scala2Reader =>
         val init    = MTermLoader(cInfo, args.head).get._2.get
         val sigType = init.tpe.asInstanceOf[SignalType].updatedPhysical(Wire)
         val newInfo = cInfo.updatedVal(name, sigType)
-        (newInfo, Some(WireDef(name, sigType, Some(init))))
+        // isVar onlay support WireInit now
+        val wireDef = WireDef(name, sigType, Some(init), isVar)
+        (newInfo, Some(wireDef))
       } else if (isChisel3VecInitDoApply(func)) {
         assertError(args.length >= 1, func.pos, "Should have at last 1 arg in VecInit()")
         val mArgs = args.map(MTermLoader(cInfo, _).get._2.get)

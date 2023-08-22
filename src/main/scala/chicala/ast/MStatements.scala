@@ -71,7 +71,8 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class WireDef(
       name: TermName,
       tpe: SignalType,
-      someInit: Option[MTerm] = None
+      someInit: Option[MTerm] = None,
+      isVar: Boolean = false
   ) extends SignalDef
       with WireDefImpl
   case class RegDef(

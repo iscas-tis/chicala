@@ -15,7 +15,8 @@ trait SelectsReader { self: Scala2Reader =>
       "chisel3.util.log2Up.apply",
       "scala.Predef.intWrapper",
       "scala.Array.fill",
-      "scala.`package`.Seq.apply"
+      "scala.`package`.Seq.apply",
+      "scala.`package`.Range.apply"
     )
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)
@@ -41,7 +42,7 @@ trait SelectsReader { self: Scala2Reader =>
               val tpe  = MTypeLoader.fromTpt(tpt).get
               Some((cInfo, Some(SSelect(from, name, tpe))))
             }
-          } else {
+          } else { // SSelect SIdent
             val tpe = MTypeLoader.fromTpt(tpt).get
             qualifier match {
               case This(cInfo.name) => Some((cInfo, Some(SIdent(name, tpe))))

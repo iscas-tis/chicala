@@ -111,6 +111,7 @@ trait MTypesLoader { self: Scala2Reader =>
 
     private val wrappedTypes = List(
       "scala.collection.immutable.Range",
+      "scala.collection.immutable.Range.Exclusive",
       "scala.collection.WithFilter[Any,[_]Any]",
       "Nothing"
     )

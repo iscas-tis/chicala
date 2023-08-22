@@ -16,7 +16,8 @@ trait SelectsReader { self: Scala2Reader =>
       "scala.Predef.intWrapper",
       "scala.Array.fill",
       "scala.`package`.Seq.apply",
-      "scala.`package`.Range.apply"
+      "scala.`package`.Range.apply",
+      "scala.Predef.ArrowAssoc"
     )
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)

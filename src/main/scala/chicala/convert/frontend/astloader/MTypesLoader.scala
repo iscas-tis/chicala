@@ -113,6 +113,7 @@ trait MTypesLoader { self: Scala2Reader =>
       "scala.collection.immutable.Range",
       "scala.collection.immutable.Range.Exclusive",
       "scala.collection.WithFilter[Any,[_]Any]",
+      "ArrowAssoc[",
       "Nothing"
     )
     private def isSeq(tpe: Type): Boolean = {
@@ -136,6 +137,9 @@ trait MTypesLoader { self: Scala2Reader =>
         val tparam = MTypeLoader.fromTpt(TypeTree(tpe.typeArgs.head)).get
         Some(StSeq(tparam))
       } else {
+        if (tpe.toString().startsWith("ArrowAssoc")) {
+          return Some(StWrapped(tpe.toString()))
+        }
         tpe.erasure.toString() match {
           case "Int"                     => Some(StInt)
           case "String"                  => Some(StString)
@@ -144,12 +148,11 @@ trait MTypesLoader { self: Scala2Reader =>
           case "scala.runtime.BoxedUnit" => Some(StUnit)
           case s =>
             assertWarning(
-              wrappedTypes.contains(s),
+              wrappedTypes.exists(s.startsWith(_)),
               tr.pos,
               s"This type `${s}` need check"
             )
             Some(StWrapped(s))
-
         }
       }
     }

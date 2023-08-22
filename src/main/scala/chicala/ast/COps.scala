@@ -40,6 +40,7 @@ trait COps { self: ChicalaAst =>
 
   sealed abstract class CUtilOp extends COp
   case object Mux               extends CUtilOp
+  case object MuxLookup         extends CUtilOp
   case object Cat               extends CUtilOp
   case object Fill              extends CUtilOp
   case object Log2              extends CUtilOp

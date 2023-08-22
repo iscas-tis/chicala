@@ -39,10 +39,11 @@ trait COpsLoader { self: Scala2Reader =>
       "do_asSInt" -> AsSInt,
 
       // CUtilOp
-      "chisel3.Mux.do_apply"    -> Mux,
-      "chisel3.util.Cat.apply"  -> Cat,
-      "chisel3.util.Fill.apply" -> Fill,
-      "chisel3.util.Log2.apply" -> Log2
+      "chisel3.Mux.do_apply"         -> Mux,
+      "chisel3.util.MuxLookup.apply" -> MuxLookup,
+      "chisel3.util.Cat.apply"       -> Cat,
+      "chisel3.util.Fill.apply"      -> Fill,
+      "chisel3.util.Log2.apply"      -> Log2
     )
 
     def apply(opName: String): Option[COp] = {

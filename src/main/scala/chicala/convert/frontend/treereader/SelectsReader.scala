@@ -8,16 +8,20 @@ trait SelectsReader { self: Scala2Reader =>
 
   object SelectReader {
     val sLibs: List[String] = List(
-      "scala.`package`.BigInt.apply",
       "math.this.BigInt.int2bigInt",
+      //
       "chisel3.util.log2Ceil.apply",
       "chisel3.util.log2Floor.apply",
       "chisel3.util.log2Up.apply",
-      "scala.Predef.intWrapper",
+      //
       "scala.Array.fill",
       "scala.`package`.Seq.apply",
       "scala.`package`.Range.apply",
-      "scala.Predef.ArrowAssoc"
+      "scala.`package`.BigInt.apply",
+      //
+      "scala.Predef.intWrapper",
+      "scala.Predef.ArrowAssoc",
+      "scala.Predef.refArrayOps"
     )
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
       val (tree, tpt) = passThrough(tr)

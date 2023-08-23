@@ -123,7 +123,10 @@ trait ChiselAstCheck extends Utils { this: Scala2Reader =>
 
     tpe match {
       case tr @ TypeRef(pre, sym, args) =>
-        sym.asClass.baseClasses.map(_.toString()).contains("class Module")
+        if (sym.isClass)
+          sym.asClass.baseClasses.map(_.toString()).contains("class Module")
+        else
+          false
       case _ => false
     }
   }

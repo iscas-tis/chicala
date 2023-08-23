@@ -113,16 +113,17 @@ trait MTypesLoader { self: Scala2Reader =>
       "scala.collection.immutable.Range",
       "scala.collection.immutable.Range.Exclusive",
       "scala.collection.WithFilter[Any,[_]Any]",
+      "scala.collection.ArrayOps[",
       "ArrowAssoc[",
       "Nothing"
     )
     private def isSeq(tpe: Type): Boolean = {
       val typeStr = tpe.toString()
       List(
-        """IndexedSeq\[.*\]""",
-        """Array\[.*\]""",
-        """Seq\[.*\]"""
-      ).exists(_.r.matches(typeStr))
+        "IndexedSeq",
+        "Array",
+        "Seq"
+      ).exists(typeStr.startsWith(_))
     }
 
     def fromTpt(tr: Tree): Option[SType] = {
@@ -134,12 +135,14 @@ trait MTypesLoader { self: Scala2Reader =>
       } else if (tr.toString() == "Any") {
         Some(StAny)
       } else if (isSeq(tpe)) {
-        val tparam = MTypeLoader.fromTpt(TypeTree(tpe.typeArgs.head)).get
-        Some(StSeq(tparam))
-      } else {
-        if (tpe.toString().startsWith("ArrowAssoc")) {
-          return Some(StWrapped(tpe.toString()))
+        val tparam = tpe.typeArgs match {
+          case head :: next => MTypeLoader.fromTpt(TypeTree(head)).get
+          case Nil          => StAny
         }
+        Some(StSeq(tparam))
+      } else if (wrappedTypes.exists(tpe.toString().startsWith(_))) {
+        Some(StWrapped(tpe.toString()))
+      } else {
         tpe.erasure.toString() match {
           case "Int"                     => Some(StInt)
           case "String"                  => Some(StString)
@@ -147,11 +150,7 @@ trait MTypesLoader { self: Scala2Reader =>
           case "Boolean"                 => Some(StBoolean)
           case "scala.runtime.BoxedUnit" => Some(StUnit)
           case s =>
-            assertWarning(
-              wrappedTypes.exists(s.startsWith(_)),
-              tr.pos,
-              s"This type `${s}` need check"
-            )
+            assertWarning(true, tr.pos, s"This type `${s}` need check")
             Some(StWrapped(s))
         }
       }

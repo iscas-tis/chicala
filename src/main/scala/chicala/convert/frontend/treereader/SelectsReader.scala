@@ -18,6 +18,7 @@ trait SelectsReader { self: Scala2Reader =>
       "scala.`package`.Seq.apply",
       "scala.`package`.Range.apply",
       "scala.`package`.BigInt.apply",
+      "scala.`package`.Nil",
       //
       "scala.Predef.intWrapper",
       "scala.Predef.ArrowAssoc",

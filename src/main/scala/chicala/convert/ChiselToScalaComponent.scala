@@ -103,12 +103,15 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                     packageDir + s"/${name}.related.scala",
                     body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
                   )
+                  /*
                   val sorted = Some(dependencySort(m))
                   Format.saveToFile(
                     packageDir + s"/${name}.sorted.scala",
                     sorted.get.toString
                   )
                   sorted
+                   */
+                  m
                 case b: BundleDef =>
                   readerInfo = readerInfo.addedBundleDef(b)
                   b

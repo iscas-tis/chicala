@@ -338,8 +338,8 @@ case class DirectedGraph(val vertexs: Set[Vertex], edges: Set[DirectedEdge]) {
     }
 
     s"""digraph g{
-      |${nodes.map(x => "  " + x + "\n").reduce(_ + _)}
-      |${diedges.map(x => "  " + x + "\n").reduce(_ + _)}
+      |${nodes.map(x => "  " + x + "\n").foldLeft("")(_ + _)}
+      |${diedges.map(x => "  " + x + "\n").foldLeft("")(_ + _)}
       |}""".stripMargin
   }
 

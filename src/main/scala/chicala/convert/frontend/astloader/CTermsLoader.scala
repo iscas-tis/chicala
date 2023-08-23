@@ -20,16 +20,6 @@ trait CTermsLoader { self: Scala2Reader =>
               unprocessedTree(qualifier, "ConnectLoader Apply")
               None
           }
-        case Assign(lhs, rhs) if isChiselSignalType(lhs) => {
-          val left  = MTermLoader(cInfo, lhs).get._2.get
-          val right = MTermLoader(cInfo, rhs).get._2.get
-          left match {
-            case x: SignalRef => Some(cInfo, Some(Connect(x, right)))
-            case _ =>
-              unprocessedTree(lhs, "ConnectLoader Assign")
-              None
-          }
-        }
         case _ => None
       }
     }

@@ -8,17 +8,14 @@ trait AssignsReader { self: Scala2Reader =>
 
   object AssignReader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MTerm])] = {
-      firstMatchIn[MTerm](
-        cInfo,
-        tr,
-        List(
-          ConnectLoader(_, _)
-        )
-      ) match {
-        case Some(value) => Some(value)
-        case None =>
-          unprocessedTree(tr, "AssignReader")
-          None
+      val (tree, _) = passThrough(tr)
+      tree match {
+        case Assign(lhs, rhs) => {
+          val left  = MTermLoader(cInfo, lhs).get._2.get
+          val right = MTermLoader(cInfo, rhs).get._2.get
+          Some(cInfo, Some(SAssign(left, right)))
+        }
+        case _ => None
       }
     }
   }

@@ -46,5 +46,7 @@ trait STermImpls { self: ChicalaAst =>
   trait SFunctionImpl { self: SFunction =>
     val tpe = StFunc
   }
-
+  trait SAssignImpl { self: SAssign =>
+    val tpe = lhs.tpe
+  }
 }

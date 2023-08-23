@@ -52,6 +52,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class STuple(args: List[MTerm], tpe: StTuple)                                extends STerm with STupleImpl
   case class SLib(name: String, tpe: SType)                                         extends STerm
   case class SFunction(vparams: List[MValDef], body: MTerm)                         extends STerm with SFunctionImpl
+  case class SAssign(lhs: MTerm, rhs: MTerm)                                        extends STerm with SAssignImpl
 
   case object EmptyMTerm extends MTerm { val tpe = EmptyMType }
 

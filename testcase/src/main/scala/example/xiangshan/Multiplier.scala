@@ -101,14 +101,13 @@ class ArrayMulDataModule(len: Int) extends Module {
       )
     )
     last_x = x
-    val (pp, weight) = i match {
-      case 0 =>
+    val (pp, weight) =
+      if (i == 0)
         (Cat(~s, s, s, pp_temp), 0)
-      case n if (n == len - 1) || (n == len - 2) =>
+      else if (i == len - 1 || i == len - 1)
         (Cat(~s, pp_temp, t), i - 2)
-      case _ =>
+      else
         (Cat(1.U(1.W), ~s, pp_temp, t), i - 2)
-    }
 
     for (j <- columns.indices) {
       if (j >= weight && j < (weight + pp.getWidth)) {
@@ -121,37 +120,38 @@ class ArrayMulDataModule(len: Int) extends Module {
     var sum   = Seq[Bool]()
     var cout1 = Seq[Bool]()
     var cout2 = Seq[Bool]()
-    col.size match {
-      case 1 => // do nothing
-        sum = col ++ cin
-      case 2 =>
-        val c22 = Module(new C22)
-        c22.io.in := col
-        sum = c22.io.out(0).asBool() +: cin
-        cout2 = Seq(c22.io.out(1).asBool())
-      case 3 =>
-        val c32 = Module(new C32)
-        c32.io.in := col
-        sum = c32.io.out(0).asBool() +: cin
-        cout2 = Seq(c32.io.out(1).asBool())
-      case 4 =>
-        val c53 = Module(new C53)
-        for ((x, y) <- c53.io.in.take(4) zip col) {
-          x := y
-        }
-        c53.io.in.last := (if (cin.nonEmpty) cin.head else 0.U)
-        sum = Seq(c53.io.out(0).asBool()) ++ (if (cin.nonEmpty) cin.drop(1) else Nil)
-        cout1 = Seq(c53.io.out(1).asBool())
-        cout2 = Seq(c53.io.out(2).asBool())
-      case n =>
-        val cin_1               = if (cin.nonEmpty) Seq(cin.head) else Nil
-        val cin_2               = if (cin.nonEmpty) cin.drop(1) else Nil
-        val (s_1, c_1_1, c_1_2) = addOneColumn(col take 4, cin_1)
-        val (s_2, c_2_1, c_2_2) = addOneColumn(col drop 4, cin_2)
-        sum = s_1 ++ s_2
-        cout1 = c_1_1 ++ c_2_1
-        cout2 = c_1_2 ++ c_2_2
+    if (col.size == 1) {
+      // do nothing
+      sum = col ++ cin
+    } else if (col.size == 2) {
+      val c22 = Module(new C22)
+      c22.io.in := col
+      sum = c22.io.out(0).asBool() +: cin
+      cout2 = Seq(c22.io.out(1).asBool())
+    } else if (col.size == 3) {
+      val c32 = Module(new C32)
+      c32.io.in := col
+      sum = c32.io.out(0).asBool() +: cin
+      cout2 = Seq(c32.io.out(1).asBool())
+    } else if (col.size == 4) {
+      val c53 = Module(new C53)
+      for ((x, y) <- c53.io.in.take(4) zip col) {
+        x := y
+      }
+      c53.io.in.last := (if (cin.nonEmpty) cin.head else 0.U)
+      sum = Seq(c53.io.out(0).asBool()) ++ (if (cin.nonEmpty) cin.drop(1) else Nil)
+      cout1 = Seq(c53.io.out(1).asBool())
+      cout2 = Seq(c53.io.out(2).asBool())
+    } else {
+      val cin_1               = if (cin.nonEmpty) Seq(cin.head) else Nil
+      val cin_2               = if (cin.nonEmpty) cin.drop(1) else Nil
+      val (s_1, c_1_1, c_1_2) = addOneColumn(col take 4, cin_1)
+      val (s_2, c_2_1, c_2_2) = addOneColumn(col drop 4, cin_2)
+      sum = s_1 ++ s_2
+      cout1 = c_1_1 ++ c_2_1
+      cout2 = c_1_2 ++ c_2_2
     }
+
     (sum, cout1, cout2)
   }
 

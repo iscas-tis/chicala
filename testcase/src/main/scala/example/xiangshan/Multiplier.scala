@@ -159,7 +159,9 @@ class ArrayMulDataModule(len: Int) extends Module {
     if (cols.forall(_.size <= 2)) {
       val sum = Cat(cols.map(_(0)).toIndexedSeq.reverse)
       var k   = 0
-      while (cols(k).size == 1) k = k + 1
+      for (i <- 0 until cols.size) {
+        if (cols(i).size == 1) k = i + 1
+      }
       val carry = Cat(cols.drop(k).map(_(1)).toIndexedSeq.reverse)
       (sum, Cat(carry, 0.U(k.W)))
     } else {

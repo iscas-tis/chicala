@@ -48,9 +48,18 @@ trait Printer extends Format {
   }
 
   def assertWarning(cond: Boolean, pos: Position, msg: String) = if (!cond) {
-    reporter.warning(pos, msg)
+    reportWaining(pos, msg, 1)
   }
   def assertError(cond: Boolean, pos: Position, msg: String) = if (!cond) {
+    reportError(pos, msg, 1)
+  }
+
+  def reportWaining(pos: Position, msg: String, tracesExtDrop: Int = 0) = {
+    reporter.warning(pos, msg)
+    stackTraces.drop(3 + tracesExtDrop).map(println(_))
+  }
+  def reportError(pos: Position, msg: String, tracesExtDrop: Int = 0) = {
     reporter.error(pos, msg)
+    stackTraces.drop(3 + tracesExtDrop).map(println(_))
   }
 }

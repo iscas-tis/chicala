@@ -38,6 +38,7 @@ trait SelectsReader { self: Scala2Reader =>
                   val cApply   = CApply(op, SignalTypeLoader.fromTpt(tpt).get, operands)
                   Some((cInfo, Some(cApply)))
                 case None => // select from bundle / module io / This
+                  // undefined operator will come to this case, but it is a bug
                   Some((cInfo, Some(SignalRef(s, cInfo.getSignalType(s)))))
               }
             } else if (isChiselLiteralType(qualifier)) {

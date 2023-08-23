@@ -15,9 +15,9 @@ class C22 extends Module {
     val cout   = a & b
     t := Cat(cout, sum)
   }
-  io.out.zipWithIndex.foreach({ case (x, i) =>
-    x := Cat(temp.reverse map (_(i)))
-  })
+  for (i <- 0 until io.out.length) {
+    io.out(i) := Cat(temp.reverse map (_(i)))
+  }
 }
 class C32 extends Module {
   val io = IO(new Bundle() {

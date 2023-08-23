@@ -34,9 +34,11 @@ trait COps { self: ChicalaAst =>
 
   case object VecSelect extends CCalculOp // vec()
   case object VecTake   extends CCalculOp // vec.take()
+  case object VecLast   extends CCalculOp // vec.last
 
   case object AsUInt extends CCalculOp // .asUInt
   case object AsSInt extends CCalculOp // .asSInt
+  case object AsBool extends CCalculOp // .asBool
 
   sealed abstract class CUtilOp extends COp
   case object Mux               extends CUtilOp

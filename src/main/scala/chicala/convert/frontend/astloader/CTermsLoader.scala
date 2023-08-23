@@ -14,12 +14,7 @@ trait CTermsLoader { self: Scala2Reader =>
           assert(args.length == 1, "should have one right expr")
           val left  = MTermLoader(cInfo, qualifier).get._2.get
           val right = MTermLoader(cInfo, args.head).get._2.get
-          left match {
-            case x: SignalRef => Some(cInfo, Some(Connect(x, right)))
-            case _ =>
-              unprocessedTree(qualifier, "ConnectLoader Apply")
-              None
-          }
+          Some(cInfo, Some(Connect(left, right)))
         case _ => None
       }
     }

@@ -33,10 +33,12 @@ trait COpsLoader { self: Scala2Reader =>
       //
       "apply" -> VecSelect,
       "take"  -> VecTake,
+      "last"  -> VecLast,
 
       //
       "do_asUInt" -> AsUInt,
       "do_asSInt" -> AsSInt,
+      "do_asBool" -> AsBool,
 
       // CUtilOp
       "chisel3.Mux.do_apply"         -> Mux,

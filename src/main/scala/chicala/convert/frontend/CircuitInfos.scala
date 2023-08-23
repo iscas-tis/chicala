@@ -80,7 +80,7 @@ trait CircuitInfos { self: Scala2Reader =>
             case Select(This(this.name), name: TermName) => name
             case Ident(name: TermName)                   => name
             case _ =>
-              assertError(false, qualifier.pos, "Unknown structure in CircuitInfo.getMType")
+              reportError(qualifier.pos, "Unknown structure in CircuitInfo.getMType #1")
               TermName("")
           }
           val tpe       = vals(termName).asInstanceOf[SubModule]
@@ -94,8 +94,7 @@ trait CircuitInfos { self: Scala2Reader =>
           ioDefs.head.tpe
         case Select(qualifier, termName: TermName) => select(getSignalType(qualifier), termName)
         case _ => {
-          unprocessedTree(tree, "CircuitInfo.getSignalType")
-          reporter.error(tree.pos, s"CircuitInfo.getSignalType not process")
+          reportError(tree.pos, "Unknown structure in CircuitInfo.getMType #2")
           SignalType.empty
         }
       }

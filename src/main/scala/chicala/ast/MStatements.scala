@@ -20,8 +20,8 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class SignalRef(name: Tree, tpe: SignalType)                  extends CTerm with SignalRefImpl
   case class CApply(op: COp, tpe: SignalType, operands: List[MTerm]) extends CTerm with CApplyImpl
 
-  case class Connect(left: SignalRef, expr: MTerm) extends CTerm with ConnectImpl
-  case class BulkConnect()                         extends CTerm with BulkConnectImpl
+  case class Connect(left: MTerm, expr: MTerm) extends CTerm with ConnectImpl
+  case class BulkConnect()                     extends CTerm with BulkConnectImpl
 
   case class When(
       val cond: MTerm,

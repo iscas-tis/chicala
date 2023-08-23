@@ -9,6 +9,7 @@ trait MTermImpls { self: ChicalaAst =>
   import global._
 
   trait MStatementImpl { self: MStatement =>
+    def tpe: MType
     def relatedSignals: RelatedSignals = RelatedSignals.empty
   }
 

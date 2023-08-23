@@ -21,9 +21,12 @@ trait CTermImpls { self: ChicalaAst =>
   }
 
   trait ConnectImpl { self: Connect =>
-    val tpe = left.tpe.updatedPhysical(Node)
+    val tpe = left.tpe.asInstanceOf[SignalType].updatedPhysical(Node)
     override val relatedSignals: RelatedSignals = {
-      val fully = left.tpe.allSignals(left.name.toString(), true)
+      val fully = left match {
+        case SignalRef(name, tpe) => tpe.allSignals(name.toString(), true)
+        case _                    => left.relatedSignals.dependency
+      }
       RelatedSignals(fully, Set.empty, Set.empty)
     } ++ expr.relatedSignals
   }

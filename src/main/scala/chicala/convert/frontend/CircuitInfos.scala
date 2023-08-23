@@ -22,18 +22,24 @@ trait CircuitInfos { self: Scala2Reader =>
       this.copy(params = params :+ sValDef)
 
     def updatedVal(termName: TermName, tpe: MType): CircuitInfo =
-      this.copy(vals = vals + (termName -> tpe))
+      this.copy(vals = vals + (strippedName(termName) -> tpe))
 
     def updatedFunc(termName: TermName, tpe: MType): CircuitInfo =
-      this.copy(funcs = funcs + (termName -> tpe))
+      this.copy(funcs = funcs + (strippedName(termName) -> tpe))
 
-    def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo =
-      this.copy(numTmp = num, enumTmp = et)
-    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo =
-      this.copy(numTmp = num, tupleTmp = tt)
+    def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo = {
+      val newET = et.map { case (name, enumDef) => (strippedName(name), enumDef) }
+      this.copy(numTmp = num, enumTmp = newET)
+    }
+    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo = {
+      val newTT = tt.map { case (name, sUnapplyDef) => (strippedName(name), sUnapplyDef) }
+      this.copy(numTmp = num, tupleTmp = newTT)
+    }
 
-    def contains(termName: TermName): Boolean =
-      vals.contains(termName) || funcs.contains(termName)
+    def contains(termName: TermName): Boolean = {
+      val name = strippedName(termName)
+      vals.contains(termName) || funcs.contains(name)
+    }
     def contains(tree: Tree): Boolean = {
       tree match {
         case Select(This(this.name), termName: TermName) => contains(termName)
@@ -43,33 +49,53 @@ trait CircuitInfos { self: Scala2Reader =>
       }
     }
 
-    def getCType(tree: Tree): CType = {
+    def getVal(name: TermName): Option[MType] = {
+      Some(vals(strippedName(name)))
+    }
+
+    def getSignalType(tree: Tree): SignalType = {
       val tpe = getMType(tree)
       tpe match {
-        case c: CType => c
+        case c: SignalType => c
         case _ =>
-          reporter.error(tree.pos, "Not CType")
-          CType.empty
+          reporter.error(tree.pos, "Not SignalType")
+          SignalType.empty
       }
     }
 
     def getMType(tree: Tree): MType = {
-      def select(tpe: CType, termName: TermName): MType = tpe match {
+      def select(tpe: SignalType, termName: TermName): MType = tpe match {
         case Bundle(physical, signals) if signals.contains(termName) =>
           signals(termName)
         case _ => {
           reporter.error(tree.pos, s"TermName ${termName} not found in ${tpe}")
-          CType.empty
+          SignalType.empty
         }
       }
       tree match {
-        case Select(This(this.name), termName: TermName) => vals(termName)
-        case Select(qualifier, termName: TermName)       => select(getCType(qualifier), termName)
-        case Ident(termName: TermName)                   => vals(termName)
+        case Ident(termName: TermName)                   => getVal(termName).get
+        case Select(This(this.name), termName: TermName) => getVal(termName).get
+        case Select(qualifier, TermName("io")) if isChiselModuleType(qualifier) =>
+          val termName = qualifier match {
+            case Select(This(this.name), name: TermName) => name
+            case Ident(name: TermName)                   => name
+            case _ =>
+              reportError(qualifier.pos, "Unknown structure in CircuitInfo.getMType #1")
+              TermName("")
+          }
+          val tpe       = vals(termName).asInstanceOf[SubModule]
+          val moduleDef = readerInfo.moduleDefs(tpe.fullName)
+          val ioDefs = moduleDef.body
+            .filter({
+              case IoDef(name, tpe) => true
+              case _                => false
+            })
+          assert(ioDefs.tail == Nil, "ModuleDef should has only one IoDef")
+          ioDefs.head.tpe
+        case Select(qualifier, termName: TermName) => select(getSignalType(qualifier), termName)
         case _ => {
-          unprocessedTree(tree, "CircuitInfo.getCType")
-          reporter.error(tree.pos, s"CircuitInfo.getCType not process")
-          CType.empty
+          reportError(tree.pos, "Unknown structure in CircuitInfo.getMType #2")
+          SignalType.empty
         }
       }
     }

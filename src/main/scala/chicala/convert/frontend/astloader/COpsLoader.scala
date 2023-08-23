@@ -9,7 +9,6 @@ trait COpsLoader { self: Scala2Reader =>
   object COpLoader {
     val nameToObj: Map[String, COp] = Map(
       // CCalculOp
-      "apply"           -> VecSelect,
       "do_apply"        -> Slice,
       "do_unary_$bang"  -> LogiNot,
       "do_unary_$tilde" -> Not,
@@ -31,16 +30,22 @@ trait COpsLoader { self: Scala2Reader =>
       //
       "do_$amp$amp" -> LogiAnd,
       "do_$bar$bar" -> LogiOr,
+      //
+      "apply" -> VecSelect,
+      "take"  -> VecTake,
+      "last"  -> VecLast,
 
       //
       "do_asUInt" -> AsUInt,
       "do_asSInt" -> AsSInt,
+      "do_asBool" -> AsBool,
 
       // CUtilOp
-      "chisel3.Mux.do_apply"    -> Mux,
-      "chisel3.util.Cat.apply"  -> Cat,
-      "chisel3.util.Fill.apply" -> Fill,
-      "chisel3.util.Log2.apply" -> Log2
+      "chisel3.Mux.do_apply"         -> Mux,
+      "chisel3.util.MuxLookup.apply" -> MuxLookup,
+      "chisel3.util.Cat.apply"       -> Cat,
+      "chisel3.util.Fill.apply"      -> Fill,
+      "chisel3.util.Log2.apply"      -> Log2
     )
 
     def apply(opName: String): Option[COp] = {

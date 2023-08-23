@@ -2,23 +2,28 @@ package chicala.ast
 
 import scala.tools.nsc.Global
 
-import chicala.ast.impl.CTypeImpls
+import chicala.ast.impl._
 
-trait MTypes extends CTypeImpls { self: ChicalaAst =>
+trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
-  sealed abstract class MType
+  sealed abstract class MType extends MTypeImpl
 
   // CType
-  sealed abstract class CType extends MType with CTypeImpl
+  sealed abstract class CType extends MType
 
-  case class UInt(width: CSize, physical: CPhysical, direction: CDirection) extends CType with UIntImpl
-  case class SInt(width: CSize, physical: CPhysical, direction: CDirection) extends CType with SIntImpl
-  case class Bool(physical: CPhysical, direction: CDirection)               extends CType with BoolImpl
+  case class SubModule(fullName: String) extends CType
 
-  case class Vec(size: CSize, physical: CPhysical, tparam: CType)       extends CType with VecImpl
-  case class Bundle(physical: CPhysical, signals: Map[TermName, CType]) extends CType with BundleImpl
+  // SignalType
+  sealed abstract class SignalType extends CType with SignalTypeImpl
+
+  case class UInt(width: CSize, physical: CPhysical, direction: CDirection) extends SignalType with UIntImpl
+  case class SInt(width: CSize, physical: CPhysical, direction: CDirection) extends SignalType with SIntImpl
+  case class Bool(physical: CPhysical, direction: CDirection)               extends SignalType with BoolImpl
+
+  case class Vec(size: CSize, physical: CPhysical, tparam: SignalType)       extends SignalType with VecImpl
+  case class Bundle(physical: CPhysical, signals: Map[TermName, SignalType]) extends SignalType with BundleImpl
 
   // CPhysical
   sealed abstract class CPhysical
@@ -51,7 +56,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   case object StFunc                       extends SType
   case object StUnit                       extends SType
   case object StAny                        extends SType
-  case class StWrapped(str: String)        extends SType
+  case class StWrapped(str: String)        extends SType with StWrappedImpl
 
   case object EmptyMType extends MType
 
@@ -59,4 +64,7 @@ trait MTypes extends CTypeImpls { self: ChicalaAst =>
   object UInt extends UIntObjImpl
   object SInt extends SIntObjImpl
   object Bool extends BoolObjImpl
+
+  object KnownSize extends KnownSizeObjImpl
+
 }

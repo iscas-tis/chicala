@@ -16,12 +16,12 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // CTerm
   sealed abstract class CTerm extends MTerm
 
-  case class Lit(litExp: STerm, tpe: CType)                     extends CTerm
-  case class SignalRef(name: Tree, tpe: CType)                  extends CTerm with SignalRefImpl
-  case class CApply(op: COp, tpe: CType, operands: List[MTerm]) extends CTerm with CApplyImpl
+  case class Lit(litExp: STerm, tpe: SignalType)                     extends CTerm
+  case class SignalRef(name: Tree, tpe: SignalType)                  extends CTerm with SignalRefImpl
+  case class CApply(op: COp, tpe: SignalType, operands: List[MTerm]) extends CTerm with CApplyImpl
 
-  case class Connect(left: SignalRef, expr: MTerm) extends CTerm with ConnectImpl
-  case class BulkConnect()                         extends CTerm with BulkConnectImpl
+  case class Connect(left: MTerm, expr: MTerm) extends CTerm with ConnectImpl
+  case class BulkConnect()                     extends CTerm with BulkConnectImpl
 
   case class When(
       val cond: MTerm,
@@ -52,6 +52,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class STuple(args: List[MTerm], tpe: StTuple)                                extends STerm with STupleImpl
   case class SLib(name: String, tpe: SType)                                         extends STerm
   case class SFunction(vparams: List[MValDef], body: MTerm)                         extends STerm with SFunctionImpl
+  case class SAssign(lhs: MTerm, rhs: MTerm)                                        extends STerm with SAssignImpl
 
   case object EmptyMTerm extends MTerm { val tpe = EmptyMType }
 
@@ -61,36 +62,39 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // MValDef
   sealed abstract class MValDef extends MDef with MValDefImpl
 
-  sealed abstract class CValDef extends MValDef with CValDefImpl
+  sealed abstract class CValDef extends MValDef
 
-  case class IoDef(name: TermName, tpe: CType) extends CValDef with IoDefImpl
+  case class SubModuleDef(name: TermName, tpe: SubModule, args: List[MTerm]) extends CValDef with SubModuleDefImpl
+
+  sealed abstract class SignalDef extends CValDef with SignalDefImpl
+
+  case class IoDef(name: TermName, tpe: SignalType) extends SignalDef with IoDefImpl
   case class WireDef(
       name: TermName,
-      tpe: CType,
-      someInit: Option[MTerm] = None
-  ) extends CValDef
+      tpe: SignalType,
+      someInit: Option[MTerm] = None,
+      isVar: Boolean = false
+  ) extends SignalDef
       with WireDefImpl
   case class RegDef(
       name: TermName,
-      tpe: CType,
+      tpe: SignalType,
       someInit: Option[MTerm] = None,
       someNext: Option[MTerm] = None,
       someEnable: Option[MTerm] = None
-  ) extends CValDef
+  ) extends SignalDef
       with RegDefImpl
-  case class NodeDef(name: TermName, tpe: CType, rhs: MTerm) extends CValDef with NodeDefImpl
+  case class NodeDef(name: TermName, tpe: SignalType, rhs: MTerm) extends SignalDef with NodeDefImpl
 
   case class SValDef(name: TermName, tpe: SType, rhs: MTerm, isVar: Boolean = false) extends MValDef
 
   // other Def
   sealed abstract class MUnapplyDef extends MDef
 
-  case class EnumDef(names: List[TermName], tpe: CType)                   extends MUnapplyDef with EnumDefImpl
+  case class EnumDef(names: List[TermName], tpe: SignalType)              extends MUnapplyDef with EnumDefImpl
   case class SUnapplyDef(names: List[TermName], rhs: MTerm, tpe: StTuple) extends MUnapplyDef with SUnapplyDefImpl
 
   case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock)
       extends MDef
       with SDefDefImpl
-  case class SubModuleDef() extends MDef
-
 }

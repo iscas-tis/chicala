@@ -11,10 +11,10 @@ trait IdentsReader { self: Scala2Reader =>
       val (tree, tpt) = passThrough(tr)
       tree match {
         case i @ Ident(name: TermName) =>
-          if (isChiselType(i))
-            Some((cInfo, Some(SignalRef(i, cInfo.getCType(i)))))
+          if (isChiselSignalType(i))
+            Some((cInfo, Some(SignalRef(i, cInfo.getSignalType(i)))))
           else {
-            Some((cInfo, Some(SIdent(name, MTypeLoader(tpt).get))))
+            Some((cInfo, Some(SIdent(name, MTypeLoader.fromTpt(tpt).get))))
           }
         case _ =>
           unprocessedTree(tree, "IdentReader")

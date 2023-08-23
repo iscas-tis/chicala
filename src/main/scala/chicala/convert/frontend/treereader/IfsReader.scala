@@ -14,7 +14,7 @@ trait IfsReader { self: Scala2Reader =>
           val c   = STermLoader(cInfo, cond).get._2.get
           val t   = MTermLoader(cInfo, thenp).get._2.get
           val e   = MTermLoader(cInfo, elsep).get._2.get
-          val tpe = MTypeLoader(tpt).get
+          val tpe = MTypeLoader.fromTpt(tpt).get
           Some((cInfo, Some(SIf(c, t, e, tpe))))
         }
         case _ =>

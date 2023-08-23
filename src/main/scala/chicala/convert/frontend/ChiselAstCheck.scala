@@ -2,7 +2,7 @@ package chicala.convert.frontend
 
 import scala.tools.nsc.Global
 
-trait ChiselAstCheck { this: Scala2Reader =>
+trait ChiselAstCheck extends Utils { this: Scala2Reader =>
   val global: Global
   import global._
 
@@ -12,12 +12,15 @@ trait ChiselAstCheck { this: Scala2Reader =>
 
   def isChiselWireDefApply(tree: Tree): Boolean = List(
     isChisel3WireApply(_),
-    isChisel3WireInitApply(_)
+    isChisel3WireInitApply(_),
+    isChisel3VecInitDoApply(_)
   ).exists(_(tree))
   def isChisel3WireApply(tree: Tree): Boolean =
     passThrough(tree)._1.toString() == "chisel3.Wire.apply"
   def isChisel3WireInitApply(tree: Tree): Boolean =
     passThrough(tree)._1.toString() == "chisel3.`package`.WireInit.apply"
+  def isChisel3VecInitDoApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.VecInit.do_apply"
 
   def isChiselRegDefApply(tree: Tree): Boolean = List(
     isChisel3RegApply(_),
@@ -31,6 +34,16 @@ trait ChiselAstCheck { this: Scala2Reader =>
   def isChisel3UtilRegEnableApply(tree: Tree): Boolean =
     passThrough(tree)._1.toString() == "chisel3.util.RegEnable.apply"
 
+  def isChisel3ModuleDoApply(tree: Tree): Boolean =
+    passThrough(tree)._1.toString() == "chisel3.Module.do_apply"
+
+  // Chisel Literal
+  def isChiselLiteralType(tree: Tree): Boolean = List(
+    isChisel3FromIntToLiteralType(_),
+    isChisel3FromStringToLiteralType(_),
+    isChisel3FromBooleanToLiteralType(_),
+    isChisel3FromBigIntToLiteralType(_)
+  ).exists(_(tree))
   def isChisel3FromIntToLiteralType(tree: Tree): Boolean = List(
     "chisel3.fromIntToLiteral",
     "chisel3.package.fromIntToLiteral"
@@ -59,6 +72,8 @@ trait ChiselAstCheck { this: Scala2Reader =>
     fun.tpe.toString().startsWith("(implicit sourceInfo: chisel3.internal.sourceinfo.SourceInfo")
   def isCompileOptionsFun(fun: Tree): Boolean =
     fun.tpe.toString().startsWith("(implicit compileOptions: chisel3.CompileOptions):")
+  def isReflectClassTagFun(fun: Tree): Boolean =
+    """\(implicit evidence.*: scala\.reflect\.ClassTag\[.*\]\): .*""".r.matches(fun.tpe.toString())
 
   def isChisel3EnumTmpValDef(tree: Tree): Boolean = tree match {
     case ValDef(mods, name, tpt, Match(Typed(Apply(cuea, number), _), _))
@@ -69,47 +84,51 @@ trait ChiselAstCheck { this: Scala2Reader =>
   }
 
   def isChisel3UtilSwitchContextType(tree: Tree): Boolean =
-    """chisel3.util.SwitchContext\[.*\]""".r.matches(tree.tpe.toString())
+    """chisel3\.util\.SwitchContext\[.*\]""".r.matches(tree.tpe.toString())
 
-  def isChiselType(tree: Tree): Boolean = {
-    val tpe     = tree.tpe
-    val typeStr = tree.tpe.erasure.toString()
+  def isChiselSignalType(tree: Tree): Boolean = {
+    val tpe = autoTypeErasure(tree)
+
     List(
       "chisel3.UInt",
       "chisel3.SInt",
       "chisel3.Bool",
-      "chisel3.Bundle",
       "chisel3.Data"
-    ).contains(typeStr) ||
-    typeStr.startsWith("chisel3.Vec") ||
-    List(tpe, tpe.erasure).exists({
-      case tr @ TypeRef(pre, sym, args) =>
-        sym.asClass.baseClasses.map(_.toString()).contains("class Bundle")
-      case _ => false
-    })
+    ).contains(tpe.toString()) || List(
+      isChiselVecType(_),
+      isChiselBundleType(_)
+    ).exists(_(tree))
 
   }
+  def isChiselVecType(tree: Tree): Boolean = {
+    val tpe = autoTypeErasure(tree)
+    """chisel3\.Vec\[.*\]""".r.matches(tpe.toString())
+  }
+  def isChiselBundleType(tree: Tree): Boolean = {
+    val tpe = autoTypeErasure(tree)
 
-  def isChiselLiteralType(tree: Tree): Boolean = List(
-    isChisel3FromIntToLiteralType(_),
-    isChisel3FromStringToLiteralType(_),
-    isChisel3FromBooleanToLiteralType(_),
-    isChisel3FromBigIntToLiteralType(_)
-  ).exists(_(tree))
+    """chisel3\.Bundle\{.*\}""".r.matches(tpe.toString()) ||
+    (tpe match {
+      case tr @ TypeRef(pre, sym, args) =>
+        if (sym.isClass)
+          sym.asClass.baseClasses.map(_.toString()).contains("class Bundle")
+        else
+          false
+      case _ => false
+    })
+  }
 
-  /** pass through all unneed AST
-    *
-    * @param tree
-    *   original tree
-    * @return
-    *   sub tree, optional typed info
-    */
-  def passThrough(tree: Tree): (Tree, TypeTree) = tree match {
-    case Typed(expr, tpt: TypeTree)                   => (passThrough(expr)._1, tpt)
-    case Apply(fun, args) if isSourceInfoFun(fun)     => (passThrough(fun)._1, TypeTree(tree.tpe))
-    case Apply(fun, args) if isCompileOptionsFun(fun) => (passThrough(fun)._1, TypeTree(tree.tpe))
-    case TypeApply(fun, args)                         => (passThrough(fun)._1, TypeTree(tree.tpe))
-    case _                                            => (tree, TypeTree(tree.tpe))
+  def isChiselModuleType(tree: Tree): Boolean = {
+    val tpe = autoTypeErasure(tree)
+
+    tpe match {
+      case tr @ TypeRef(pre, sym, args) =>
+        if (sym.isClass)
+          sym.asClass.baseClasses.map(_.toString()).contains("class Module")
+        else
+          false
+      case _ => false
+    }
   }
 
   def isScala2TupleType(tree: Tree): Boolean = tree.tpe.typeSymbol.fullName.startsWith("scala.Tuple")
@@ -120,4 +139,31 @@ trait ChiselAstCheck { this: Scala2Reader =>
     case ValDef(mods, name, tpt, Match(Typed(Apply(appl, _), _), _)) if isScala2TupleApply(appl) => true
     case _                                                                                       => false
   }
+}
+
+trait Utils { self: ChiselAstCheck =>
+  val global: Global
+  import global._
+
+  def autoTypeErasure(tr: Tree): Type = {
+    if (tr.tpe.toString().endsWith(".type")) tr.tpe.erasure else tr.tpe
+  }
+
+  /** pass through all unneed AST
+    *
+    * @param tree
+    *   original tree
+    * @return
+    *   sub tree, optional typed info
+    */
+  def passThrough(tree: Tree): (Tree, TypeTree) = tree match {
+    case Typed(expr, tpt: TypeTree)                    => (passThrough(expr)._1, tpt)
+    case Apply(fun, args) if isSourceInfoFun(fun)      => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case Apply(fun, args) if isCompileOptionsFun(fun)  => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case Apply(fun, args) if isReflectClassTagFun(fun) => passThrough(fun)
+    case TypeApply(fun, args)                          => (passThrough(fun)._1, TypeTree(tree.tpe))
+    case _                                             => (tree, TypeTree(tree.tpe))
+  }
+
+  def strippedName(name: TermName) = name.stripSuffix(" ")
 }

@@ -9,21 +9,14 @@ trait STermImpls { self: ChicalaAst =>
   import global._
 
   trait SApplyImpl { self: SApply =>
-    override val relatedSignals = RelatedSignals(
-      Set.empty,
-      Set.empty,
-      args
-        .map(x =>
-          x.tpe match {
-            case _: CType => Some(x)
-            case _        => None
-          }
-        )
-        .flatten
-        .map(_.relatedSignals)
-        .foldLeft(RelatedSignals.empty)(_ ++ _)
-        .dependency
-    )
+    override val relatedSignals = {
+      val argsDependency = args
+        .filter(_.tpe.isSignalType)
+        .map(_.relatedSignals.dependency)
+        .foldLeft(Set.empty[String])(_ ++ _)
+      // FIXME: inner block dependency
+      RelatedSignals(Set.empty, Set.empty, argsDependency)
+    }
   }
 
   trait SBlockImpl { self: SBlock =>
@@ -47,9 +40,13 @@ trait STermImpls { self: ChicalaAst =>
   }
   trait STupleImpl { self: STuple =>
     override val relatedSignals = args.map(_.relatedSignals).reduce(_ ++ _)
+
+    def size = args.size
   }
   trait SFunctionImpl { self: SFunction =>
     val tpe = StFunc
   }
-
+  trait SAssignImpl { self: SAssign =>
+    val tpe = lhs.tpe
+  }
 }

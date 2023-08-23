@@ -15,32 +15,51 @@ trait Printer extends Format {
         |tree:
         |  ${tree}
         |tree AST:
-        |  ${showFormattedRaw(tree, 3).replace("\n", "\n  ")}
+        |  ${showFormattedRaw(tree).replace("\n", "\n  ")}
         |source code:""".stripMargin
     )
   }
 
   def errorTree(tree: Tree, msg: String) = {
-    val stackTraces = Thread
-      .currentThread()
-      .getStackTrace
-      .map(_.toString())
-    val slicedTraces = stackTraces
-      .drop(4)
-      .reduce(_ + "\n  " + _)
+    val slicedTraces = stackTraces.drop(1).reduce(_ + "\n  " + _)
     reporter.error(
       tree.pos,
       s"""${msg}:
         |tree.tpe:
         |  ${tree.tpe.erasure}
         |tree AST:
-        |  ${showFormattedRaw(tree, 3).replace("\n", "\n  ")}
+        |  ${showFormattedRaw(tree).replace("\n", "\n  ")}
         |stackTrace:
         |  ${slicedTraces}""".stripMargin
     )
   }
 
+  def stackTraces = {
+    Thread
+      .currentThread()
+      .getStackTrace
+      .map(_.toString())
+      .toList
+      .drop(4)
+  }
+
   def echoTreePos(tree: Tree) = {
     reporter.echo(tree.pos, "here")
+  }
+
+  def assertWarning(cond: Boolean, pos: Position, msg: String) = if (!cond) {
+    reportWaining(pos, msg, 1)
+  }
+  def assertError(cond: Boolean, pos: Position, msg: String) = if (!cond) {
+    reportError(pos, msg, 1)
+  }
+
+  def reportWaining(pos: Position, msg: String, tracesExtDrop: Int = 0) = {
+    reporter.warning(pos, msg)
+    stackTraces.drop(3 + tracesExtDrop).map(println(_))
+  }
+  def reportError(pos: Position, msg: String, tracesExtDrop: Int = 0) = {
+    reporter.error(pos, msg)
+    stackTraces.drop(3 + tracesExtDrop).map(println(_))
   }
 }

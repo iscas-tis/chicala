@@ -13,9 +13,11 @@ trait MDefImpls { self: ChicalaAst =>
     def tpe: MType
   }
 
-  trait CValDefImpl { self: CValDef =>
+  trait SubModuleDefImpl { self: SubModuleDef => }
+
+  trait SignalDefImpl { self: SignalDef =>
     def name: TermName
-    def tpe: CType
+    def tpe: SignalType
   }
 
   trait IoDefImpl { self: IoDef =>
@@ -29,10 +31,9 @@ trait MDefImpls { self: ChicalaAst =>
     )
   }
   trait WireDefImpl { self: WireDef =>
-    override val relatedSignals = RelatedSignals(Set(name.toString()), Set.empty, Set.empty) ++
-      someInit
-        .map(_.relatedSignals)
-        .getOrElse(RelatedSignals.empty)
+    override val relatedSignals =
+      RelatedSignals(tpe.allSignals(name.toString(), false), Set.empty, Set.empty) ++
+        someInit.map(_.relatedSignals).getOrElse(RelatedSignals.empty)
   }
   trait RegDefImpl { self: RegDef =>
     override val relatedSignals = {
@@ -57,7 +58,7 @@ trait MDefImpls { self: ChicalaAst =>
   trait EnumDefImpl { self: EnumDef =>
     override val relatedSignals =
       RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
-    def inner: List[CValDef] = names
+    def inner: List[SignalDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
         NodeDef(name, tpe, Lit(SLiteral(i, StInt), tpe))

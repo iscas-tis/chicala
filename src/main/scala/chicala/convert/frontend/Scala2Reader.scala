@@ -15,6 +15,7 @@ trait Scala2Reader
     with COpsLoader
     // TreeReader
     with ApplysReader
+    with AssignsReader
     with BlocksReader
     with DefDefsReader
     with FunctionsReader

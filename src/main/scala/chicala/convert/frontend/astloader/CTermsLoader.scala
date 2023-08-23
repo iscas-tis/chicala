@@ -10,16 +10,11 @@ trait CTermsLoader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[Connect])] = {
       val (tree, _) = passThrough(tr)
       tree match {
-        case Apply(Select(termName: Select, TermName("$colon$eq")), args) if isChiselType(termName) =>
+        case Apply(Select(qualifier, TermName("$colon$eq")), args) if isChiselSignalType(qualifier) =>
           assert(args.length == 1, "should have one right expr")
-          val left  = MTermLoader(cInfo, termName).get._2.get
+          val left  = MTermLoader(cInfo, qualifier).get._2.get
           val right = MTermLoader(cInfo, args.head).get._2.get
-          left match {
-            case x: SignalRef => Some(cInfo, Some(Connect(x, right)))
-            case _ =>
-              unprocessedTree(termName, "ConnectLoader")
-              None
-          }
+          Some(cInfo, Some(Connect(left, right)))
         case _ => None
       }
     }
@@ -28,12 +23,20 @@ trait CTermsLoader { self: Scala2Reader =>
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[CApply])] = {
       val (tree, tpt) = passThrough(tr)
       tree match {
-        case Apply(Select(qualifier, name), args) if isChiselType(qualifier) =>
+        case Apply(Select(qualifier, name), args) if isChiselSignalType(qualifier) =>
           val opName = name.toString()
           COpLoader(opName) match {
             case Some(op) =>
-              val tpe = CTypeLoader(tpt).get.setInferredWidth
-              Some((cInfo, Some(CApply(op, tpe, (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)))))
+              val tpe = MTypeLoader.fromTpt(tpt).get match {
+                case StSeq(tparam: SignalType) => Vec(InferredSize, Node, tparam.setInferredWidth)
+                case x: SignalType             => x.setInferredWidth
+                case x =>
+                  errorTree(tpt, s"Not a processable MType `${x}`")
+                  SignalType.empty
+              }
+              val operands = (qualifier :: args).map(MTermLoader(cInfo, _).get._2.get)
+              val cApply   = CApply(op, tpe, operands)
+              Some((cInfo, Some(cApply)))
             case None =>
               unprocessedTree(tr, s"CApplyLoader `${opName}`")
               None
@@ -43,7 +46,7 @@ trait CTermsLoader { self: Scala2Reader =>
           val fName = f.toString()
           COpLoader(fName) match {
             case Some(op) =>
-              val tpe = CTypeLoader(tpt).get.setInferredWidth
+              val tpe = SignalTypeLoader.fromTpt(tpt).get.setInferredWidth
               Some((cInfo, Some(CApply(op, tpe, args.map(MTermLoader(cInfo, _).get._2.get)))))
             case None => None
           }
@@ -154,7 +157,7 @@ trait CTermsLoader { self: Scala2Reader =>
           // 0.U(1.W)
           val litTree = qualifier.asInstanceOf[Apply].args.head
           val litExp  = MTermLoader(cInfo, litTree).get._2.get.asInstanceOf[STerm]
-          val width = CTypeLoader.getWidth(cInfo, args) match {
+          val width = SignalTypeLoader.getWidth(cInfo, args) match {
             case k: KnownSize => k
             case _            => InferredSize
           }

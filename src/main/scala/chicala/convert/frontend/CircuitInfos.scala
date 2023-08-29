@@ -85,13 +85,7 @@ trait CircuitInfos { self: Scala2Reader =>
           }
           val tpe       = vals(termName).asInstanceOf[SubModule]
           val moduleDef = readerInfo.moduleDefs(tpe.fullName)
-          val ioDefs = moduleDef.body
-            .filter({
-              case IoDef(name, tpe) => true
-              case _                => false
-            })
-          assert(ioDefs.tail == Nil, "ModuleDef should has only one IoDef")
-          ioDefs.head.tpe
+          moduleDef.ioDef.tpe
         case Select(qualifier, termName: TermName) => select(getSignalType(qualifier), termName)
         case _ => {
           reportError(tree.pos, "Unknown structure in CircuitInfo.getMType #2")

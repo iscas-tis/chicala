@@ -9,36 +9,41 @@ trait COps { self: ChicalaAst =>
   // operators
   sealed abstract class COp
 
-  sealed abstract class CCalculOp extends COp
-  case object Slice               extends CCalculOp // a()
-  case object LogiNot             extends CCalculOp // `!a`
-  case object Not                 extends CCalculOp // ~a
-  case object Negative            extends CCalculOp // -a
+  sealed abstract class CFrontOp extends COp
+  case object LogiNot            extends CFrontOp // `!a`
+  case object Not                extends CFrontOp // ~a
+  case object Negative           extends CFrontOp // -a
 
-  case object Add      extends CCalculOp // +
-  case object Minus    extends CCalculOp // -
-  case object Multiply extends CCalculOp // *
+  sealed abstract class CBinaryOp extends COp
 
-  case object And    extends CCalculOp // &
-  case object Or     extends CCalculOp // |
-  case object Xor    extends CCalculOp // ^
-  case object LShift extends CCalculOp // <<
-  case object RShift extends CCalculOp // >>
+  case object Add      extends CBinaryOp // +
+  case object Minus    extends CBinaryOp // -
+  case object Multiply extends CBinaryOp // `*`
 
-  case object Equal     extends CCalculOp // ===
-  case object NotEqual  extends CCalculOp // =/=
-  case object GreaterEq extends CCalculOp // >=
+  case object And    extends CBinaryOp // &
+  case object Or     extends CBinaryOp // |
+  case object Xor    extends CBinaryOp // ^
+  case object LShift extends CBinaryOp // <<
+  case object RShift extends CBinaryOp // >>
 
-  case object LogiAnd extends CCalculOp // &&
-  case object LogiOr  extends CCalculOp // ||
+  case object Equal     extends CBinaryOp // ===
+  case object NotEqual  extends CBinaryOp // =/=
+  case object GreaterEq extends CBinaryOp // >=
 
-  case object VecSelect extends CCalculOp // vec()
-  case object VecTake   extends CCalculOp // vec.take()
-  case object VecLast   extends CCalculOp // vec.last
+  case object LogiAnd extends CBinaryOp // &&
+  case object LogiOr  extends CBinaryOp // ||
 
-  case object AsUInt extends CCalculOp // .asUInt
-  case object AsSInt extends CCalculOp // .asSInt
-  case object AsBool extends CCalculOp // .asBool
+  sealed abstract class CBackOp extends COp
+
+  case object Slice extends CBackOp // a()
+
+  case object VecSelect extends CBackOp // vec()
+  case object VecTake   extends CBackOp // vec.take()
+  case object VecLast   extends CBackOp // vec.last
+
+  case object AsUInt extends CBackOp // .asUInt
+  case object AsSInt extends CBackOp // .asSInt
+  case object AsBool extends CBackOp // .asBool
 
   sealed abstract class CUtilOp extends COp
   case object Mux               extends CUtilOp

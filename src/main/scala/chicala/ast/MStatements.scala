@@ -16,7 +16,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // CTerm
   sealed abstract class CTerm extends MTerm
 
-  case class Lit(litExp: STerm, tpe: SignalType)                     extends CTerm
+  case class Lit(litExp: STerm, tpe: GroundType)                     extends CTerm
   case class SignalRef(name: Tree, tpe: SignalType)                  extends CTerm with SignalRefImpl
   case class CApply(op: COp, tpe: SignalType, operands: List[MTerm]) extends CTerm with CApplyImpl
 
@@ -91,7 +91,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // other Def
   sealed abstract class MUnapplyDef extends MDef
 
-  case class EnumDef(names: List[TermName], tpe: SignalType)              extends MUnapplyDef with EnumDefImpl
+  case class EnumDef(names: List[TermName], tpe: UInt)                    extends MUnapplyDef with EnumDefImpl
   case class SUnapplyDef(names: List[TermName], rhs: MTerm, tpe: StTuple) extends MUnapplyDef with SUnapplyDefImpl
 
   case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock)

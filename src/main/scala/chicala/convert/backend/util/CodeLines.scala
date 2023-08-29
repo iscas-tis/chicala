@@ -85,7 +85,7 @@ trait CodeLinesImplicit {
     def toCodeLines = CodeLines(list)
   }
   implicit class CodeLinesListToCodeLines(list: List[CodeLines]) {
-    def toCodeLines = list.reduce(_ ++ _)
+    def toCodeLines = list.foldLeft(CodeLines.empty)(_ ++ _)
   }
   implicit def stringToCodeLines(str: String): CodeLines = {
     CodeLines(str)

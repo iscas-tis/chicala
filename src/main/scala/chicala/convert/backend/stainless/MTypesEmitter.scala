@@ -22,10 +22,11 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
           }
         case sType: SType =>
           sType match {
-            case StInt     => "BigInt"
-            case StBigInt  => "BigInt"
-            case StBoolean => "Boolean"
-            case x         => s"TODO(SType $x)"
+            case StInt            => "BigInt"
+            case StBigInt         => "BigInt"
+            case StBoolean        => "Boolean"
+            case StTuple(tparams) => s"(${tparams.map(_.toCode).mkString(", ")})"
+            case x                => s"TODO(SType $x)"
           }
         case EmptyMType => s"TODO(EmptyMType)"
       }

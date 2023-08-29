@@ -22,6 +22,10 @@ trait CTypeImpls { self: MTypes =>
 
     def isInput: Boolean
     def isOutput: Boolean
+    def isReg: Boolean = physical match {
+      case Reg => true
+      case _   => false
+    }
 
     /** Use "_" flatten all signals in Bundle structure
       */

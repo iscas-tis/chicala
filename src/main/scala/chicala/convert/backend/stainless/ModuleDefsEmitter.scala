@@ -94,16 +94,23 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
           signalClassName: String,
           signals: List[(String, SignalType)]
       ): CodeLines = {
-        def signalRequire(name: String, tpe: SignalType): Option[String] = {
+        def signalRequire(name: String, tpe: SignalType): CodeLines = {
           tpe match {
             case cType: CType =>
               cType match {
-                case UInt(width: KnownSize, physical, _) =>
-                  Some(s"${name}.width == ${width.width.toCode}")
-                case _: Bool => None
-                case _       => Some(s"FIXME(${name})")
+                case UInt(width: KnownSize, _, _) =>
+                  CodeLines(s"${name}.width == ${width.width.toCode}")
+                case Bool(_, _) => CodeLines.empty
+                case Vec(size: KnownSize, _, tpe) =>
+                  CodeLines(s"${name}.length == ${size.width.toCode}") ++
+                    (tpe match {
+                      case UInt(width: KnownSize, _, _) =>
+                        CodeLines(s"${name}.forall(_.width == ${width.width.toCode})")
+                      case _ => CodeLines.empty
+                    })
+                case _ => CodeLines(s"// Unknown size ${name}")
               }
-            case _ => Some(s"FIXME(${name})")
+            case _ => CodeLines(s"FIXME(${name})")
           }
         }
 
@@ -112,7 +119,6 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         val requires = {
           val tmp = signals
             .map({ case (name, tpe) => signalRequire(name, tpe) })
-            .flatten
             .toCodeLines
             .enddedWithExceptLast(" &&")
           if (tmp.isEmpty) CodeLines("true") else tmp
@@ -207,6 +213,31 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
           moduleDef.body.map(_.toCodeLines).toCodeLines
         )
 
+        val returnValue = CodeLines.warpToOneLine(
+          "(",
+          CodeLines(
+            CodeLines.warpToOneLine(
+              s"${outputsClassName}(",
+              outputSignals
+                .map(_._1)
+                .toCodeLines
+                .enddedWithExceptLast(",")
+                .indented,
+              "),"
+            ),
+            CodeLines.warpToOneLine(
+              s"${regsClassName}(",
+              regSignals
+                .map(_._1 + "_next")
+                .toCodeLines
+                .enddedWithExceptLast(",")
+                .indented,
+              ")"
+            )
+          ).indented,
+          ")"
+        )
+
         CodeLines(
           s"def trans(inputs: ${inputsClassName}, regs: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {",
           CodeLines(
@@ -214,9 +245,14 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
             CodeLines.blank,
             outputInit,
             regNextInit,
-            body
+            CodeLines.blank,
+            body,
+            CodeLines.blank,
+            returnValue
           ).indented,
-          "}"
+          s"""} ensuring { case (outputs, regNexts) =>
+             |  outputsRequire(outputs) && regsRequire(regNexts)
+             |}""".stripMargin
         )
       }
     }

@@ -11,26 +11,28 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
 
   trait MTermEmitterImplicit { self: StainlessEmitterImplicit =>
     implicit class MTermEmitter(mTerm: MTerm) {
-      def toCode: String = mTerm match {
-        case s: SignalRef       => signalRefCode(s)
+      def toCode: String = toCode(false)
+      def toCode(isLeftSide: Boolean): String = mTerm match {
+        case s: SignalRef       => signalRefCode(s, isLeftSide)
         case c: Connect         => connectCode(c)
         case c: CApply          => cApplyCode(c)
         case l: Lit             => litCode(l)
         case a: Assert          => assertCode(a)
         case s: SApply          => sApplyCode(s)
         case s: SSelect         => sSelectCode(s)
+        case s: STuple          => sTupleCode(s)
         case SIdent(name, _)    => name.toString()
         case SLiteral(value, _) => value.toString()
         case _                  => s"TODO(Code ${mTerm})"
       }
       def toCodeLines: CodeLines = mTerm match {
-        case _: SignalRef | _: Connect | _: CApply | _: Assert => mTerm.toCode
-
+        case _: SignalRef | _: Connect | _: CApply | _: Assert | _: STuple =>
+          mTerm.toCode
         case w: When => whenCL(w, false)
         case _       => CodeLines(s"TODO(CL ${mTerm})")
       }
 
-      private def signalRefCode(signalRef: SignalRef): String = {
+      private def signalRefCode(signalRef: SignalRef, isLeftSide: Boolean = false): String = {
         def getNameFromTree(tree: Tree): String = {
           tree match {
             case Ident(name)             => name.toString()
@@ -39,7 +41,14 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
             case _                       => s"TODO(signalRefCode ${tree})"
           }
         }
-        getNameFromTree(signalRef.name)
+        val baseName = getNameFromTree(signalRef.name)
+
+        if (signalRef.tpe.isReg) {
+          if (isLeftSide) baseName + "_next"
+          else "regs." + baseName
+        } else {
+          baseName
+        }
       }
       private def whenCL(
           when: When,
@@ -70,7 +79,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         whenPart.concatLastLine(otherPart)
       }
       private def connectCode(connect: Connect): String = {
-        val left = connect.left.toCode
+        val left = connect.left.toCode(true)
         val expr = connect.expr.toCode
         s"${left} = ${left} := ${expr}"
       }
@@ -147,16 +156,32 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         sApply.fun match {
           case SSelect(from, name, tpe) =>
             name.toString match {
+              case "$plus"  => s"(${from.toCode} + ${args})"
               case "$minus" => s"(${from.toCode} - ${args})"
               case "$div"   => s"(${from.toCode} / ${args})"
+              case "$times" => s"(${from.toCode} * ${args})"
               case s        => s"(${from.toCode} TODO(sApplyCode ${s}) ${args})"
             }
-          case x => s"${x.toCode}(${args})"
+          case SLib(name, tpe) =>
+            name match {
+              case "scala.`package`.BigInt.apply" => args
+
+              case _ => s"TODO(${name}(${args}))"
+            }
+          case SIdent(name, tpe) =>
+            s"${name.toString()}(${args})"
+          case _ => s"TODO(${sApply.fun.toCode}(${args}))"
         }
 
       }
       private def sSelectCode(sSelect: SSelect): String = {
-        s"TODO(SSelect ${sSelect})"
+        sSelect.name.toString() match {
+          case "bitLength" => s"bitLength(${sSelect.from.toCode})"
+          case _           => s"TODO(SSelect ${sSelect})"
+        }
+      }
+      private def sTupleCode(sTuple: STuple): String = {
+        s"(${sTuple.args.map(_.toCode).mkString(", ")})"
       }
     }
   }

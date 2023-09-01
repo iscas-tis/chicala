@@ -2,7 +2,9 @@ package chicala.ast
 
 import scala.tools.nsc.Global
 
-trait CClassDefs { self: ChicalaAst =>
+import chicala.ast.impl.CClassDefsImpl
+
+trait CClassDefs extends CClassDefsImpl { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -15,7 +17,8 @@ trait CClassDefs { self: ChicalaAst =>
       vparams: List[SValDef],
       body: List[MStatement],
       pkg: String
-  ) extends CClassDef(name, pkg) {}
+  ) extends CClassDef(name, pkg)
+      with ModuleDefImpl
 
   case class BundleDef(name: TypeName, bundle: Bundle, pkg: String) extends CClassDef(name, pkg) {}
 }

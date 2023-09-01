@@ -19,7 +19,31 @@ trait CTypeImpls { self: MTypes =>
       case Reg => Set(if (leftSide) Reg.nowSignal(parentName) else Reg.nextSignal(parentName))
       case _   => Set(parentName)
     }
+
+    def isInput: Boolean
+    def isOutput: Boolean
+    def isReg: Boolean = physical match {
+      case Reg => true
+      case _   => false
+    }
+
+    /** Use "_" flatten all signals in Bundle structure
+      */
+    def flatten(name: String): List[(String, SignalType)] = List(name -> this)
   }
+  trait GroundTypeImpl { self: GroundType =>
+    def direction: CDirection
+
+    def isInput: Boolean = direction match {
+      case Input => true
+      case _     => false
+    }
+    def isOutput: Boolean = direction match {
+      case Output => true
+      case _      => false
+    }
+  }
+
   object SignalType {
     def empty: SignalType = Bool(Node, Undirect)
   }
@@ -61,6 +85,9 @@ trait CTypeImpls { self: MTypes =>
       copy(physical = newPhysical, tparam = tparam.updatedPhysical(newPhysical))
     def updatedDriction(newDirection: CDirection): Vec =
       copy(tparam = tparam.updatedDriction(newDirection))
+
+    def isInput  = tparam.isInput
+    def isOutput = tparam.isOutput
   }
   trait BundleImpl { self: Bundle =>
     def updatedPhysical(newPhysical: CPhysical): Bundle = copy(
@@ -88,6 +115,16 @@ trait CTypeImpls { self: MTypes =>
         case _   => signals
       }
     }
+
+    // Bundle it-self cannot be a Input or Output
+    def isInput  = false
+    def isOutput = false
+
+    override def flatten(name: String): List[(String, SignalType)] = signals
+      .map { case (termName, cDataType) =>
+        cDataType.flatten(s"${name}_${termName}")
+      }
+      .reduce(_ ++ _)
   }
 
   trait RegImpl {

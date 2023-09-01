@@ -17,10 +17,11 @@ trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaA
 
   // SignalType
   sealed abstract class SignalType extends CType with SignalTypeImpl
+  sealed abstract class GroundType extends SignalType with GroundTypeImpl
 
-  case class UInt(width: CSize, physical: CPhysical, direction: CDirection) extends SignalType with UIntImpl
-  case class SInt(width: CSize, physical: CPhysical, direction: CDirection) extends SignalType with SIntImpl
-  case class Bool(physical: CPhysical, direction: CDirection)               extends SignalType with BoolImpl
+  case class UInt(width: CSize, physical: CPhysical, direction: CDirection) extends GroundType with UIntImpl
+  case class SInt(width: CSize, physical: CPhysical, direction: CDirection) extends GroundType with SIntImpl
+  case class Bool(physical: CPhysical, direction: CDirection)               extends GroundType with BoolImpl
 
   case class Vec(size: CSize, physical: CPhysical, tparam: SignalType)       extends SignalType with VecImpl
   case class Bundle(physical: CPhysical, signals: Map[TermName, SignalType]) extends SignalType with BundleImpl
@@ -46,7 +47,8 @@ trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaA
   case object UnknownSize            extends CSize
 
   // SType
-  sealed abstract class SType              extends MType
+  sealed abstract class SType extends MType
+
   case object StInt                        extends SType
   case object StString                     extends SType
   case object StBigInt                     extends SType

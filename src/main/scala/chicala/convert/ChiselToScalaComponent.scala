@@ -10,6 +10,7 @@ import java.io._
 import chicala.util.Format
 import chicala.convert.frontend.Scala2Reader
 import chicala.util.Printer
+import chicala.convert.backend.stainless.StainlessEmitter
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
@@ -27,7 +28,12 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
 
   def newPhase(_prev: Phase) = new ChiselToScalaPhase(_prev)
 
-  class ChiselToScalaPhase(prev: Phase) extends StdPhase(prev) with Scala2Reader with ToplogicalSort with Format {
+  class ChiselToScalaPhase(prev: Phase)
+      extends StdPhase(prev)
+      with Scala2Reader
+      with ToplogicalSort
+      with StainlessEmitter
+      with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
 
     val testRunDir = new File("test_run_dir/" + phaseName)
@@ -55,8 +61,10 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
     }
 
     def applyOnTree(tr: Tree, packageName: String): Unit = {
-      val packageDir = testRunDir.getPath() + s"/${packageName.replace(".", "/")}"
+      val packageDir = s"${testRunDir.getPath()}/test/${packageName.replace(".", "/")}"
+      val outputDir  = s"${testRunDir.getPath()}/out/${packageName.replace(".", "/")}"
       (new File(packageDir)).mkdirs()
+      (new File(outputDir)).mkdirs()
 
       tr match {
         case tree @ ClassDef(mods, name, tparams, Template(parents, self, body)) =>
@@ -115,6 +123,15 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                 case b: BundleDef =>
                   readerInfo = readerInfo.addedBundleDef(b)
                   b
+              }
+
+              sortedCClassDef match {
+                case m: ModuleDef =>
+                  Format.saveToFile(
+                    outputDir + s"/${name}.stainless.scala",
+                    EmitStainless(m)
+                  )
+                case _ =>
               }
 
           }

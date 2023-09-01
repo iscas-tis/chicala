@@ -103,8 +103,12 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case head :: Nil  => s"${head}${op}"
               case head :: tail => s"${head}${op}(${tail.mkString(", ")})"
             }
-          case u: CUtilOp => s"${op}(${operands.mkString(", ")})"
-          case _          => s"TODO(${cApply})"
+          case u: CUtilOp =>
+            if (u == Cat && operands.size > 2)
+              s"${op}(List(${operands.mkString(", ")}))"
+            else
+              s"${op}(${operands.mkString(", ")})"
+          case _ => s"TODO(${cApply})"
         }
       }
       private def litCode(lit: Lit): String = {
@@ -196,7 +200,14 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       private def connectCL(connect: Connect): CodeLines = {
         val left = connect.left.toCode(true)
         val expr = connect.expr.toCodeLines
-        s"${left} = ${left} := ".concatLastLine(expr)
+        if (expr.lines.head.startsWith("if"))
+          CodeLines.warpToOneLine(
+            s"${left} = ${left} := (",
+            expr.indented,
+            ")"
+          )
+        else
+          s"${left} = ${left} := ".concatLastLine(expr)
       }
       private def whenCL(
           when: When,

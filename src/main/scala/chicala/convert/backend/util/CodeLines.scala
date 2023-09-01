@@ -1,7 +1,7 @@
 package chicala.convert.backend.util
 
 case class CodeLines(lines: List[String]) {
-  def toCode: String = lines.map(_ + "\n").foldLeft("")(_ + _)
+  def toCode: String = lines.mkString("\n")
 
   def indented: CodeLines = indented(1)
   def indented(indent: Int): CodeLines = {

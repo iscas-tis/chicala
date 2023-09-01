@@ -55,18 +55,28 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
 
       private val ioDef = moduleDef.ioDef
       private val inputSignals = ioDef.tpe
-        .serialize(ioDef.name.toString())
+        .flatten(ioDef.name.toString())
         .filter { case (name, tpe) => tpe.isInput }
       private val outputSignals = ioDef.tpe
-        .serialize(ioDef.name.toString())
+        .flatten(ioDef.name.toString())
         .filter { case (name, tpe) => tpe.isOutput }
 
       private val regDefs = moduleDef.regDefs
-      private val regSignals = regDefs
-        .map({ case RegDef(name, tpe, someInit, someNext, someEnable) =>
-          tpe.serialize(name.toString())
-        })
-        .flatten
+      private val (regSignals, regInits) = {
+        var inits = Map.empty[String, MTerm]
+        val signals = regDefs
+          .map({ case RegDef(name, tpe, someInit, someNext, someEnable) =>
+            val sig = tpe.flatten(name.toString())
+            someInit.foreach(x =>
+              sig.foreach({ case (name, tpe) =>
+                inits = inits.updated(name, x)
+              })
+            )
+            sig
+          })
+          .flatten
+        (signals, inits)
+      }
 
       private def signalsClassCL(
           signalClassName: String,
@@ -158,21 +168,32 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
              |}""".stripMargin
         )
         val run = {
-          val regInit: String = CodeLines
-            .warpToOneLine(
-              s"${regsClassName}(",
-              CodeLines.empty.indented,
-              ")"
-            )
-            .toCode
+          val regInit: String = {
+            val inits: CodeLines = regSignals
+              .map({ case (name, tpe) =>
+                regInits
+                  .get(name)
+                  .map(x => x.toCode)
+                  .getOrElse(s"randomInitValue.${name}"): String
+              })
+              .toCodeLines
+              .enddedWithExceptLast(",")
+            CodeLines
+              .warpToOneLine(
+                s"val regInit = ${regsClassName}(",
+                inits.indented,
+                ")"
+              )
+              .toCode
+          }
           CodeLines(
             s"""def run(inputs: ${inputsClassName}, randomInitValue: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {
-             |  require(inputsRequire(inputs) && regsRequire(randomInitValue))
-             |  val regInit = ${regInit}
-             |  ${moduleRunName}(100, inputs, regInit)
-             |} ensuring { case (outputs, regNexts) =>
-             |  outputsRequire(outputs) && regsRequire(regNexts)
-             |}""".stripMargin
+               |  require(inputsRequire(inputs) && regsRequire(randomInitValue))""".stripMargin,
+            regInit.indented,
+            s"""  ${moduleRunName}(100, inputs, regInit)
+               |} ensuring { case (outputs, regNexts) =>
+               |  outputsRequire(outputs) && regsRequire(regNexts)
+               |}""".stripMargin
           )
         }
 

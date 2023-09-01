@@ -29,7 +29,7 @@ trait CTypeImpls { self: MTypes =>
 
     /** Use "_" flatten all signals in Bundle structure
       */
-    def serialize(name: String): List[(String, SignalType)] = List(name -> this)
+    def flatten(name: String): List[(String, SignalType)] = List(name -> this)
   }
   trait GroundTypeImpl { self: GroundType =>
     def direction: CDirection
@@ -120,9 +120,9 @@ trait CTypeImpls { self: MTypes =>
     def isInput  = false
     def isOutput = false
 
-    override def serialize(name: String): List[(String, SignalType)] = signals
+    override def flatten(name: String): List[(String, SignalType)] = signals
       .map { case (termName, cDataType) =>
-        cDataType.serialize(s"${name}_${termName}")
+        cDataType.flatten(s"${name}_${termName}")
       }
       .reduce(_ ++ _)
   }

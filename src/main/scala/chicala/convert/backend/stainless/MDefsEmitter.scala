@@ -12,46 +12,53 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
   trait MDefEmitterImplicit { self: StainlessEmitterImplicit =>
     implicit class MDefEmitter(mDef: MDef) {
       def toCode: String = mDef match {
-        case w: WireDef     => wireDefCode(w)
-        case n: NodeDef     => nodeDefCode(n)
-        case e: EnumDef     => enumDefCode(e)
-        case s: SUnapplyDef => sUnapplyDefCode(s)
-        case _: IoDef       => s"DONOTCALLME(Code ${mDef})"
-        case _              => s"TODO(Code ${mDef})"
+        case _: IoDef => s"DONOTCALLME(Code ${mDef})"
+        case _        => s"TODO(Code ${mDef})"
       }
 
       def toCodeLines: CodeLines = mDef match {
         case _: IoDef | _: RegDef => CodeLines.empty
-        case _: WireDef | _: NodeDef | _: EnumDef | _: SUnapplyDef =>
-          mDef.toCode
-
-        case s: SDefDef => sDefDefCL(s)
-        case _          => CodeLines(s"TODO(CL ${mDef})")
+        case w: WireDef           => wireDefCL(w)
+        case n: NodeDef           => nodeDefCL(n)
+        case e: EnumDef           => enumDefCL(e)
+        case s: SValDef           => sValDefCL(s)
+        case s: SUnapplyDef       => sUnapplyDefCL(s)
+        case s: SDefDef           => sDefDefCL(s)
+        case _                    => CodeLines(s"TODO(CL ${mDef})")
       }
 
-      private def wireDefCode(wireDef: WireDef): String = {
+      private def wireDefCL(wireDef: WireDef): CodeLines = {
         val name = wireDef.name.toString()
         val init = wireDef.someInit
-          .map(_.toCode)
-          .getOrElse(wireDef.tpe.toCode_empty)
+          .map(_.toCodeLines)
+          .getOrElse(CodeLines(wireDef.tpe.toCode_empty))
 
-        s"var ${name} = ${init}"
+        CodeLines(s"var ${name} = ").concatLastLine(init)
       }
-      private def nodeDefCode(nodeDef: NodeDef): String = {
+      private def nodeDefCL(nodeDef: NodeDef): CodeLines = {
         val name = nodeDef.name.toString()
-        val rhs  = nodeDef.rhs.toCode
-        s"val ${name} = ${rhs}"
+        val rhs  = nodeDef.rhs.toCodeLines
+        CodeLines(s"val ${name} = ").concatLastLine(rhs)
       }
-      private def enumDefCode(enumDef: EnumDef): String = {
+      private def enumDefCL(enumDef: EnumDef): CodeLines = {
         val left  = enumDef.names.map(_.toString()).mkString(", ")
         val width = enumDef.tpe.width.asInstanceOf[KnownSize].width.toCode
-        val right = (0 until enumDef.names.size).map(i => s"Lit(${i}, ${width}).U").mkString(", ")
-        s"val (${left}) = (${right})"
+        val right = (0 until enumDef.names.size)
+          .map(i => s"Lit(${i}, ${width}).U")
+          .mkString(", ")
+        CodeLines(s"val (${left}) = (${right})")
       }
-      private def sUnapplyDefCode(sUnapplyDef: SUnapplyDef): String = {
+      private def sValDefCL(sValDef: SValDef): CodeLines = {
+        val name    = sValDef.name.toString()
+        val rhs     = sValDef.rhs.toCodeLines
+        val keyword = if (sValDef.isVar) "var" else "val"
+
+        CodeLines(s"${keyword} ${name} = ").concatLastLine(rhs)
+      }
+      private def sUnapplyDefCL(sUnapplyDef: SUnapplyDef): CodeLines = {
         val left  = sUnapplyDef.names.map(_.toString()).mkString(", ")
-        val right = sUnapplyDef.rhs.toCode
-        s"val (${left}) = ${right}"
+        val right = sUnapplyDef.rhs.toCodeLines
+        CodeLines(s"val (${left}) = ").concatLastLine(right)
       }
       private def sDefDefCL(sDefDef: SDefDef): CodeLines = {
         val funcName: String = sDefDef.name.toString()

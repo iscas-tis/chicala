@@ -14,3 +14,6 @@ trait ChicalaPasss { self: ChicalaAst =>
     }
   }
 }
+
+trait ChicalaPassCollecttion extends DependencySorts with LiteralPropagations with RegEnableApplys { self: ChicalaAst =>
+}

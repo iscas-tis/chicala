@@ -32,8 +32,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
   class ChiselToScalaPhase(prev: Phase)
       extends StdPhase(prev)
       with Scala2Reader
-      with LiteralPropagations
-      with DependencySorts
+      with ChicalaPassCollecttion
       with StainlessEmitter
       with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
@@ -117,6 +116,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                     m,
                     List(
                       LiteralPropagation,
+                      RegEnableApply,
                       DependencySort
                     )
                   )

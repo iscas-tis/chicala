@@ -18,8 +18,9 @@ trait CircuitInfos { self: Scala2Reader =>
       /* info from compile plugin global*/
       val readerInfo: ReaderInfo
   ) {
-    def updatedParam(sValDef: SValDef): CircuitInfo =
-      this.copy(params = params :+ sValDef)
+
+    def updatedParams(sValDefs: List[SValDef]): CircuitInfo =
+      this.copy(params = sValDefs)
 
     def updatedVal(termName: TermName, tpe: MType): CircuitInfo =
       this.copy(vals = vals + (strippedName(termName) -> tpe))

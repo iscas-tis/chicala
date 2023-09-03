@@ -109,8 +109,13 @@ trait ValDefsReader { self: Scala2Reader =>
             case _                      => EmptyMTerm
           }
           val sValDef = SValDef(name, tpe, r)
-          if (mods.isParamAccessor) Some((newCInfo.updatedParam(sValDef), None))
-          else Some((newCInfo, Some(sValDef)))
+          if (mods.isParamAccessor) {
+            if (mods.isParameter)
+              Some((newCInfo, Some(sValDef)))
+            else
+              Some((newCInfo, None))
+          } else
+            Some((newCInfo, Some(sValDef)))
         case _ =>
           unprocessedTree(tr, "ValDefReader")
           None

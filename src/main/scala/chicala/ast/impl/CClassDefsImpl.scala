@@ -24,4 +24,5 @@ trait CClassDefsImpl { self: ChicalaAst =>
     }
     def regDefs: List[RegDef] = body.collect { case x: RegDef => x }
   }
+  trait BundleDefImpl { self: BundleDef => }
 }

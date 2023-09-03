@@ -91,7 +91,8 @@ trait MTypesLoader { self: Scala2Reader =>
                 case Select(New(tpt), termNames.CONSTRUCTOR) =>
                   val bundleFullName = tpt.tpe.toString()
                   val someBundleDef  = cInfo.readerInfo.bundleDefs.get(bundleFullName)
-                  someBundleDef.map(_.bundle)
+                  val mArgs          = args.map(MTermLoader(cInfo, _).get._2.get)
+                  someBundleDef.map(_.applyArgs(mArgs).bundle)
                 case _ =>
                   unprocessedTree(f, "SignalTypeLoader #2")
                   Some(SignalType.empty)

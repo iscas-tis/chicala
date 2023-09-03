@@ -41,7 +41,7 @@ trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaA
   case object Undirect extends CDirection { def flipped: CDirection = Undirect }
 
   // CSize
-  sealed abstract class CSize
+  sealed abstract class CSize        extends CSizeImpl
   case class KnownSize(width: STerm) extends CSize
   case object InferredSize           extends CSize
   case object UnknownSize            extends CSize

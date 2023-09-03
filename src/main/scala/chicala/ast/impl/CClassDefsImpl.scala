@@ -24,5 +24,14 @@ trait CClassDefsImpl { self: ChicalaAst =>
     }
     def regDefs: List[RegDef] = body.collect { case x: RegDef => x }
   }
-  trait BundleDefImpl { self: BundleDef => }
+  trait BundleDefImpl { self: BundleDef =>
+    def applyArgs(args: List[MTerm]): BundleDef = {
+      val replaceMap: Map[MTerm, MTerm] = vparams
+        .zip(args)
+        .map({ case (p, a) => SIdent(p.name, p.tpe) -> a })
+        .toMap
+
+      this.copy(bundle = bundle.replaced(replaceMap))
+    }
+  }
 }

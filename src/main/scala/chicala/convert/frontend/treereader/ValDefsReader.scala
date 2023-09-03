@@ -133,8 +133,9 @@ trait ValDefsReader { self: Scala2Reader =>
         case a @ Apply(Select(New(tpt), termNames.CONSTRUCTOR), aparams) =>
           val bundleFullName = tpt.tpe.toString()
           val someBundleDef  = cInfo.readerInfo.bundleDefs.get(bundleFullName)
+          val mArgs          = aparams.map(MTermLoader(cInfo, _).get._2.get)
           someBundleDef match {
-            case Some(bundleDef) => Some((cInfo, Some(bundleDef)))
+            case Some(bundleDef) => Some((cInfo, Some(bundleDef.applyArgs(mArgs))))
             case None            => Some((cInfo.settedDependentClassNotDef, None))
           }
         case _ => None // this should not happed

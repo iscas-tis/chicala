@@ -22,6 +22,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SSelect         => sSelectCode(s)
         case s: STuple          => sTupleCode(s)
         case s: SFunction       => s.toCodeLines.toCode
+        case s: SIf             => s"(${s.toCodeLines.toCode})"
         case SIdent(name, _)    => name.toString()
         case SLiteral(value, _) => value.toString()
         case _                  => s"TODO(Code ${mTerm})"

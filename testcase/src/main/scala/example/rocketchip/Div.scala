@@ -9,33 +9,34 @@ class Div(
     mulEarlyOut: Boolean = false,
     divEarlyOut: Boolean = false,
     divEarlyOutGranularity: Int = 1,
-    width: Int,
+    w: Int,
     nXpr: Int = 32
 ) extends Module {
   // require(divUnroll > 0)
   private def minDivLatency = if (divEarlyOut) 3 else 1 + w / divUnroll
   def minLatency: Int       = minDivLatency
 
-  val io = IO(new MultiplierIO(width, log2Up(nXpr)))
+  val io = IO(new MultiplierIO(w, log2Up(nXpr)))
 
-  val w        = io.req.bits.in1.getWidth
-  val mulw     = if (mulUnroll == 0) w else (w + mulUnroll - 1) / mulUnroll * mulUnroll // 5
-  val fastMulW = if (mulUnroll == 0) false else w / 2 > mulUnroll && w % (2 * mulUnroll) == 0
+  val mulw     = if (mulUnroll == 0) w else (w + mulUnroll - 1) / mulUnroll * mulUnroll
+  val fastMulW = if (mulUnroll == 0) false else w / 2 > mulUnroll && w % (2 * mulUnroll) == 0 // 5
 
   val s_ready :: s_neg_inputs :: s_div :: s_dummy :: s_neg_output :: s_done_div :: Nil = Enum(6)
 
   val state = RegInit(s_ready)
 
-  val req       = Reg(new MultiplierReq(width, log2Up(nXpr)))
-  val count     = Reg(UInt(log2Ceil(w / divUnroll + 1).W)) // 10
-  val neg_out   = Reg(Bool())
-  val isHi      = Reg(Bool())
-  val resHi     = Reg(Bool())
-  val divisor   = Reg(UInt((w + 1).W))                     // div only needs w bits
-  val remainder = Reg(UInt((2 * mulw + 2).W))              // div only needs 2*w+1 bits // 15
+  val req     = Reg(new MultiplierReq(w, log2Up(nXpr)))
+  val count   = Reg(UInt(log2Ceil(w / divUnroll + 1).W))
+  val neg_out = Reg(Bool())          // 10
+  val isHi    = Reg(Bool())
+  val resHi   = Reg(Bool())
+  val divisor = Reg(UInt((w + 1).W)) // div only needs w bits
+  val remainder = Reg(
+    UInt((2 * (if (mulUnroll == 0) w else (w + mulUnroll - 1) / mulUnroll * mulUnroll) + 2).W)
+  ) // div only needs 2*w+1 bits
 
-  val cmdMul, cmdHi, lhsSigned, rhsSigned = WireInit(false.B) // 16 - 19
-  if (divUnroll != 0) { // 20
+  val cmdMul, cmdHi, lhsSigned, rhsSigned = WireInit(false.B) // 15 - 18
+  if (divUnroll != 0) { // 19
     switch(io.req.bits.fn) {
       is(4.U) { // aluFn.FN_DIV
         cmdMul    := false.B
@@ -57,8 +58,8 @@ class Div(
   val (lhs_in, lhs_sign) = sext(io.req.bits.in1, halfWidth(io.req.bits.dw), lhsSigned)
   val (rhs_in, rhs_sign) = sext(io.req.bits.in2, halfWidth(io.req.bits.dw), rhsSigned)
 
-  val subtractor        = remainder(2 * w, w) - divisor // 25
-  val result            = Mux(resHi, remainder(2 * w, w + 1), remainder(w - 1, 0))
+  val subtractor        = remainder(2 * w, w) - divisor
+  val result            = Mux(resHi, remainder(2 * w, w + 1), remainder(w - 1, 0)) // 25
   val negated_remainder = -result
 
   if (divUnroll != 0) when(state === s_neg_inputs) {
@@ -76,15 +77,15 @@ class Div(
     resHi     := false.B
   }
 
-  val divby0      = count === 0.U && !subtractor(w) // 30
-  val align       = 1 << log2Floor(divUnroll max divEarlyOutGranularity)
+  val divby0      = count === 0.U && !subtractor(w)
+  val align       = 1 << log2Floor(divUnroll max divEarlyOutGranularity) // 30
   val alignMask   = ~((align - 1).U(log2Ceil(w).W))
   val divisorMSB  = Log2(divisor(w - 1, 0), w) & alignMask
   val dividendMSB = Log2(remainder(w - 1, 0), w) | ~alignMask
-  val eOutPos     = ~(dividendMSB - divisorMSB)     // 35
-  val eOut        = count === 0.U && !divby0 && eOutPos >= align.U
+  val eOutPos     = ~(dividendMSB - divisorMSB)
+  val eOut        = count === 0.U && !divby0 && eOutPos >= align.U       // 35
 
-  if (divUnroll != 0) when(state === s_div) { // 37
+  if (divUnroll != 0) when(state === s_div) { // 36
     val unrolls = ((0 until divUnroll) scanLeft remainder) { case (rem, i) =>
       // the special case for iteration 0 is to save HW, not for correctness
       val difference = if (i == 0) subtractor else rem(2 * w, w) - divisor(w - 1, 0)
@@ -109,10 +110,10 @@ class Div(
     }
     when(divby0 && !isHi) { neg_out := false.B }
   }
-  when(io.resp.ready && io.resp.valid) { // 38
+  when(io.resp.ready && io.resp.valid) { // 37
     state := s_ready
   }
-  when(io.req.ready && io.req.valid) { // 39
+  when(io.req.ready && io.req.valid) { // 38
     state     := Mux(lhs_sign || rhs_sign, s_neg_inputs, s_div)
     isHi      := cmdHi
     resHi     := false.B
@@ -123,12 +124,12 @@ class Div(
     req       := io.req.bits
   }
 
-  val outMul = (state & (s_done_div)) === (false.B & ~s_done_div)                                         // 40
-  val loOut  = Mux(fastMulW.B && halfWidth(req.dw) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0)) // 41
+  val outMul = (state & (s_done_div)) === (false.B & ~s_done_div)                                         // 39
+  val loOut  = Mux(fastMulW.B && halfWidth(req.dw) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0)) // 40
   val hiOut  = Mux(halfWidth(req.dw), Fill(w / 2, loOut(w / 2 - 1)), result(w - 1, w / 2))
-  io.resp.bits.tag := req.tag // 43
+  io.resp.bits.tag := req.tag // 42
 
   io.resp.bits.data := Cat(hiOut, loOut)
-  io.resp.valid     := (state === s_done_div) // 45
-  io.req.ready      := state === s_ready      // 46
+  io.resp.valid     := (state === s_done_div) // 44
+  io.req.ready      := state === s_ready      // 45
 }

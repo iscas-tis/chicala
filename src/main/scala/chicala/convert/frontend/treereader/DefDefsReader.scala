@@ -13,36 +13,30 @@ trait DefDefsReader { self: Scala2Reader =>
         case d @ DefDef(mods, nameTmp, tparams, vparamss, tpt: TypeTree, rhs) => {
           val name = nameTmp.stripSuffix(" ")
 
-          // constructor of this class
-          if (name == termNames.CONSTRUCTOR) return None
           // accessor of val
           if (mods.hasStableFlag && mods.hasAccessorFlag) {
-            assert(cInfo.contains(name), "accessor of val should record in cInfo")
+            assertError(cInfo.contains(name), d.pos, "accessor of val should record in cInfo")
             return None
           }
 
-          val (newCInfo, vpss: List[List[MValDef]]) = vparamss
-            .foldLeft((cInfo, List.empty[List[MValDef]])) { case ((cf, ls), vps) =>
-              val (ncf, nl) = vps.foldLeft((cf, List.empty[MValDef])) { case ((c, l), t) =>
-                ValDefReader(c, t) match {
-                  case Some((nc, Some(svd: MValDef))) => (nc, l :+ svd)
-                  case x =>
-                    unprocessedTree(t, "DefDefReader vparam")
-                    (c, l)
-                }
-              }
-              (ncf, ls :+ nl)
-            }
-          val body = passThrough(rhs)._1 match {
-            case Block(stats, expr) => BlockReader(newCInfo, rhs).get._2.get
-            case _ =>
-              val mTerm = MTermLoader(newCInfo, rhs).get._2.get
-              SBlock(List(mTerm), mTerm.tpe)
-          }
-          assert(body.body.nonEmpty, s"function $name should have body")
-          val tpe = MTypeLoader.fromTpt(tpt).get
-          Some((cInfo.updatedFunc(name, tpe), Some(SDefDef(name, vpss, tpe, body))))
+          val (newCInfo, vpss: List[List[MValDef]]) = vparamssReader(cInfo, vparamss)
 
+          if (name == termNames.CONSTRUCTOR) {
+            // constructor of this class
+            val vps = vpss.flatten.asInstanceOf[List[SValDef]]
+            Some((cInfo.updatedParams(vps), None))
+          } else {
+            // function
+            val body = passThrough(rhs)._1 match {
+              case Block(stats, expr) => BlockReader(newCInfo, rhs).get._2.get
+              case _ =>
+                val mTerm = MTermLoader(newCInfo, rhs).get._2.get
+                SBlock(List(mTerm), mTerm.tpe)
+            }
+            assertError(body.body.nonEmpty, rhs.pos, s"function $name should have body")
+            val tpe = MTypeLoader.fromTpt(tpt).get
+            Some((cInfo.updatedFunc(name, tpe), Some(SDefDef(name, vpss, tpe, body))))
+          }
         }
         case _ =>
           unprocessedTree(tree, "DefDefReader")
@@ -50,6 +44,22 @@ trait DefDefsReader { self: Scala2Reader =>
       }
 
     }
+  }
+
+  protected def vparamssReader(cInfo: CircuitInfo, vparamss: List[List[ValDef]]): (CircuitInfo, List[List[MValDef]]) = {
+    vparamss
+      .foldLeft((cInfo, List.empty[List[MValDef]])) { case ((cf, ls), vps) =>
+        val (ncf, nl) = vps.foldLeft((cf, List.empty[MValDef])) { case ((c, l), t) =>
+          ValDefReader(c, t) match {
+            case Some((nc, Some(svd: MValDef))) => (nc, l :+ svd)
+            case x =>
+              println(t)
+              unprocessedTree(t, "vparamssReader")
+              (c, l)
+          }
+        }
+        (ncf, ls :+ nl)
+      }
   }
 
 }

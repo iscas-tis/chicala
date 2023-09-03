@@ -85,12 +85,10 @@ trait ValDefsReader { self: Scala2Reader =>
           }
         }
         // STupleUnapplyDef step 1
-        case v @ ValDef(mods, name, tpt, Match(t @ Typed(Apply(appl, args), _), _)) => {
-          val num = tpt.tpe.typeArgs.length
-          val cExp =
-            if (isScala2TupleUnapplyTmpValDef(v)) MTermLoader(cInfo, args.head).get._2.get
-            else MTermLoader(cInfo, t).get._2.get // ? what is this ?
-          val tpe = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
+        case v @ ValDef(mods, name, tpt, Match(t @ Typed(rhs, _), _)) => {
+          val num  = tpt.tpe.typeArgs.length
+          val cExp = MTermLoader(cInfo, rhs).get._2.get
+          val tpe  = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
           Some(
             (
               cInfo.updatedTupleTmp(
@@ -111,8 +109,13 @@ trait ValDefsReader { self: Scala2Reader =>
             case _                      => EmptyMTerm
           }
           val sValDef = SValDef(name, tpe, r)
-          if (mods.isParamAccessor) Some((newCInfo.updatedParam(sValDef), None))
-          else Some((newCInfo, Some(sValDef)))
+          if (mods.isParamAccessor) {
+            if (mods.isParameter)
+              Some((newCInfo, Some(sValDef)))
+            else
+              Some((newCInfo, None))
+          } else
+            Some((newCInfo, Some(sValDef)))
         case _ =>
           unprocessedTree(tr, "ValDefReader")
           None
@@ -130,8 +133,9 @@ trait ValDefsReader { self: Scala2Reader =>
         case a @ Apply(Select(New(tpt), termNames.CONSTRUCTOR), aparams) =>
           val bundleFullName = tpt.tpe.toString()
           val someBundleDef  = cInfo.readerInfo.bundleDefs.get(bundleFullName)
+          val mArgs          = aparams.map(MTermLoader(cInfo, _).get._2.get)
           someBundleDef match {
-            case Some(bundleDef) => Some((cInfo, Some(bundleDef)))
+            case Some(bundleDef) => Some((cInfo, Some(bundleDef.applyArgs(mArgs))))
             case None            => Some((cInfo.settedDependentClassNotDef, None))
           }
         case _ => None // this should not happed

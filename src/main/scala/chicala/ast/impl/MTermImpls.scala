@@ -16,6 +16,11 @@ trait MTermImpls { self: ChicalaAst =>
   trait MTermImpl { self: MTerm =>
     def tpe: MType
 
+    def replaced(replaceMap: Map[MTerm, MTerm]) = {
+      // FIXME: need recursively replacing all terms
+      replaceMap.get(this).getOrElse(this)
+    }
+
     def isEmpty = this == EmptyMTerm
   }
   object MTerm {

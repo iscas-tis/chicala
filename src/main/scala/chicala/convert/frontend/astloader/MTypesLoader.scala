@@ -70,11 +70,10 @@ trait MTypesLoader { self: Scala2Reader =>
               val tpe = SignalTypeLoader(cInfo, args.head)
               tpe.map(_.updatedDriction(direction))
 
-            /* Apply(<UInt(_)>, List(<width.W>)) */
-            /* Apply(<new SomeBundle(_)>, List(<args>)) */
             case None =>
               val f = passThrough(fun)._1
               f match {
+                /* Apply(<UInt(_)>, List(<width.W>)) */
                 case Select(Select(cp, name), TermName("apply")) if isChisel3Package(cp) =>
                   val width = getWidth(cInfo, args)
                   name match {
@@ -88,10 +87,12 @@ trait MTypesLoader { self: Scala2Reader =>
                       unprocessedTree(f, "SignalTypeLoader #1")
                       Some(SignalType.empty)
                   }
+                /* Apply(<new SomeBundle(_)>, List(<args>)) */
                 case Select(New(tpt), termNames.CONSTRUCTOR) =>
                   val bundleFullName = tpt.tpe.toString()
                   val someBundleDef  = cInfo.readerInfo.bundleDefs.get(bundleFullName)
-                  someBundleDef.map(_.bundle)
+                  val mArgs          = args.map(MTermLoader(cInfo, _).get._2.get)
+                  someBundleDef.map(_.applyArgs(mArgs).bundle)
                 case _ =>
                   unprocessedTree(f, "SignalTypeLoader #2")
                   Some(SignalType.empty)

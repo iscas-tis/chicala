@@ -20,5 +20,11 @@ trait CClassDefs extends CClassDefsImpl { self: ChicalaAst =>
   ) extends CClassDef(name, pkg)
       with ModuleDefImpl
 
-  case class BundleDef(name: TypeName, bundle: Bundle, pkg: String) extends CClassDef(name, pkg) {}
+  case class BundleDef(
+      name: TypeName,
+      vparams: List[SValDef],
+      bundle: Bundle,
+      pkg: String
+  ) extends CClassDef(name, pkg)
+      with BundleDefImpl
 }

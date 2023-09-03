@@ -11,6 +11,7 @@ import chicala.util.Format
 import chicala.convert.frontend.Scala2Reader
 import chicala.util.Printer
 import chicala.convert.backend.stainless.StainlessEmitter
+import chicala.convert.pass._
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
@@ -31,7 +32,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
   class ChiselToScalaPhase(prev: Phase)
       extends StdPhase(prev)
       with Scala2Reader
-      with ToplogicalSort
+      with ChicalaPassCollecttion
       with StainlessEmitter
       with Format {
     lazy val global: ChiselToScalaComponent.this.global.type = ChiselToScalaComponent.this.global
@@ -111,15 +112,19 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                     packageDir + s"/${name}.related.scala",
                     body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
                   )
-                  /*
-                  val sorted = Some(dependencySort(m))
+                  val sorted = RunChicalaPass(
+                    m,
+                    List(
+                      LiteralPropagation,
+                      RegEnableApply,
+                      DependencySort
+                    )
+                  )
                   Format.saveToFile(
                     packageDir + s"/${name}.sorted.scala",
-                    sorted.get.toString
+                    sorted.toString
                   )
                   sorted
-                   */
-                  m
                 case b: BundleDef =>
                   readerInfo = readerInfo.addedBundleDef(b)
                   b

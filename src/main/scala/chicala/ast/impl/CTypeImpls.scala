@@ -2,9 +2,9 @@ package chicala.ast.impl
 
 import scala.tools.nsc.Global
 
-import chicala.ast.MTypes
+import chicala.ast.ChicalaAst
 
-trait CTypeImpls { self: MTypes =>
+trait CTypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -19,6 +19,8 @@ trait CTypeImpls { self: MTypes =>
       case Reg => Set(if (leftSide) Reg.nowSignal(parentName) else Reg.nextSignal(parentName))
       case _   => Set(parentName)
     }
+
+    def replaced(replaceMap: Map[MTerm, MTerm]): SignalType
 
     def isInput: Boolean
     def isOutput: Boolean
@@ -58,6 +60,8 @@ trait CTypeImpls { self: MTypes =>
       case Undirect => copy(direction = direction)
     }
     override def setInferredWidth = copy(width = InferredSize)
+    def replaced(replaceMap: Map[MTerm, MTerm]): UInt =
+      this.copy(width = width.replaced(replaceMap))
   }
   trait SIntImpl { self: SInt =>
     def updatedWidth(newWidth: CSize): SInt           = copy(width = newWidth)
@@ -69,6 +73,9 @@ trait CTypeImpls { self: MTypes =>
       case Undirect => copy(direction = direction)
     }
     override def setInferredWidth = copy(width = InferredSize)
+    def replaced(replaceMap: Map[MTerm, MTerm]): SInt =
+      this.copy(width = width.replaced(replaceMap))
+
   }
   trait BoolImpl { self: Bool =>
     def updatedPhysical(newPhysical: CPhysical): Bool = copy(physical = newPhysical)
@@ -78,6 +85,7 @@ trait CTypeImpls { self: MTypes =>
       case Flipped  => copy(direction = direction.flipped)
       case Undirect => copy(direction = direction)
     }
+    def replaced(replaceMap: Map[MTerm, MTerm]): Bool = this
   }
 
   trait VecImpl { self: Vec =>
@@ -85,6 +93,9 @@ trait CTypeImpls { self: MTypes =>
       copy(physical = newPhysical, tparam = tparam.updatedPhysical(newPhysical))
     def updatedDriction(newDirection: CDirection): Vec =
       copy(tparam = tparam.updatedDriction(newDirection))
+
+    def replaced(replaceMap: Map[MTerm, MTerm]): Vec =
+      this.copy(size = size.replaced(replaceMap), tparam = tparam.replaced(replaceMap))
 
     def isInput  = tparam.isInput
     def isOutput = tparam.isOutput
@@ -116,6 +127,13 @@ trait CTypeImpls { self: MTypes =>
       }
     }
 
+    def replaced(replaceMap: Map[MTerm, MTerm]): Bundle =
+      this.copy(
+        signals = signals.map({ case (name, tpe) =>
+          name -> tpe.replaced(replaceMap)
+        })
+      )
+
     // Bundle it-self cannot be a Input or Output
     def isInput  = false
     def isOutput = false
@@ -136,6 +154,16 @@ trait CTypeImpls { self: MTypes =>
 
     def nowSignals(signals: Set[String])  = signals.map(nowSignal(_))
     def nextSignals(signals: Set[String]) = signals.map(nextSignal(_))
+  }
+
+  trait CSizeImpl { self: CSize =>
+    def replaced(replaceMap: Map[MTerm, MTerm]): CSize = {
+      this match {
+        case KnownSize(width) =>
+          KnownSize(width.replaced(replaceMap).asInstanceOf[STerm])
+        case _ => this
+      }
+    }
   }
 
   trait UIntObjImpl {

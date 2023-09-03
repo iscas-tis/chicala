@@ -22,6 +22,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SSelect         => sSelectCode(s)
         case s: STuple          => sTupleCode(s)
         case s: SFunction       => s.toCodeLines.toCode
+        case s: SIf             => s"(${s.toCodeLines.toCode})"
         case SIdent(name, _)    => name.toString()
         case SLiteral(value, _) => value.toString()
         case _                  => s"TODO(Code ${mTerm})"
@@ -54,6 +55,8 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         if (signalRef.tpe.isReg) {
           if (isLeftSide) baseName + "_next"
           else "regs." + baseName
+        } else if (signalRef.tpe.isInput) {
+          "inputs." + baseName
         } else {
           baseName
         }
@@ -103,8 +106,12 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case head :: Nil  => s"${head}${op}"
               case head :: tail => s"${head}${op}(${tail.mkString(", ")})"
             }
-          case u: CUtilOp => s"${op}(${operands.mkString(", ")})"
-          case _          => s"TODO(${cApply})"
+          case u: CUtilOp =>
+            if (u == Cat && operands.size > 2)
+              s"${op}(List(${operands.mkString(", ")}))"
+            else
+              s"${op}(${operands.mkString(", ")})"
+          case _ => s"TODO(${cApply})"
         }
       }
       private def litCode(lit: Lit): String = {
@@ -196,7 +203,14 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       private def connectCL(connect: Connect): CodeLines = {
         val left = connect.left.toCode(true)
         val expr = connect.expr.toCodeLines
-        s"${left} = ${left} := ".concatLastLine(expr)
+        if (expr.lines.head.startsWith("if"))
+          CodeLines.warpToOneLine(
+            s"${left} = ${left} := (",
+            expr.indented,
+            ")"
+          )
+        else
+          s"${left} = ${left} := ".concatLastLine(expr)
       }
       private def whenCL(
           when: When,

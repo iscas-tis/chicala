@@ -85,12 +85,10 @@ trait ValDefsReader { self: Scala2Reader =>
           }
         }
         // STupleUnapplyDef step 1
-        case v @ ValDef(mods, name, tpt, Match(t @ Typed(Apply(appl, args), _), _)) => {
-          val num = tpt.tpe.typeArgs.length
-          val cExp =
-            if (isScala2TupleUnapplyTmpValDef(v)) MTermLoader(cInfo, args.head).get._2.get
-            else MTermLoader(cInfo, t).get._2.get // ? what is this ?
-          val tpe = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
+        case v @ ValDef(mods, name, tpt, Match(t @ Typed(rhs, _), _)) => {
+          val num  = tpt.tpe.typeArgs.length
+          val cExp = MTermLoader(cInfo, rhs).get._2.get
+          val tpe  = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
           Some(
             (
               cInfo.updatedTupleTmp(

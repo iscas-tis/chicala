@@ -54,6 +54,8 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         if (signalRef.tpe.isReg) {
           if (isLeftSide) baseName + "_next"
           else "regs." + baseName
+        } else if (signalRef.tpe.isInput) {
+          "inputs." + baseName
         } else {
           baseName
         }

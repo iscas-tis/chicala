@@ -9,11 +9,11 @@ class C22 extends Module {
     val out = Output(Vec(2, UInt(1.W)))
   })
   val temp = Wire(Vec(1, UInt(2.W)))
-  for ((t, i) <- temp.zipWithIndex) {
+  for (i <- 0 until temp.length) {
     val (a, b) = (io.in(0)(i), io.in(1)(i))
     val sum    = a ^ b
     val cout   = a & b
-    t := Cat(cout, sum)
+    temp(i) := Cat(cout, sum)
   }
   for (i <- 0 until io.out.length) {
     io.out(i) := Cat(temp.reverse map (_(i)))
@@ -25,17 +25,17 @@ class C32 extends Module {
     val out = Output(Vec(2, UInt(1.W)))
   })
   val temp = Wire(Vec(1, UInt(2.W)))
-  for ((t, i) <- temp.zipWithIndex) {
+  for (i <- 0 until temp.length) {
     val (a, b, cin) = (io.in(0)(i), io.in(1)(i), io.in(2)(i))
     val a_xor_b     = a ^ b
     val a_and_b     = a & b
     val sum         = a_xor_b ^ cin
     val cout        = a_and_b | (a_xor_b & cin)
-    t := Cat(cout, sum)
+    temp(i) := Cat(cout, sum)
   }
-  io.out.zipWithIndex.foreach({ case (x, i) =>
-    x := Cat(temp.reverse map (_(i)))
-  })
+  for (i <- 0 until io.out.length) {
+    io.out(i) := Cat(temp.reverse map (_(i)))
+  }
 }
 class C53 extends Module {
   val io = IO(new Bundle() {

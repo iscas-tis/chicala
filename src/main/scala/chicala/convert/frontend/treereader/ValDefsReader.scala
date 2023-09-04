@@ -28,33 +28,44 @@ trait ValDefsReader { self: Scala2Reader =>
               } else { // NodeDef called function or operator
                 Some(loadNodeDef(cInfo, name, rhs))
               }
-            // EnumDef step 2
-            case s @ Select(Select(This(typeName), termname), _)
-                if cInfo.enumTmp.nonEmpty &&
-                  typeName == cInfo.name && termname == cInfo.enumTmp.get._1 => {
-              val (tn, ed) = cInfo.enumTmp.get
-              val num      = cInfo.numTmp - 1
-              val enumDef  = EnumDef(ed.names :+ name, ed.tpe)
-              val enumTmp  = (tn, enumDef)
-              val newCInfo = cInfo.updatedVal(name, enumDef.tpe)
-              if (num == 0)
-                Some((newCInfo.updatedEnumTmp(0, None), Some(enumTmp._2)))
-              else
-                Some((newCInfo.updatedEnumTmp(num, Some(enumTmp)), None))
+            case s @ Select(qualifier, _) => {
+              if (cInfo.numTmp > 0) {
+                val num = cInfo.numTmp - 1
+                val tn  = cInfo.termNameTmp.get
+                qualifier match {
+                  case Select(This(cInfo.name), tn: TermName) if cInfo.enumDefTmp.nonEmpty =>
+                    // EnumDef step 2
+                    val ed       = cInfo.enumDefTmp.get
+                    val enumDef  = EnumDef(ed.names :+ name, ed.tpe)
+                    val newCInfo = cInfo.updatedVal(name, enumDef.tpe)
+                    if (num == 0)
+                      Some((newCInfo.updatedEnumDefTmp(0, None, None), Some(enumDef)))
+                    else
+                      Some((newCInfo.updatedEnumDefTmp(num, Some(tn), Some(enumDef)), None))
+                  case Select(This(cInfo.name), tn: TermName) if cInfo.sUnapplyDefTmp.nonEmpty =>
+                    // STupleUnapplyDef step 2
+                    val sud         = cInfo.sUnapplyDefTmp.get
+                    val sUnapplyDef = sud.copy(names = sud.names :+ name)
+                    val newCInfo    = cInfo.updatedVal(name, MTypeLoader.fromTpt(tpt).get)
+                    if (num == 0)
+                      Some((newCInfo.updatedSUnapplyDefTmp(0, None, None), Some(sUnapplyDef)))
+                    else
+                      Some((newCInfo.updatedSUnapplyDefTmp(num, Some(tn), Some(sUnapplyDef)), None))
+                  case Ident(tn: TermName) if cInfo.sUnapplyDefTmp.nonEmpty =>
+                    // STupleUnapplyDef step 2
+                    val sud         = cInfo.sUnapplyDefTmp.get
+                    val sUnapplyDef = sud.copy(names = sud.names :+ name)
+                    val newCInfo    = cInfo.updatedVal(name, MTypeLoader.fromTpt(tpt).get)
+                    if (num == 0)
+                      Some((newCInfo.updatedSUnapplyDefTmp(0, None, None), Some(sUnapplyDef)))
+                    else
+                      Some((newCInfo.updatedSUnapplyDefTmp(num, Some(tn), Some(sUnapplyDef)), None))
+                  case _ => Some(loadNodeDef(cInfo, name, rhs))
+                }
+              } else {
+                Some(loadNodeDef(cInfo, name, rhs))
+              }
             }
-            // STupleUnapplyDef step 2
-            case s @ Select(Select(This(typeName), termname), _)
-                if cInfo.tupleTmp.nonEmpty &&
-                  typeName == cInfo.name && termname == cInfo.tupleTmp.get._1 =>
-              val (tn, stud)       = cInfo.tupleTmp.get
-              val num              = cInfo.numTmp - 1
-              val sTupleUnapplyDef = stud.copy(names = stud.names :+ name)
-              val tupleTmp         = (tn, sTupleUnapplyDef)
-              val newCInfo         = cInfo.updatedVal(name, MTypeLoader.fromTpt(tpt).get)
-              if (num == 0)
-                Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
-              else
-                Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
             case EmptyTree =>
               val tpe      = SignalTypeLoader.fromTpt(tpt).get
               val newCInfo = cInfo.updatedVal(name, tpe)
@@ -69,18 +80,17 @@ trait ValDefsReader { self: Scala2Reader =>
           rhs match {
             case Match(Typed(Apply(cuea, number), _), _) => {
               val num = number.head.asInstanceOf[Literal].value.value.asInstanceOf[Int]
-              val enumTmp = (
-                name,
+              val enumDef =
                 EnumDef(
                   List.empty,
                   UInt(
                     KnownSize(SLiteral(BigInt(num - 1).bitLength, StInt)),
                     Node,
                     Undirect
-                  ) // width: Literal(Constant(BigInt(num - 1).bitLength))
+                  )
                 )
-              )
-              Some((cInfo.updatedEnumTmp(num, Some(enumTmp)), None))
+
+              Some((cInfo.updatedEnumDefTmp(num, Some(name), Some(enumDef)), None))
             }
           }
         }
@@ -89,15 +99,17 @@ trait ValDefsReader { self: Scala2Reader =>
           val num  = tpt.tpe.typeArgs.length
           val cExp = MTermLoader(cInfo, rhs).get._2.get
           val tpe  = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
-          Some(
+          val tp = Some(
             (
-              cInfo.updatedTupleTmp(
+              cInfo.updatedSUnapplyDefTmp(
                 num,
-                Some((name, SUnapplyDef(List.empty, cExp, tpe)))
+                Some(name),
+                Some(SUnapplyDef(List.empty, cExp, tpe))
               ),
               None
             )
           )
+          tp
         }
         // SValDef
         case ValDef(mods, nameTmp, tpt, rhs) =>

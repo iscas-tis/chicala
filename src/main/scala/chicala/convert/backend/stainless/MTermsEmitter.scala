@@ -158,6 +158,8 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
                 name match {
                   case "max"      => s"max(${from}, ${args})"
                   case "apply"    => s"${from}(${args})"
+                  case "map"      => s"${from}.map(${args})"
+                  case "foreach"  => s"${from}.foreach(${args})"
                   case "scanLeft" => s"${from}.scanLeft(${args})"
                   case _ =>
                     s"(${from} TODO(sApplyCode SSelect ${name}) ${args})"
@@ -185,10 +187,13 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         val from = sSelect.from.toCode
         val name = sSelect.name.toString()
         (name match {
-          case "getWidth" => Some("width")
-          case "tail"     => Some("tail")
-          case "last"     => Some("last")
-          case _          => None
+          case "getWidth"     => Some("width")
+          case "tail"         => Some("tail")
+          case "last"         => Some("last")
+          case "zipWithIndex" => Some("zipWithIndex")
+          case "length"       => Some("length")
+          case "reverse"      => Some("reverse")
+          case _              => None
         }).map(func => s"${from}.${func}")
           .getOrElse(
             name match {
@@ -201,16 +206,31 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         s"(${sTuple.args.map(_.toCode).mkString(", ")})"
       }
       private def connectCL(connect: Connect): CodeLines = {
-        val left = connect.left.toCode(true)
-        val expr = connect.expr.toCodeLines
-        if (expr.lines.head.startsWith("if"))
-          CodeLines.warpToOneLine(
-            s"${left} = ${left} := (",
-            expr.indented,
-            ")"
-          )
-        else
-          s"${left} = ${left} := ".concatLastLine(expr)
+        connect.left match {
+          case CApply(VecSelect, tpe, operands) =>
+            val left = operands.head.toCode(true)
+            val idx  = operands.tail.head.toCode
+            val expr = connect.expr.toCodeLines
+            CodeLines.warpToOneLine(
+              s"${left} = ${left}.updated(${idx}, ",
+              expr.indented,
+              ")"
+            )
+          case SignalRef(_, _) =>
+            val left = connect.left.toCode(true)
+            val expr = connect.expr.toCodeLines
+            if (expr.lines.head.startsWith("if"))
+              CodeLines.warpToOneLine(
+                s"${left} = ${left} := (",
+                expr.indented,
+                ")"
+              )
+            else
+              s"${left} = ${left} := ".concatLastLine(expr)
+          case _ =>
+            CodeLines(s"Unsupport(${connect})")
+        }
+
       }
       private def whenCL(
           when: When,
@@ -288,7 +308,11 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
                 body.indented,
                 "}"
               )
-          case _ => CodeLines(s"TODO(sFunctionCL ${sFunction})")
+          case x =>
+            val param = sFunction.vparams.map(_.toCode_param).mkString(", ")
+            CodeLines(s"(${param}) => ").concatLastLine(
+              x.toCodeLines
+            )
         }
       }
     }

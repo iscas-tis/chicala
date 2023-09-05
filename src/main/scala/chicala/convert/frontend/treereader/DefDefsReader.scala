@@ -53,7 +53,6 @@ trait DefDefsReader { self: Scala2Reader =>
           ValDefReader(c, t) match {
             case Some((nc, Some(svd: MValDef))) => (nc, l :+ svd)
             case x =>
-              println(t)
               unprocessedTree(t, "vparamssReader")
               (c, l)
           }

@@ -10,7 +10,7 @@ trait MTermImpls { self: ChicalaAst =>
 
   trait MStatementImpl { self: MStatement =>
     def tpe: MType
-    def relatedSignals: RelatedSignals = RelatedSignals.empty
+    def relatedIdents: RelatedIdents = RelatedIdents.empty
     def replacedThis(replaceMap: Map[String, MStatement]): MStatement = {
       replaceMap.get(this.toString()).getOrElse(this)
     }
@@ -33,23 +33,32 @@ trait MTermImpls { self: ChicalaAst =>
     def empty = EmptyMTerm
   }
 
-  case class RelatedSignals(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
-    def ++(that: RelatedSignals): RelatedSignals = {
-      RelatedSignals(
+  /** related idents, include val and def
+    *
+    * @param fully
+    *   fully updated val
+    * @param partially
+    *   partially updated val, e.g. in different branch
+    * @param dependency
+    *   dependent indents
+    */
+  case class RelatedIdents(val fully: Set[String], val partially: Set[String], val dependency: Set[String]) {
+    def ++(that: RelatedIdents): RelatedIdents = {
+      RelatedIdents(
         this.fully ++ that.fully,
         this.partially ++ that.partially,
         this.dependency ++ that.dependency
       )
     }
-    def removedAll(set: IterableOnce[String]): RelatedSignals = {
-      RelatedSignals(
+    def removedAll(set: IterableOnce[String]): RelatedIdents = {
+      RelatedIdents(
         fully.removedAll(set),
         partially.removedAll(set),
         dependency.removedAll(set)
       )
     }
   }
-  object RelatedSignals {
-    def empty = RelatedSignals(Set.empty, Set.empty, Set.empty)
+  object RelatedIdents {
+    def empty = RelatedIdents(Set.empty, Set.empty, Set.empty)
   }
 }

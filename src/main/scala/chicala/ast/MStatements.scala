@@ -37,7 +37,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   ) extends CTerm
       with SwitchImpl
   case class SubModuleRun(
-      name: TermName,
+      name: Tree,
       inputSignals: List[(String, SignalType)],
       outputSignals: List[(String, SignalType)],
       outputName: String

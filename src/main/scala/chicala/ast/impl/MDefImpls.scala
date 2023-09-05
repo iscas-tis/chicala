@@ -14,7 +14,13 @@ trait MDefImpls { self: ChicalaAst =>
     def tpe: MType
   }
 
-  trait SubModuleDefImpl { self: SubModuleDef => }
+  trait SubModuleDefImpl { self: SubModuleDef =>
+    override val relatedIdents = RelatedIdents(
+      Set(name.toString()),
+      Set.empty,
+      Set.empty
+    )
+  }
 
   trait SignalDefImpl { self: SignalDef =>
     def name: TermName
@@ -22,7 +28,7 @@ trait MDefImpls { self: ChicalaAst =>
   }
 
   trait IoDefImpl { self: IoDef =>
-    override val relatedSignals = RelatedSignals(
+    override val relatedIdents = RelatedIdents(
       tpe match {
         case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
         case _         => Set(name.toString())
@@ -32,9 +38,9 @@ trait MDefImpls { self: ChicalaAst =>
     )
   }
   trait WireDefImpl { self: WireDef =>
-    override val relatedSignals =
-      RelatedSignals(tpe.allSignals(name.toString(), false), Set.empty, Set.empty) ++
-        someInit.map(_.relatedSignals).getOrElse(RelatedSignals.empty)
+    override val relatedIdents =
+      RelatedIdents(tpe.allSignals(name.toString(), false), Set.empty, Set.empty) ++
+        someInit.map(_.relatedIdents).getOrElse(RelatedIdents.empty)
 
     override def replaced(r: Map[String, MStatement]): WireDef = {
       replacedThis(r) match {
@@ -47,28 +53,28 @@ trait MDefImpls { self: ChicalaAst =>
     }
   }
   trait RegDefImpl { self: RegDef =>
-    override val relatedSignals = {
+    override val relatedIdents = {
       val fully = tpe.allSignals(name.toString(), false) ++ tpe.allSignals(name.toString(), true)
       val nextRS = someNext match {
-        case None        => RelatedSignals.empty
-        case Some(value) => value.relatedSignals
+        case None        => RelatedIdents.empty
+        case Some(value) => value.relatedIdents
       }
       val enableRS = someEnable match {
-        case None        => RelatedSignals.empty
-        case Some(value) => value.relatedSignals
+        case None        => RelatedIdents.empty
+        case Some(value) => value.relatedIdents
       }
-      RelatedSignals(fully, Set.empty, Set.empty) ++ nextRS ++ enableRS
+      RelatedIdents(fully, Set.empty, Set.empty) ++ nextRS ++ enableRS
     }
 
   }
   trait NodeDefImpl { self: NodeDef =>
-    override val relatedSignals =
-      RelatedSignals(Set(name.toString()), Set.empty, Set.empty) ++ rhs.relatedSignals
+    override val relatedIdents =
+      RelatedIdents(Set(name.toString()), Set.empty, Set.empty) ++ rhs.relatedIdents
   }
 
   trait EnumDefImpl { self: EnumDef =>
-    override val relatedSignals =
-      RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty)
+    override val relatedIdents =
+      RelatedIdents(names.map(_.toString()).toSet, Set.empty, Set.empty)
     def inner: List[SignalDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
@@ -77,13 +83,13 @@ trait MDefImpls { self: ChicalaAst =>
   }
 
   trait SUnapplyDefImpl { self: SUnapplyDef =>
-    override val relatedSignals =
-      RelatedSignals(names.map(_.toString()).toSet, Set.empty, Set.empty) ++
-        rhs.relatedSignals
+    override val relatedIdents =
+      RelatedIdents(names.map(_.toString()).toSet, Set.empty, Set.empty) ++
+        rhs.relatedIdents
   }
 
   trait SDefDefImpl { self: SDefDef =>
-    override val relatedSignals = RelatedSignals.empty
+    override val relatedIdents = RelatedIdents.empty
   }
 
 }

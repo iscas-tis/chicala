@@ -44,7 +44,7 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             id: Id,
             signals: Set[String]
         ): Map[String, Set[Id]] = {
-          val lastIds = signals.map(last(_)).flatten
+          val lastIds = signals.map(last.getOrElse(_, List())).flatten
           edges ++= lastIds.map(x => DirectedEdge(Vertex(id), Vertex(x)))
 
           signals.foldLeft(last)(_.updated(_, Set(id))) // overwrite `signals` last connection id
@@ -53,13 +53,15 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
         statement match {
           case c: Connect =>
             vertexs += Vertex(id)
-            updatedLast(last, id, c.relatedSignals.fully)
-          case md: MDef =>
+            updatedLast(last, id, c.relatedIdents.fully)
+          case _: MDef | _: SubModuleRun =>
             vertexs += Vertex(id)
-            last ++
-              md.relatedSignals.fully
+            updatedLast(
+              last,
+              id,
+              statement.relatedIdents.fully
                 .map(moduleDef.name.toString() + ".this." + _)
-                .map(_ -> Set(id))
+            )
           case a: Assert =>
             vertexs += Vertex(id)
             last
@@ -73,9 +75,10 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
               .zip((1 to switch.branchs.size).map(id :+ _))
               .map({ case (body, subId) => getVertexAndLastConnectDependcyFromList(subId, body, last) })
               .foldLeft(last)(mergedTwoBranchLast(_, _))
+
           case sApply: SApply =>
             vertexs += Vertex(id)
-            updatedLast(last, id, sApply.relatedSignals.fully)
+            updatedLast(last, id, sApply.relatedIdents.fully)
           case sIf: SIf =>
             val thenLast = getVertexAndLastConnectDependcy(id :+ 1, sIf.thenp, last)
             val elseLast = getVertexAndLastConnectDependcy(id :+ 2, sIf.elsep, last)
@@ -115,15 +118,15 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
       ): Unit = {
         statement match {
           case c: Connect =>
-            val left = c.relatedSignals.fully.head
+            val left = c.relatedIdents.fully.head
             if (lastConnect(left).contains(id)) { // only valid connection
-              edges ++= (dependency ++ c.relatedSignals.dependency)
+              edges ++= (dependency ++ c.relatedIdents.dependency)
                 .map(lastConnect(_))
                 .flatten
                 .map(x => DirectedEdge(Vertex(id), Vertex(x)))
             }
           case w: When =>
-            val newDependency = dependency ++ w.cond.relatedSignals.dependency
+            val newDependency = dependency ++ w.cond.relatedIdents.dependency
             getConnectDependcyFromList(id :+ 1, w.whenBody, lastConnect, newDependency)
             getConnectDependcyFromList(id :+ 2, w.otherBody, lastConnect, newDependency)
           case sIf: SIf =>
@@ -133,7 +136,7 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             /** dependency with `switch.cond`. `v` for each `branch` should be
               * `Lit` that has no dependency
               */
-            val newDependency = dependency ++ switch.cond.relatedSignals.dependency
+            val newDependency = dependency ++ switch.cond.relatedIdents.dependency
             switch.branchs
               .zip((1 to switch.branchs.size).map(id :+ _))
               .foreach { case ((v, body), idPrefix) =>
@@ -141,7 +144,7 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
               }
           case EmptyMTerm =>
           case s =>
-            edges ++= (dependency ++ s.relatedSignals.dependency)
+            edges ++= (dependency ++ s.relatedIdents.dependency)
               .map(lastConnect(_))
               .flatten
               .map(x => DirectedEdge(Vertex(id), Vertex(x)))
@@ -267,10 +270,18 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
     }
 
     def dependencySort(moduleDef: ModuleDef): ModuleDef = {
+      val pathPrefix = s"./test_run_dir/chiselToScala/test/${moduleDef.fullName.replace('.', '/')}"
+
+      Format.saveToFile(
+        s"${pathPrefix}.related.scala",
+        moduleDef.body
+          .map(s => s.toString() + "\n" + s.relatedIdents + "\n\n")
+          .fold("")(_ + _)
+      )
+
       val dependencyGraph  = getDependencyGraph(moduleDef)
       val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
 
-      val pathPrefix = s"./test_run_dir/chiselToScala/test/${moduleDef.fullName.replace('.', '/')}"
       Format.saveToFile(s"${pathPrefix}.dot", dependencyGraph.toDot)
       Format.saveToFile(s"${pathPrefix}.order.scala", topologicalOrder.toString())
 

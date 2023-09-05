@@ -53,15 +53,20 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
         WireDef(TermName(s"${subModuleName}_${name}"), tpe.updatedPhysical(Wire), None)
       })
 
-      val outputName   = s"${subModuleName.toString()}_outputs"
-      val subModuleRun = SubModuleRun(subModuleName, inputSignals, outputSignals, outputName)
+      val outputName = s"${subModuleName.toString()}_outputs"
+      val subModuleRun = SubModuleRun(
+        Select(This(moduleName), subModuleName),
+        inputSignals,
+        outputSignals,
+        outputName
+      )
 
       val outputDefs = outputSignals.map({ case (name, tpe) =>
         val nodeType = tpe.updatedPhysical(Node)
         NodeDef(
           TermName(s"${subModuleName}_${name}"),
           nodeType,
-          SignalRef(Select(Ident(TermName(outputName)), TermName(name)), nodeType)
+          SignalRef(Select(Select(This(moduleName), outputName), name), nodeType)
         )
       })
 
@@ -79,11 +84,13 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
         tpe match {
           case _: GroundType | _: Vec =>
             val (selects, flattenName) = selectIt(prefixs)
-            val newType                = if (tpe.isInput) tpe.updatedPhysical(Wire) else tpe.updatedPhysical(Node)
+            val newType =
+              if (tpe.isInput) tpe.updatedPhysical(Wire)
+              else tpe.updatedPhysical(Node)
             selects
               .map(x =>
                 SignalRef(x, tpe).toString()
-                  -> SignalRef(Ident(flattenName), newType)
+                  -> SignalRef(Select(This(moduleName), flattenName), newType)
               )
               .toMap
           case Bundle(physical, signals) =>

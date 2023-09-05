@@ -108,10 +108,7 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
               val sortedCClassDef = cClassDef match {
                 case m @ ModuleDef(name, info, body, pkg) =>
                   readerInfo = readerInfo.addedModuleDef(m)
-                  Format.saveToFile(
-                    packageDir + s"/${name}.related.scala",
-                    body.map(s => s.toString() + "\n" + s.relatedSignals + "\n").fold("")(_ + _)
-                  )
+
                   val sorted = RunChicalaPass(
                     m,
                     List(

@@ -31,7 +31,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
       body
         .map({
           case s @ SubModuleDef(name, tpe, args) =>
-            val (ioSigDefs, newRepMap) = ioSignalDefs(name, tpe.ioDef.name, tpe.ioDef.tpe)
+            val (ioSigDefs, newRepMap) = ioSignalDefs(name, tpe, tpe.ioDef.name, tpe.ioDef.tpe)
             repMap = repMap ++ newRepMap
             List(s) ++ ioSigDefs
           case x =>
@@ -42,33 +42,42 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
 
     private def ioSignalDefs(
         subModuleName: TermName,
+        subModuleType: SubModule,
         ioName: TermName,
         ioType: SignalType
     )(implicit moduleName: TypeName): (List[MStatement], Map[String, MStatement]) = {
+      def flattenName(name: String) = s"${subModuleName}_${name}"
+
       val signals       = ioType.flatten(ioName.toString())
       val inputSignals  = signals.filter({ case (name, tpe) => tpe.isInput })
       val outputSignals = signals.filter({ case (name, tpe) => tpe.isOutput })
 
       val inputDefs = inputSignals.map({ case (name, tpe) =>
-        WireDef(TermName(s"${subModuleName}_${name}"), tpe.updatedPhysical(Wire), None)
-      })
-
-      val outputName = s"${subModuleName.toString()}_outputs"
-      val subModuleRun = SubModuleRun(
-        Select(This(moduleName), subModuleName),
-        inputSignals,
-        outputSignals,
-        outputName
-      )
-
-      val outputDefs = outputSignals.map({ case (name, tpe) =>
-        val nodeType = tpe.updatedPhysical(Node)
-        NodeDef(
+        WireDef(
           TermName(s"${subModuleName}_${name}"),
-          nodeType,
-          SignalRef(Select(Select(This(moduleName), outputName), name), nodeType)
+          tpe.updatedPhysical(Wire).updatedDriction(Undirect),
+          None
         )
       })
+      val inputRefs = inputSignals.map({ case (name, tpe) =>
+        SignalRef(
+          Select(This(moduleName), flattenName(name)),
+          tpe.updatedPhysical(Wire).updatedDriction(Undirect)
+        )
+      })
+
+      val outputNames = outputSignals.map({ case (name, _) =>
+        TermName(flattenName(name))
+      })
+
+      val subModuleRun = SubModuleRun(
+        Select(This(moduleName), subModuleName),
+        inputRefs,
+        outputNames,
+        subModuleType,
+        inputSignals,
+        outputSignals
+      )
 
       def selectIt(selectPath: List[TermName]): (List[Tree], String) = {
         val selects = selectPath match {
@@ -85,8 +94,8 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
           case _: GroundType | _: Vec =>
             val (selects, flattenName) = selectIt(prefixs)
             val newType =
-              if (tpe.isInput) tpe.updatedPhysical(Wire)
-              else tpe.updatedPhysical(Node)
+              if (tpe.isInput) tpe.updatedPhysical(Wire).updatedDriction(Undirect)
+              else tpe.updatedPhysical(Node).updatedDriction(Undirect)
             selects
               .map(x =>
                 SignalRef(x, tpe).toString()
@@ -101,7 +110,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
       }
       val replaceMap = getReplaceMap(ioType, List(subModuleName, ioName))
 
-      (inputDefs ++ List(subModuleRun) ++ outputDefs, replaceMap)
+      (inputDefs ++ List(subModuleRun), replaceMap)
     }
 
   }

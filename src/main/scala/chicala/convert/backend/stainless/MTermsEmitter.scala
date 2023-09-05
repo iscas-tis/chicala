@@ -31,14 +31,15 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case _: SignalRef | _: CApply | _: Assert | _: STuple | _: SLiteral | _: SApply | _: SIdent | _: SSelect |
             _: Lit =>
           CodeLines(mTerm.toCode)
-        case c: Connect   => connectCL(c)
-        case w: When      => whenCL(w, false)
-        case s: Switch    => switchCL(s)
-        case s: SIf       => sIfCL(s)
-        case s: SBlock    => sBlockCL(s)
-        case s: SFunction => sFunctionCL(s)
-        case EmptyMTerm   => CodeLines.empty
-        case _            => CodeLines(s"TODO(CL ${mTerm})")
+        case c: Connect      => connectCL(c)
+        case w: When         => whenCL(w, false)
+        case s: Switch       => switchCL(s)
+        case s: SubModuleRun => subModuleRunCL(s)
+        case s: SIf          => sIfCL(s)
+        case s: SBlock       => sBlockCL(s)
+        case s: SFunction    => sFunctionCL(s)
+        case EmptyMTerm      => CodeLines.empty
+        case _               => CodeLines(s"TODO(CL ${mTerm})")
       }
 
       private def signalRefCode(signalRef: SignalRef, isLeftSide: Boolean = false): String = {
@@ -271,6 +272,34 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         }
         (branchs.head :: branchs.tail.map(" else ".concatLastLine(_)))
           .reduce(_.concatLastLine(_))
+      }
+      private def subModuleRunCL(subModuleRun: SubModuleRun): CodeLines = {
+        val Select(t, n)   = subModuleRun.name.asInstanceOf[Select]
+        val moduelFullName = subModuleRun.moduleType.fullName
+        val inputs = CodeLines.warpToOneLine(
+          s"${moduelFullName}Inputs(",
+          subModuleRun.inputRefs
+            .map(_.toCode)
+            .toCodeLines
+            .enddedWithExceptLast(","),
+          ")"
+        )
+        val regs = s"${moduelFullName}Regs()"
+
+        val outputName = s"${n}TransOutputs"
+
+        CodeLines(
+          s"val (${outputName}, _) = ${subModuleRun.name}.trans(",
+          CodeLines(
+            inputs.concatLastLine(","),
+            regs
+          ).indented,
+          ")"
+        ) ++ (
+          subModuleRun.outputSignals
+            .map({ case (name, _) => s"val ${n}_${name} = ${outputName}.${name}" })
+            .toCodeLines
+        )
       }
       private def sIfCL(sIf: SIf): CodeLines = {
         val cond  = sIf.cond.toCode

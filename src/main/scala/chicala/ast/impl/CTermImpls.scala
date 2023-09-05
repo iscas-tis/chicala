@@ -76,10 +76,10 @@ trait CTermImpls { self: ChicalaAst =>
 
     override val relatedIdents: RelatedIdents = {
       val nameStr   = name.toString()
-      val fully     = outputSignals.map({ case (n, _) => s"${outputName}.${n}" }).toSet
+      val fully     = outputNames.map(_.toString()).toSet
       val partially = Set.empty[String]
       val dependency = Set(nameStr) ++
-        inputSignals.map({ case (n, _) => s"${nameStr}_${n}" })
+        inputRefs.map(_.relatedIdents.dependency).reduce(_ ++ _)
 
       RelatedIdents(fully, partially, dependency)
     }

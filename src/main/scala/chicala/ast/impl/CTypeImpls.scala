@@ -63,7 +63,7 @@ trait CTypeImpls { self: ChicalaAst =>
       case Input    => copy(direction = Input)
       case Output   => copy(direction = Output)
       case Flipped  => copy(direction = direction.flipped)
-      case Undirect => copy(direction = direction)
+      case Undirect => copy(direction = Undirect)
     }
     override def setInferredWidth = copy(width = InferredSize)
     override def replaced(r: Map[String, MStatement]): UInt =
@@ -76,7 +76,7 @@ trait CTypeImpls { self: ChicalaAst =>
       case Input    => copy(direction = Input)
       case Output   => copy(direction = Output)
       case Flipped  => copy(direction = direction.flipped)
-      case Undirect => copy(direction = direction)
+      case Undirect => copy(direction = Undirect)
     }
     override def setInferredWidth = copy(width = InferredSize)
     override def replaced(r: Map[String, MStatement]): SInt =
@@ -89,7 +89,7 @@ trait CTypeImpls { self: ChicalaAst =>
       case Input    => copy(direction = Input)
       case Output   => copy(direction = Output)
       case Flipped  => copy(direction = direction.flipped)
-      case Undirect => copy(direction = direction)
+      case Undirect => copy(direction = Undirect)
     }
     override def replaced(r: Map[String, MStatement]): Bool = this
   }

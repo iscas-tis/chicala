@@ -21,6 +21,7 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         case w: WireDef           => wireDefCL(w)
         case n: NodeDef           => nodeDefCL(n)
         case e: EnumDef           => enumDefCL(e)
+        case s: SubModuleDef      => subModuleDefCL(s)
         case s: SValDef           => sValDefCL(s)
         case s: SUnapplyDef       => sUnapplyDefCL(s)
         case s: SDefDef           => sDefDefCL(s)
@@ -47,6 +48,12 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
           .map(i => s"Lit(${i}, ${width}).U")
           .mkString(", ")
         CodeLines(s"val (${left}) = (${right})")
+      }
+      private def subModuleDefCL(subModuleDef: SubModuleDef): CodeLines = {
+        val name       = subModuleDef.name.toString()
+        val moduleName = subModuleDef.tpe.fullName
+
+        CodeLines(s"val ${name} = ${moduleName}()")
       }
       private def sValDefCL(sValDef: SValDef): CodeLines = {
         val name    = sValDef.name.toString()

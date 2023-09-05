@@ -267,17 +267,13 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
     }
 
     def dependencySort(moduleDef: ModuleDef): ModuleDef = {
-
       val dependencyGraph  = getDependencyGraph(moduleDef)
       val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
-      Format.saveToFile(
-        s"./test_run_dir/chiselToScala/${moduleDef.name}.dot",
-        dependencyGraph.toDot
-      )
-      Format.saveToFile(
-        s"./test_run_dir/chiselToScala/${moduleDef.name}.order.scala",
-        topologicalOrder.toString()
-      )
+
+      val pathPrefix = s"./test_run_dir/chiselToScala/test/${moduleDef.fullName.replace('.', '/')}"
+      Format.saveToFile(s"${pathPrefix}.dot", dependencyGraph.toDot)
+      Format.saveToFile(s"${pathPrefix}.order.scala", topologicalOrder.toString())
+
       reorder(moduleDef, topologicalOrder)
     }
   }

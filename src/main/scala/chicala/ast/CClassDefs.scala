@@ -11,6 +11,9 @@ trait CClassDefs extends CClassDefsImpl { self: ChicalaAst =>
   sealed abstract class CClassDef {
     def name: TypeName
     def pkg: String
+
+    /** path.to.package.className
+      */
     def fullName: String = pkg + "." + name
   }
 

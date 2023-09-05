@@ -11,14 +11,20 @@ trait MTermImpls { self: ChicalaAst =>
   trait MStatementImpl { self: MStatement =>
     def tpe: MType
     def relatedSignals: RelatedSignals = RelatedSignals.empty
+    def replacedThis(replaceMap: Map[String, MStatement]): MStatement = {
+      replaceMap.get(this.toString()).getOrElse(this)
+    }
+    def replaced(replaceMap: Map[String, MStatement]): MStatement = {
+      // FIXME: need recursively replacing all terms
+      replacedThis(replaceMap)
+    }
   }
 
   trait MTermImpl { self: MTerm =>
     def tpe: MType
 
-    def replaced(replaceMap: Map[MTerm, MTerm]) = {
-      // FIXME: need recursively replacing all terms
-      replaceMap.get(this).getOrElse(this)
+    override def replaced(replaceMap: Map[String, MStatement]): MTerm = {
+      replaceMap.get(this.toString()).getOrElse(this).asInstanceOf[MTerm]
     }
 
     def isEmpty = this == EmptyMTerm

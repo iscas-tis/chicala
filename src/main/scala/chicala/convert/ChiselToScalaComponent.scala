@@ -117,12 +117,11 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
                     List(
                       LiteralPropagation,
                       RegEnableApply,
-                      DependencySort
+                      SubModuleCall,
+                      ChicalaPeek(packageDir, "beforSort"),
+                      DependencySort,
+                      ChicalaPeek(packageDir, "sorted")
                     )
-                  )
-                  Format.saveToFile(
-                    packageDir + s"/${name}.sorted.scala",
-                    sorted.toString
                   )
                   sorted
                 case b: BundleDef =>

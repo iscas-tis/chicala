@@ -18,6 +18,16 @@ trait CTermImpls { self: ChicalaAst =>
     override val relatedSignals: RelatedSignals = operands.map(_.relatedSignals).reduce(_ ++ _)
     override def toString: String =
       s"${op.toString}(${operands.map(_.toString).reduce(_ + ", " + _)})"
+
+    override def replaced(r: Map[String, MStatement]): CApply = {
+      replacedThis(r) match {
+        case CApply(op, tpe, operands) =>
+          CApply(op, tpe.replaced(r), operands.map(_.replaced(r)))
+        case _ =>
+          reportError(NoPosition, "`replaced` should keep data type not changed")
+          this
+      }
+    }
   }
 
   trait ConnectImpl { self: Connect =>
@@ -29,6 +39,15 @@ trait CTermImpls { self: ChicalaAst =>
       }
       RelatedSignals(fully, Set.empty, Set.empty)
     } ++ expr.relatedSignals
+
+    override def replaced(replaceMap: Map[String, MStatement]): Connect = {
+      println(left)
+      println(replaceMap.keys)
+      val tmp  = replaceMap.get(this.toString()).getOrElse(this).asInstanceOf[Connect]
+      val tmpb = Connect(tmp.left.replaced(replaceMap), tmp.expr.replaced(replaceMap))
+      println(tmpb.left)
+      tmpb
+    }
   }
   trait BulkConnectImpl { self: BulkConnect =>
     val tpe = EmptyMType

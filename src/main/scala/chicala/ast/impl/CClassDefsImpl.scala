@@ -26,9 +26,9 @@ trait CClassDefsImpl { self: ChicalaAst =>
   }
   trait BundleDefImpl { self: BundleDef =>
     def applyArgs(args: List[MTerm]): BundleDef = {
-      val replaceMap: Map[MTerm, MTerm] = vparams
+      val replaceMap: Map[String, MStatement] = vparams
         .zip(args)
-        .map({ case (p, a) => SIdent(p.name, p.tpe) -> a })
+        .map({ case (p, a) => SIdent(p.name, p.tpe).toString() -> a })
         .toMap
 
       this.copy(bundle = bundle.replaced(replaceMap))

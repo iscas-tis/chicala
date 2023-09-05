@@ -8,7 +8,9 @@ trait CClassDefs extends CClassDefsImpl { self: ChicalaAst =>
   val global: Global
   import global._
 
-  sealed abstract class CClassDef(name: TypeName, pkg: String) {
+  sealed abstract class CClassDef {
+    def name: TypeName
+    def pkg: String
     def fullName: String = pkg + "." + name
   }
 
@@ -17,7 +19,7 @@ trait CClassDefs extends CClassDefsImpl { self: ChicalaAst =>
       vparams: List[SValDef],
       body: List[MStatement],
       pkg: String
-  ) extends CClassDef(name, pkg)
+  ) extends CClassDef
       with ModuleDefImpl
 
   case class BundleDef(
@@ -25,6 +27,6 @@ trait CClassDefs extends CClassDefsImpl { self: ChicalaAst =>
       vparams: List[SValDef],
       bundle: Bundle,
       pkg: String
-  ) extends CClassDef(name, pkg)
+  ) extends CClassDef
       with BundleDefImpl
 }

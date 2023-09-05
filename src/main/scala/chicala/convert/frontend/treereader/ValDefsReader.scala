@@ -260,7 +260,8 @@ trait ValDefsReader { self: Scala2Reader =>
           val someModuleDef  = cInfo.readerInfo.moduleDefs.get(moduleFullName)
           someModuleDef match {
             case Some(value) =>
-              val tpe          = SubModule(moduleFullName)
+              val ioDef        = value.ioDef
+              val tpe          = SubModule(moduleFullName, ioDef)
               val subModuleDef = SubModuleDef(name, tpe, args.map(x => MTermLoader(cInfo, x).get._2.get))
               (cInfo.updatedVal(name, tpe), Some(subModuleDef))
             case None =>

@@ -3,6 +3,7 @@ package chicala.ast.impl
 import scala.tools.nsc.Global
 
 import chicala.ast.ChicalaAst
+import chicala.ast.MStatements
 
 trait MDefImpls { self: ChicalaAst =>
   val global: Global
@@ -34,6 +35,16 @@ trait MDefImpls { self: ChicalaAst =>
     override val relatedSignals =
       RelatedSignals(tpe.allSignals(name.toString(), false), Set.empty, Set.empty) ++
         someInit.map(_.relatedSignals).getOrElse(RelatedSignals.empty)
+
+    override def replaced(r: Map[String, MStatement]): WireDef = {
+      replacedThis(r) match {
+        case WireDef(name, tpe, someInit, isVar) =>
+          WireDef(name, tpe.replaced(r), someInit.map(_.replaced(r)), isVar)
+        case _ =>
+          reportError(NoPosition, "`replaced` should keep data type not changed")
+          this
+      }
+    }
   }
   trait RegDefImpl { self: RegDef =>
     override val relatedSignals = {

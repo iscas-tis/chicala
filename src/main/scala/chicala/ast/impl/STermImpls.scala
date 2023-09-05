@@ -8,6 +8,12 @@ trait STermImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
+  trait STermImpl { self: STerm =>
+    override def replaced(replaceMap: Map[String, MStatement]): STerm = {
+      replaceMap.get(this.toString()).getOrElse(this).asInstanceOf[STerm]
+    }
+  }
+
   trait SApplyImpl { self: SApply =>
     override val relatedSignals = {
       val argsDependency = args
@@ -40,6 +46,16 @@ trait STermImpls { self: ChicalaAst =>
   }
   trait STupleImpl { self: STuple =>
     override val relatedSignals = args.map(_.relatedSignals).reduce(_ ++ _)
+
+    override def replaced(r: Map[String, MStatement]): STuple = {
+      replacedThis(r) match {
+        case STuple(args, tpe) =>
+          STuple(args.map(_.replaced(r)), tpe.replaced(r))
+        case _ =>
+          reportError(NoPosition, "`replaced` should keep data type not changed")
+          this
+      }
+    }
 
     def size = args.size
   }

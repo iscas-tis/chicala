@@ -8,6 +8,10 @@ trait CTypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
+  trait CTypeImpl { self: CType =>
+    def replaced(replaceMap: Map[String, MStatement]): CType = this
+  }
+
   trait SignalTypeImpl { self: SignalType =>
     def physical: CPhysical
 
@@ -20,7 +24,9 @@ trait CTypeImpls { self: ChicalaAst =>
       case _   => Set(parentName)
     }
 
-    def replaced(replaceMap: Map[MTerm, MTerm]): SignalType
+    override def replaced(replaceMap: Map[String, MStatement]): SignalType = {
+      this
+    }
 
     def isInput: Boolean
     def isOutput: Boolean
@@ -60,8 +66,8 @@ trait CTypeImpls { self: ChicalaAst =>
       case Undirect => copy(direction = direction)
     }
     override def setInferredWidth = copy(width = InferredSize)
-    def replaced(replaceMap: Map[MTerm, MTerm]): UInt =
-      this.copy(width = width.replaced(replaceMap))
+    override def replaced(r: Map[String, MStatement]): UInt =
+      this.copy(width = width.replaced(r))
   }
   trait SIntImpl { self: SInt =>
     def updatedWidth(newWidth: CSize): SInt           = copy(width = newWidth)
@@ -73,8 +79,8 @@ trait CTypeImpls { self: ChicalaAst =>
       case Undirect => copy(direction = direction)
     }
     override def setInferredWidth = copy(width = InferredSize)
-    def replaced(replaceMap: Map[MTerm, MTerm]): SInt =
-      this.copy(width = width.replaced(replaceMap))
+    override def replaced(r: Map[String, MStatement]): SInt =
+      this.copy(width = width.replaced(r))
 
   }
   trait BoolImpl { self: Bool =>
@@ -85,7 +91,7 @@ trait CTypeImpls { self: ChicalaAst =>
       case Flipped  => copy(direction = direction.flipped)
       case Undirect => copy(direction = direction)
     }
-    def replaced(replaceMap: Map[MTerm, MTerm]): Bool = this
+    override def replaced(r: Map[String, MStatement]): Bool = this
   }
 
   trait VecImpl { self: Vec =>
@@ -94,8 +100,8 @@ trait CTypeImpls { self: ChicalaAst =>
     def updatedDriction(newDirection: CDirection): Vec =
       copy(tparam = tparam.updatedDriction(newDirection))
 
-    def replaced(replaceMap: Map[MTerm, MTerm]): Vec =
-      this.copy(size = size.replaced(replaceMap), tparam = tparam.replaced(replaceMap))
+    override def replaced(r: Map[String, MStatement]): Vec =
+      this.copy(size = size.replaced(r), tparam = tparam.replaced(r))
 
     def isInput  = tparam.isInput
     def isOutput = tparam.isOutput
@@ -127,11 +133,9 @@ trait CTypeImpls { self: ChicalaAst =>
       }
     }
 
-    def replaced(replaceMap: Map[MTerm, MTerm]): Bundle =
+    override def replaced(r: Map[String, MStatement]): Bundle =
       this.copy(
-        signals = signals.map({ case (name, tpe) =>
-          name -> tpe.replaced(replaceMap)
-        })
+        signals = signals.map({ case (name, tpe) => name -> tpe.replaced(r) })
       )
 
     // Bundle it-self cannot be a Input or Output
@@ -157,10 +161,10 @@ trait CTypeImpls { self: ChicalaAst =>
   }
 
   trait CSizeImpl { self: CSize =>
-    def replaced(replaceMap: Map[MTerm, MTerm]): CSize = {
+    def replaced(r: Map[String, MStatement]): CSize = {
       this match {
         case KnownSize(width) =>
-          KnownSize(width.replaced(replaceMap).asInstanceOf[STerm])
+          KnownSize(width.replaced(r))
         case _ => this
       }
     }

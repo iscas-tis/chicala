@@ -2,9 +2,9 @@ package chicala.ast.impl
 
 import scala.tools.nsc.Global
 
-import chicala.ast.MTypes
+import chicala.ast.ChicalaAst
 
-trait MTypeImpls { self: MTypes =>
+trait MTypeImpls { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -17,5 +17,12 @@ trait MTypeImpls { self: MTypes =>
       case _: SType => true
       case _        => false
     }
+
+    def replaced(replaceMap: Map[String, MStatement]): MType
+
+  }
+
+  trait EmptyMTypeImpl {
+    def replaced(replaceMap: Map[String, MStatement]) = EmptyMType
   }
 }

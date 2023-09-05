@@ -36,10 +36,16 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
       branchs: List[(MTerm, List[MStatement])]
   ) extends CTerm
       with SwitchImpl
-  case class SubModuleRun() extends CTerm with SubModuleRunImpl
+  case class SubModuleRun(
+      name: TermName,
+      inputSignals: List[(String, SignalType)],
+      outputSignals: List[(String, SignalType)],
+      outputName: String
+  ) extends CTerm
+      with SubModuleRunImpl
 
   // STerm
-  sealed abstract class STerm                                                       extends MTerm
+  sealed abstract class STerm                                                       extends MTerm with STermImpl
   case class SApply(fun: STerm, args: List[MTerm], tpe: MType)                      extends STerm with SApplyImpl
   case class SSelect(from: MTerm, name: TermName, tpe: MType)                       extends STerm
   case class SBlock(body: List[MStatement], tpe: MType)                             extends STerm with SBlockImpl

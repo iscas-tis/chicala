@@ -4,7 +4,6 @@ import scala.tools.nsc.Global
 
 import chicala.ast.ChicalaAst
 import chicala.convert.backend.util._
-import java.nio.charset.CoderMalfunctionError
 
 trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
   val global: Global
@@ -21,6 +20,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SApply          => sApplyCode(s)
         case s: SSelect         => sSelectCode(s)
         case s: STuple          => sTupleCode(s)
+        case s: SLib            => sLibCode(s)
         case s: SFunction       => s.toCodeLines.toCode
         case s: SIf             => s"(${s.toCodeLines.toCode})"
         case SIdent(name, _)    => name.toString()
@@ -29,7 +29,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       }
       def toCodeLines: CodeLines = mTerm match {
         case _: SignalRef | _: CApply | _: Assert | _: STuple | _: SLiteral | _: SApply | _: SIdent | _: SSelect |
-            _: Lit =>
+            _: Lit | _: SLib =>
           CodeLines(mTerm.toCode)
         case c: Connect      => connectCL(c)
         case w: When         => whenCL(w, false)
@@ -38,6 +38,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SIf          => sIfCL(s)
         case s: SBlock       => sBlockCL(s)
         case s: SFunction    => sFunctionCL(s)
+        case s: SAssign      => sAssignCL(s)
         case EmptyMTerm      => CodeLines.empty
         case _               => CodeLines(s"TODO(CL ${mTerm})")
       }
@@ -93,7 +94,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           case AsBool    => ".asBool"
           // CUtilOp
           case Mux       => "Mux"
-          case MuxLookup => "TODO!!!!!!!!!!!!!"
+          case MuxLookup => "MuxLookup"
           case Cat       => "Cat"
           case Fill      => "Fill"
           case Log2      => "Log2"
@@ -134,52 +135,74 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       private def assertCode(assert: Assert): String = {
         s"Assert(${assert.exp.toCode})"
       }
+      private val symbolList = List(
+        "$plus"    -> "+",
+        "$minus"   -> "-",
+        "$times"   -> "*",
+        "$div"     -> "/",
+        "$percent" -> "%",
+        "$eq"      -> "=",
+        "$greater" -> ">",
+        "$less"    -> "<",
+        "$bang"    -> "!",
+        "$amp"     -> "&",
+        "$bar"     -> "|",
+        "$colon"   -> ":"
+      )
       private def sApplyCode(sApply: SApply): String = {
         val args = sApply.args.map(_.toCode).mkString(", ")
         sApply.fun match {
           case SSelect(fromTmp, nameTmp, tpe) =>
             val from = fromTmp.toCode
-            val name = nameTmp.toString()
-            (name match {
-              case "$plus"      => Some("+")
-              case "$minus"     => Some("-")
-              case "$times"     => Some("*")
-              case "$div"       => Some("/")
-              case "$percent"   => Some("%")
-              case "$less"      => Some("<")
-              case "$greater"   => Some(">")
-              case "$eq$eq"     => Some("==")
-              case "$bang$eq"   => Some("!=")
-              case "$less$less" => Some("<<")
-              case "$amp$amp"   => Some("&&")
-              case "until"      => Some("until")
-              case _            => None
-            }).map(op => s"(${from} ${op} ${args})")
-              .getOrElse(
-                name match {
-                  case "max"      => s"max(${from}, ${args})"
-                  case "apply"    => s"${from}(${args})"
-                  case "map"      => s"${from}.map(${args})"
-                  case "foreach"  => s"${from}.foreach(${args})"
-                  case "scanLeft" => s"${from}.scanLeft(${args})"
-                  case _ =>
-                    s"(${from} TODO(sApplyCode SSelect ${name}) ${args})"
-                }
-              )
+            val name = symbolList
+              .foldLeft(nameTmp.toString())({ case (s, (a, b)) =>
+                s.replace(a, b)
+              })
+
+            if (
+              "+ - * / % < > == >= <= != << && || -> ++ :+ until"
+                .split(" ")
+                .contains(name)
+            )
+              s"(${from} ${name} ${args})"
+            else {
+              name match {
+                case "max"      => s"max(${from}, ${args})"
+                case "apply"    => s"${from}(${args})"
+                case "map"      => s"${from}.map(${args})"
+                case "foreach"  => s"${from}.foreach(${args})"
+                case "scanLeft" => s"${from}.scanLeft(${args})"
+                case "take"     => s"${from}.take(${args})"
+                case "drop"     => s"${from}.drop(${args})"
+                case "forall"   => s"${from}.forall(${args})"
+                case "+:"       => s"(${args} +: ${from})"
+                case "update"   => s"${from} = ${from}.updated(${args})"
+                case _ =>
+                  s"(${from} TODO(sApplyCode SSelect ${name}) ${args})"
+              }
+            }
           case SLib(name, tpe) =>
             name match {
-              case "scala.`package`.BigInt.apply" | "scala.Predef.intWrapper" | "math.this.BigInt.int2bigInt" => args
+              case "scala.`package`.BigInt.apply" | "scala.Predef.intWrapper" | "math.this.BigInt.int2bigInt" |
+                  "scala.Predef.ArrowAssoc" | "scala.Predef.refArrayOps" =>
+                args
 
               case "chisel3.util.log2Up.apply"    => s"log2Up(${args})"
               case "chisel3.util.log2Ceil.apply"  => s"log2Ceil(${args})"
               case "chisel3.util.log2Floor.apply" => s"log2Floor(${args})"
 
-              case _ => s"TODO(${name}(${args}))"
+              case "scala.`package`.Range.apply" => s"Range(${args})"
+              case "scala.`package`.Seq.apply"   => s"List(${args})"
+
+              case "scala.Array.fill" => s"List.fill(${args})"
+
+              case _ => s"TODO(sApplyCode SLib ${name}(${args}))"
             }
           case SIdent(name, tpe) =>
             s"${name.toString()}(${args})"
           case s: SApply =>
-            s"${s.toCode}(${args})"
+            if (args.startsWith("ClassTag")) s"${s.toCode}"
+            else s"${s.toCode}(${args})"
           case _ => s"TODO(sApplyCode ${sApply.fun.toCode}(${args}))"
         }
 
@@ -187,24 +210,37 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       private def sSelectCode(sSelect: SSelect): String = {
         val from = sSelect.from.toCode
         val name = sSelect.name.toString()
-        (name match {
-          case "getWidth"     => Some("width")
-          case "tail"         => Some("tail")
-          case "last"         => Some("last")
-          case "zipWithIndex" => Some("zipWithIndex")
-          case "length"       => Some("length")
-          case "reverse"      => Some("reverse")
-          case _              => None
-        }).map(func => s"${from}.${func}")
+
+        Map(
+          "getWidth"     -> "width",
+          "head"         -> "head",
+          "tail"         -> "tail",
+          "last"         -> "last",
+          "zipWithIndex" -> "zipWithIndex",
+          "size"         -> "size",
+          "length"       -> "length",
+          "reverse"      -> "reverse",
+          "nonEmpty"     -> "nonEmpty"
+        ).get(name)
+          .map(func => s"${from}.${func}")
           .getOrElse(
             name match {
-              case "bitLength" => s"bitLength(${from})"
-              case _           => s"TODO(SSelect ${sSelect})"
+              case "bitLength"    => s"bitLength(${from})"
+              case "indices"      => s"(0 until ${from}.length)"
+              case "toIndexedSeq" => s"${from}"
+              case _              => s"TODO(SSelect ${sSelect})"
             }
           )
       }
       private def sTupleCode(sTuple: STuple): String = {
         s"(${sTuple.args.map(_.toCode).mkString(", ")})"
+      }
+      private def sLibCode(sLib: SLib): String = {
+        sLib.name match {
+          case "scala.`package`.Nil" => "Nil"
+
+          case _ => s"TODO(sLibCode ${sLib})"
+        }
       }
       private def connectCL(connect: Connect): CodeLines = {
         connect.left match {
@@ -343,6 +379,12 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               x.toCodeLines
             )
         }
+      }
+      private def sAssignCL(sAssign: SAssign): CodeLines = {
+        val left  = sAssign.lhs.toCode(true)
+        val right = sAssign.rhs.toCodeLines
+
+        CodeLines(s"${left} = ").concatLastLine(right)
       }
     }
   }

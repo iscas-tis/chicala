@@ -135,10 +135,7 @@ class ArrayMulDataModule(len: Int) extends Module {
       cout2 = Seq(c32.io.out(1).asBool())
     } else if (col.size == 4) {
       val c53 = Module(new C53)
-      for ((x, y) <- c53.io.in.take(4) zip col) {
-        x := y
-      }
-      c53.io.in.last := (if (cin.nonEmpty) cin.head else 0.U)
+      c53.io.in := col.take(4) :+ (if (cin.nonEmpty) cin.head else 0.U)
       sum = Seq(c53.io.out(0).asBool()) ++ (if (cin.nonEmpty) cin.drop(1) else Nil)
       cout1 = Seq(c53.io.out(1).asBool())
       cout2 = Seq(c53.io.out(2).asBool())
@@ -180,8 +177,7 @@ class ArrayMulDataModule(len: Int) extends Module {
     }
   }
 
-  val columns_reg  = columns.map(col => col.map(b => RegEnable(b, io.regEnables(0))))
-  val (sum, carry) = addAll(cols = columns_reg, depth = 0)
+  val (sum, carry) = addAll(cols = columns, depth = 0)
 
   io.result := sum + carry
 }

@@ -26,6 +26,7 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
             case StBigInt         => "BigInt"
             case StBoolean        => "Boolean"
             case StTuple(tparams) => s"(${tparams.map(_.toCode).mkString(", ")})"
+            case StSeq(tparam)    => s"List[${tparam.toCode}]"
             case x                => s"TODO(SType $x)"
           }
         case EmptyMType => s"TODO(EmptyMType)"

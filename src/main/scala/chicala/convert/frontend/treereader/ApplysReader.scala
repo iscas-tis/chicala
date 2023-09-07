@@ -19,6 +19,7 @@ trait ApplysReader { self: Scala2Reader =>
           CApplyLoader(_, _),
           LitLoader(_, _),
           STupleLoader(_, _),
+          SAssignLoader(_, _),
           SApplyLoader(_, _)
         )
       ) match {

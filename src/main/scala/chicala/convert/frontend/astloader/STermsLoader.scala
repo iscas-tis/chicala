@@ -26,6 +26,30 @@ trait STermsLoader { self: Scala2Reader =>
       }
     }
   }
+  object SAssignLoader extends Loader[SAssign] {
+    def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SAssign])] = {
+      val (tree, _) = passThrough(tr)
+      tree match {
+        case Assign(lhs, rhs) => {
+          val left  = MTermLoader(cInfo, lhs).get._2.get
+          val right = MTermLoader(cInfo, rhs).get._2.get
+          Some(cInfo, Some(SAssign(left, right)))
+        }
+        case Apply(Select(qualifier, name), args) if name.toString().endsWith("_$eq") =>
+          val leftName = name.toString().dropRight(4)
+          val left = MTermLoader(
+            cInfo,
+            // this `TypeTree` only used for distinguish `SignalType` and other
+            Typed(Select(qualifier, leftName), TypeTree(args.head.tpe))
+          ).get._2.get
+          val right = MTermLoader(cInfo, args.head).get._2.get
+
+          Some((cInfo, Some(SAssign(left, right))))
+
+        case _ => None
+      }
+    }
+  }
 
   object SApplyLoader extends Loader[SApply] {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[SApply])] = {

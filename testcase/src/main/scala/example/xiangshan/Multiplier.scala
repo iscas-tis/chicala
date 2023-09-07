@@ -9,11 +9,11 @@ class C22 extends Module {
     val out = Output(Vec(2, UInt(1.W)))
   })
   val temp = Wire(Vec(1, UInt(2.W)))
-  for ((t, i) <- temp.zipWithIndex) {
+  for (i <- 0 until temp.length) {
     val (a, b) = (io.in(0)(i), io.in(1)(i))
     val sum    = a ^ b
     val cout   = a & b
-    t := Cat(cout, sum)
+    temp(i) := Cat(cout, sum)
   }
   for (i <- 0 until io.out.length) {
     io.out(i) := Cat(temp.reverse map (_(i)))
@@ -25,17 +25,17 @@ class C32 extends Module {
     val out = Output(Vec(2, UInt(1.W)))
   })
   val temp = Wire(Vec(1, UInt(2.W)))
-  for ((t, i) <- temp.zipWithIndex) {
+  for (i <- 0 until temp.length) {
     val (a, b, cin) = (io.in(0)(i), io.in(1)(i), io.in(2)(i))
     val a_xor_b     = a ^ b
     val a_and_b     = a & b
     val sum         = a_xor_b ^ cin
     val cout        = a_and_b | (a_xor_b & cin)
-    t := Cat(cout, sum)
+    temp(i) := Cat(cout, sum)
   }
-  io.out.zipWithIndex.foreach({ case (x, i) =>
-    x := Cat(temp.reverse map (_(i)))
-  })
+  for (i <- 0 until io.out.length) {
+    io.out(i) := Cat(temp.reverse map (_(i)))
+  }
 }
 class C53 extends Module {
   val io = IO(new Bundle() {
@@ -135,10 +135,7 @@ class ArrayMulDataModule(len: Int) extends Module {
       cout2 = Seq(c32.io.out(1).asBool())
     } else if (col.size == 4) {
       val c53 = Module(new C53)
-      for ((x, y) <- c53.io.in.take(4) zip col) {
-        x := y
-      }
-      c53.io.in.last := (if (cin.nonEmpty) cin.head else 0.U)
+      c53.io.in := col.take(4) :+ (if (cin.nonEmpty) cin.head else 0.U)
       sum = Seq(c53.io.out(0).asBool()) ++ (if (cin.nonEmpty) cin.drop(1) else Nil)
       cout1 = Seq(c53.io.out(1).asBool())
       cout2 = Seq(c53.io.out(2).asBool())
@@ -180,8 +177,7 @@ class ArrayMulDataModule(len: Int) extends Module {
     }
   }
 
-  val columns_reg  = columns.map(col => col.map(b => RegEnable(b, io.regEnables(0))))
-  val (sum, carry) = addAll(cols = columns_reg, depth = 0)
+  val (sum, carry) = addAll(cols = columns, depth = 0)
 
   io.result := sum + carry
 }

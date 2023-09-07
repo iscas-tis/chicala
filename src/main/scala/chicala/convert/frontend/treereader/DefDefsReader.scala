@@ -13,9 +13,13 @@ trait DefDefsReader { self: Scala2Reader =>
         case d @ DefDef(mods, nameTmp, tparams, vparamss, tpt: TypeTree, rhs) => {
           val name = nameTmp.stripSuffix(" ")
 
-          // accessor of val
-          if (mods.hasStableFlag && mods.hasAccessorFlag) {
-            assertError(cInfo.contains(name), d.pos, "accessor of val should record in cInfo")
+          // accessor of val and var
+          if (mods.hasAccessorFlag) {
+            val valName =
+              if (name.toString().endsWith("_$eq"))
+                TermName(name.toString().dropRight(4))
+              else name
+            assertError(cInfo.contains(valName), d.pos, "accessor of val should record in cInfo")
             return None
           }
 
@@ -53,7 +57,6 @@ trait DefDefsReader { self: Scala2Reader =>
           ValDefReader(c, t) match {
             case Some((nc, Some(svd: MValDef))) => (nc, l :+ svd)
             case x =>
-              println(t)
               unprocessedTree(t, "vparamssReader")
               (c, l)
           }

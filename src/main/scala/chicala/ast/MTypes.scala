@@ -11,9 +11,9 @@ trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaA
   sealed abstract class MType extends MTypeImpl
 
   // CType
-  sealed abstract class CType extends MType
+  sealed abstract class CType extends MType with CTypeImpl
 
-  case class SubModule(fullName: String) extends CType
+  case class SubModule(fullName: String, ioDef: IoDef) extends CType
 
   // SignalType
   sealed abstract class SignalType extends CType with SignalTypeImpl
@@ -47,20 +47,20 @@ trait MTypes extends MTypeImpls with CTypeImpls with STypeImpls { self: ChicalaA
   case object UnknownSize            extends CSize
 
   // SType
-  sealed abstract class SType extends MType
+  sealed abstract class SType extends MType with STypeImpl
 
   case object StInt                        extends SType
   case object StString                     extends SType
   case object StBigInt                     extends SType
   case object StBoolean                    extends SType
-  case class StTuple(tparams: List[MType]) extends SType
-  case class StSeq(tparam: MType)          extends SType
+  case class StTuple(tparams: List[MType]) extends SType with StTupleImpl
+  case class StSeq(tparam: MType)          extends SType with StSeqImpl
   case object StFunc                       extends SType
   case object StUnit                       extends SType
   case object StAny                        extends SType
   case class StWrapped(str: String)        extends SType with StWrappedImpl
 
-  case object EmptyMType extends MType
+  case object EmptyMType extends MType with EmptyMTypeImpl
 
   // Companion Object
   object UInt extends UIntObjImpl

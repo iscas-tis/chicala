@@ -26,6 +26,7 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
             case StBigInt         => "BigInt"
             case StBoolean        => "Boolean"
             case StTuple(tparams) => s"(${tparams.map(_.toCode).mkString(", ")})"
+            case StSeq(tparam)    => s"List[${tparam.toCode}]"
             case x                => s"TODO(SType $x)"
           }
         case EmptyMType => s"TODO(EmptyMType)"
@@ -37,6 +38,7 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
         case Bool(physical, direction)                   => s"${tpe.toCode}.empty()"
         case UInt(width: KnownSize, physical, direction) => s"${tpe.toCode}.empty(${width.width.toCode})"
         case SInt(width: KnownSize, physical, direction) => s"${tpe.toCode}.empty(${width.width.toCode})"
+        case Vec(size: KnownSize, physical, tparam)      => s"List.fill(${size.width.toCode})(${tparam.toCode_empty})"
         case _                                           => s"TODO($tpe)"
       }
       def toCode_regNextInit(name: String): String = s"var ${name}_next = regs.${name}"

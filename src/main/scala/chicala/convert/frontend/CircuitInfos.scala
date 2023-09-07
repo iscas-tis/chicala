@@ -13,8 +13,9 @@ trait CircuitInfos { self: Scala2Reader =>
       val funcs: Map[TermName, MType],
       /* use to record EnumDef  */
       val numTmp: Int,
-      val enumTmp: Option[(TermName, EnumDef)],
-      val tupleTmp: Option[(TermName, SUnapplyDef)],
+      val termNameTmp: Option[TermName],
+      val enumDefTmp: Option[EnumDef],
+      val sUnapplyDefTmp: Option[SUnapplyDef],
       /* info from compile plugin global*/
       val readerInfo: ReaderInfo
   ) {
@@ -28,13 +29,21 @@ trait CircuitInfos { self: Scala2Reader =>
     def updatedFunc(termName: TermName, tpe: MType): CircuitInfo =
       this.copy(funcs = funcs + (strippedName(termName) -> tpe))
 
-    def updatedEnumTmp(num: Int, et: Option[(TermName, EnumDef)]): CircuitInfo = {
-      val newET = et.map { case (name, enumDef) => (strippedName(name), enumDef) }
-      this.copy(numTmp = num, enumTmp = newET)
+    def updatedEnumDefTmp(num: Int, termName: Option[TermName], ed: Option[EnumDef]): CircuitInfo = {
+      if (num > 0) {
+        val name = termName.map(strippedName(_))
+        this.copy(numTmp = num, termNameTmp = name, enumDefTmp = ed)
+      } else {
+        this.copy(numTmp = 0, termNameTmp = None, enumDefTmp = None, sUnapplyDefTmp = None)
+      }
     }
-    def updatedTupleTmp(num: Int, tt: Option[(TermName, SUnapplyDef)]): CircuitInfo = {
-      val newTT = tt.map { case (name, sUnapplyDef) => (strippedName(name), sUnapplyDef) }
-      this.copy(numTmp = num, tupleTmp = newTT)
+    def updatedSUnapplyDefTmp(num: Int, termName: Option[TermName], sud: Option[SUnapplyDef]): CircuitInfo = {
+      if (num > 0) {
+        val name = termName.map(strippedName(_))
+        this.copy(numTmp = num, termNameTmp = name, sUnapplyDefTmp = sud)
+      } else {
+        this.copy(numTmp = num, termNameTmp = None, enumDefTmp = None, sUnapplyDefTmp = None)
+      }
     }
 
     def contains(termName: TermName): Boolean = {
@@ -108,10 +117,10 @@ trait CircuitInfos { self: Scala2Reader =>
 
   object CircuitInfo {
     def apply(name: TypeName)(implicit readerInfo: ReaderInfo) =
-      new CircuitInfo(name, List.empty, Map.empty, Map.empty, 0, None, None, readerInfo)
+      new CircuitInfo(name, List.empty, Map.empty, Map.empty, 0, None, None, None, readerInfo)
 
     def empty(implicit readerInfo: ReaderInfo) =
-      new CircuitInfo(TypeName(""), List.empty, Map.empty, Map.empty, 0, None, None, readerInfo)
+      new CircuitInfo(TypeName(""), List.empty, Map.empty, Map.empty, 0, None, None, None, readerInfo)
   }
 
 }

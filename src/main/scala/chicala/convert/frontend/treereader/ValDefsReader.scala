@@ -9,118 +9,118 @@ trait ValDefsReader { self: Scala2Reader =>
 
   object ValDefReader {
     def apply(cInfo: CircuitInfo, tr: Tree): Option[(CircuitInfo, Option[MDef])] = {
-      val tree = passThrough(tr)._1
-      tree match {
-        // SignalDef and SubModuleDef
-        case v @ ValDef(mods, nameTmp, tpt: TypeTree, rhs) if isChiselSignalType(tpt) || isChiselModuleType(tpt) => {
-          val name = nameTmp.stripSuffix(" ")
-          passThrough(rhs)._1 match {
-            // normal SignalDef and SubModuleDef
-            case a @ Apply(func, args) =>
-              if (isModuleThisIO(func, cInfo)) { // IoDef
-                Some(loadIoDef(cInfo, name, args))
-              } else if (isChiselWireDefApply(func)) { // WireDef
-                Some(loadWireDef(cInfo, name, func, args, mods.isMutable))
-              } else if (isChiselRegDefApply(func)) { // RegDef
-                Some(loadRegDef(cInfo, name, func, args))
-              } else if (isChisel3ModuleDoApply(func)) { // SubModuleDef
-                Some(loadSubModuleDef(cInfo, name, args))
-              } else { // NodeDef called function or operator
-                Some(loadNodeDef(cInfo, name, rhs))
-              }
-            // EnumDef step 2
-            case s @ Select(Select(This(typeName), termname), _)
-                if cInfo.enumTmp.nonEmpty &&
-                  typeName == cInfo.name && termname == cInfo.enumTmp.get._1 => {
-              val (tn, ed) = cInfo.enumTmp.get
-              val num      = cInfo.numTmp - 1
-              val enumDef  = EnumDef(ed.names :+ name, ed.tpe)
-              val enumTmp  = (tn, enumDef)
-              val newCInfo = cInfo.updatedVal(name, enumDef.tpe)
-              if (num == 0)
-                Some((newCInfo.updatedEnumTmp(0, None), Some(enumTmp._2)))
-              else
-                Some((newCInfo.updatedEnumTmp(num, Some(enumTmp)), None))
-            }
-            // STupleUnapplyDef step 2
-            case s @ Select(Select(This(typeName), termname), _)
-                if cInfo.tupleTmp.nonEmpty &&
-                  typeName == cInfo.name && termname == cInfo.tupleTmp.get._1 =>
-              val (tn, stud)       = cInfo.tupleTmp.get
-              val num              = cInfo.numTmp - 1
-              val sTupleUnapplyDef = stud.copy(names = stud.names :+ name)
-              val tupleTmp         = (tn, sTupleUnapplyDef)
-              val newCInfo         = cInfo.updatedVal(name, MTypeLoader.fromTpt(tpt).get)
-              if (num == 0)
-                Some((newCInfo.updatedTupleTmp(0, None), Some(tupleTmp._2)))
-              else
-                Some((newCInfo.updatedTupleTmp(num, Some(tupleTmp)), None))
-            case EmptyTree =>
-              val tpe      = SignalTypeLoader.fromTpt(tpt).get
-              val newCInfo = cInfo.updatedVal(name, tpe)
-              val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
-              Some((newCInfo, Some(nodeDef)))
-            case _ =>
-              Some(loadNodeDef(cInfo, name, rhs))
-          }
-        }
-        // EnumDef step 1
-        case v @ ValDef(mods, name, tpt, rhs) if isChisel3EnumTmpValDef(v) => {
-          rhs match {
-            case Match(Typed(Apply(cuea, number), _), _) => {
-              val num = number.head.asInstanceOf[Literal].value.value.asInstanceOf[Int]
-              val enumTmp = (
-                name,
-                EnumDef(
-                  List.empty,
-                  UInt(
-                    KnownSize(SLiteral(BigInt(num - 1).bitLength, StInt)),
-                    Node,
-                    Undirect
-                  ) // width: Literal(Constant(BigInt(num - 1).bitLength))
-                )
-              )
-              Some((cInfo.updatedEnumTmp(num, Some(enumTmp)), None))
-            }
-          }
-        }
-        // STupleUnapplyDef step 1
-        case v @ ValDef(mods, name, tpt, Match(t @ Typed(rhs, _), _)) => {
-          val num  = tpt.tpe.typeArgs.length
-          val cExp = MTermLoader(cInfo, rhs).get._2.get
-          val tpe  = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
-          Some(
-            (
-              cInfo.updatedTupleTmp(
-                num,
-                Some((name, SUnapplyDef(List.empty, cExp, tpe)))
-              ),
-              None
-            )
-          )
-        }
-        // SValDef
-        case ValDef(mods, nameTmp, tpt, rhs) =>
-          val name     = nameTmp.stripSuffix(" ")
-          val tpe      = STypeLoader.fromTpt(tpt).get
-          val newCInfo = cInfo.updatedVal(name, tpe)
-          val r = MTermLoader(cInfo, rhs) match {
-            case Some((_, Some(value))) => value
-            case _                      => EmptyMTerm
-          }
-          val sValDef = SValDef(name, tpe, r)
-          if (mods.isParamAccessor) {
-            if (mods.isParameter)
-              Some((newCInfo, Some(sValDef)))
-            else
-              Some((newCInfo, None))
-          } else
-            Some((newCInfo, Some(sValDef)))
-        case _ =>
-          unprocessedTree(tr, "ValDefReader")
-          None
+      val (tree, _) = passThrough(tr)
+      val ValDef(mods, nameTmp, tpt: TypeTree, rhs) = tree match {
+        case v: ValDef => v
+        case _         => unprocessedTree(tr, "ValDefReader #1"); return None
       }
 
+      val name = nameTmp.stripSuffix(" ")
+
+      if (isScala2UnapplyTmpValDef(tree)) {
+        rhs match {
+          case Match(Typed(Apply(cuea, number), _), _) if isChisel3UtilEnumApply(cuea) => { // EnumDef step 1
+            val num = number.head.asInstanceOf[Literal].value.value.asInstanceOf[Int]
+            val enumDef =
+              EnumDef(
+                List.empty,
+                UInt(
+                  KnownSize(SLiteral(BigInt(num - 1).bitLength, StInt)),
+                  Node,
+                  Undirect
+                )
+              )
+
+            Some((cInfo.updatedEnumDefTmp(num, Some(name), Some(enumDef)), None))
+          }
+          case Match(Typed(rhs, _), _) => { // STupleUnapplyDef step 1
+            val num  = tpt.tpe.typeArgs.length
+            val cExp = MTermLoader(cInfo, rhs).get._2.get
+            val tpe  = STypeLoader.fromTpt(tpt).get.asInstanceOf[StTuple]
+            val tp = Some(
+              (
+                cInfo.updatedSUnapplyDefTmp(
+                  num,
+                  Some(name),
+                  Some(SUnapplyDef(List.empty, cExp, tpe))
+                ),
+                None
+              )
+            )
+            tp
+          }
+        }
+      } else if (cInfo.numTmp > 0) {
+        val tn  = cInfo.termNameTmp.get
+        val num = cInfo.numTmp - 1
+        if (
+          passThrough(rhs)._1 match {
+            case Select(Select(This(cInfo.name), tn: TermName), _) => true
+            case Select(Ident(tn: TermName), _)                    => true
+            case _                                                 => false
+          }
+        ) {
+          if (cInfo.enumDefTmp.nonEmpty) { // EnumDef step 2
+            val ed       = cInfo.enumDefTmp.get
+            val enumDef  = EnumDef(ed.names :+ name, ed.tpe)
+            val newCInfo = cInfo.updatedVal(name, enumDef.tpe)
+            if (num == 0)
+              Some((newCInfo.updatedEnumDefTmp(0, None, None), Some(enumDef)))
+            else
+              Some((newCInfo.updatedEnumDefTmp(num, Some(tn), Some(enumDef)), None))
+          } else if (cInfo.sUnapplyDefTmp.nonEmpty) { // STupleUnapplyDef step 2
+            val sud         = cInfo.sUnapplyDefTmp.get
+            val sUnapplyDef = sud.copy(names = sud.names :+ name)
+            val newCInfo    = cInfo.updatedVal(name, MTypeLoader.fromTpt(tpt).get)
+            if (num == 0)
+              Some((newCInfo.updatedSUnapplyDefTmp(0, None, None), Some(sUnapplyDef)))
+            else
+              Some((newCInfo.updatedSUnapplyDefTmp(num, Some(tn), Some(sUnapplyDef)), None))
+          } else
+            Some(loadNodeDef(cInfo, name, rhs))
+        } else
+          Some(loadNodeDef(cInfo, name, rhs))
+
+      } else if (isChiselSignalType(tpt) || isChiselModuleType(tpt)) { // SignalDef and SubModuleDef
+        passThrough(rhs)._1 match {
+          // normal SignalDef and SubModuleDef
+          case a @ Apply(func, args) =>
+            if (isModuleThisIO(func, cInfo)) { // IoDef
+              Some(loadIoDef(cInfo, name, args))
+            } else if (isChiselWireDefApply(func)) { // WireDef
+              Some(loadWireDef(cInfo, name, func, args, mods.isMutable))
+            } else if (isChiselRegDefApply(func)) { // RegDef
+              Some(loadRegDef(cInfo, name, func, args))
+            } else if (isChisel3ModuleDoApply(func)) { // SubModuleDef
+              Some(loadSubModuleDef(cInfo, name, args))
+            } else { // NodeDef called function or operator
+              Some(loadNodeDef(cInfo, name, rhs))
+            }
+          case EmptyTree =>
+            val tpe      = SignalTypeLoader.fromTpt(tpt).get
+            val newCInfo = cInfo.updatedVal(name, tpe)
+            val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
+            Some((newCInfo, Some(nodeDef)))
+          case _ =>
+            Some(loadNodeDef(cInfo, name, rhs))
+        }
+      } else { // SValDef
+        val name     = nameTmp.stripSuffix(" ")
+        val tpe      = STypeLoader.fromTpt(tpt).get
+        val newCInfo = cInfo.updatedVal(name, tpe)
+        val r = MTermLoader(cInfo, rhs) match {
+          case Some((_, Some(value))) => value
+          case _                      => EmptyMTerm
+        }
+        val sValDef = SValDef(name, tpe, r)
+        if (mods.isParamAccessor) {
+          if (mods.isParameter)
+            Some((newCInfo, Some(sValDef)))
+          else
+            Some((newCInfo, None))
+        } else
+          Some((newCInfo, Some(sValDef)))
+      }
     }
 
     def loadIoDef(
@@ -248,7 +248,8 @@ trait ValDefsReader { self: Scala2Reader =>
           val someModuleDef  = cInfo.readerInfo.moduleDefs.get(moduleFullName)
           someModuleDef match {
             case Some(value) =>
-              val tpe          = SubModule(moduleFullName)
+              val ioDef        = value.ioDef
+              val tpe          = SubModule(moduleFullName, ioDef)
               val subModuleDef = SubModuleDef(name, tpe, args.map(x => MTermLoader(cInfo, x).get._2.get))
               (cInfo.updatedVal(name, tpe), Some(subModuleDef))
             case None =>

@@ -139,6 +139,13 @@ trait ChiselAstCheck extends Utils { this: Scala2Reader =>
     case ValDef(mods, name, tpt, Match(Typed(Apply(appl, _), _), _)) if isScala2TupleApply(appl) => true
     case _                                                                                       => false
   }
+  def isScala2UnapplyTmpValDef(tree: Tree): Boolean = tree match {
+    case ValDef(mods, name, tpt, Match(Typed(rhs, _), _))
+        if mods.isPrivate && mods.isLocalToThis && mods.isSynthetic &&
+          mods.isArtifact =>
+      true
+    case _ => false
+  }
 }
 
 trait Utils { self: ChiselAstCheck =>

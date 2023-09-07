@@ -23,6 +23,15 @@ trait STermImpls { self: ChicalaAst =>
       // FIXME: inner block dependency
       RelatedIdents(Set.empty, Set.empty, argsDependency)
     }
+
+    override def replaced(r: Map[String, MStatement]): SApply = {
+      replacedThis(r) match {
+        case SApply(fun, args, tpe) => SApply(fun.replaced(r), args.map(_.replaced(r)), tpe.replaced(r))
+        case _ =>
+          reportError(NoPosition, "`replaced` should keep data type not changed")
+          this
+      }
+    }
   }
 
   trait SBlockImpl { self: SBlock =>

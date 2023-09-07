@@ -175,11 +175,11 @@ trait ValDefsReader { self: Scala2Reader =>
       } else if (isChisel3VecInitDoApply(func)) {
         assertError(args.length >= 1, func.pos, "Should have at last 1 arg in VecInit()")
         val mArgs = args.map(MTermLoader(cInfo, _).get._2.get)
-        val init  = STuple(mArgs, StTuple(mArgs.map(_.tpe)))
+        val init  = SApply(SLib("scala.`package`.Seq.apply", StFunc), mArgs, StSeq(mArgs.head.tpe))
         val tpe = Vec(
-          KnownSize.fromInt(init.size),
+          KnownSize.fromInt(mArgs.size),
           Wire,
-          init.tpe.tparams.head.asInstanceOf[SignalType]
+          mArgs.head.tpe.asInstanceOf[SignalType]
         )
         val newInfo = cInfo.updatedVal(name, tpe)
         (newInfo, Some(WireDef(name, tpe, Some(init))))

@@ -12,7 +12,7 @@ trait MTermImpls { self: ChicalaAst =>
     def tpe: MType
     def relatedIdents: RelatedIdents = RelatedIdents.empty
     def replacedThis(replaceMap: Map[String, MStatement]): MStatement = {
-      replaceMap.get(this.toString()).getOrElse(this)
+      replaceMap.getOrElse(this.toString(), this)
     }
     def replaced(replaceMap: Map[String, MStatement]): MStatement = {
       // FIXME: need recursively replacing all terms

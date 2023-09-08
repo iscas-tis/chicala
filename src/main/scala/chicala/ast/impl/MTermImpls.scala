@@ -18,6 +18,8 @@ trait MTermImpls { self: ChicalaAst =>
       // FIXME: need recursively replacing all terms
       replacedThis(replaceMap)
     }
+    def isEmpty  = this == EmptyMTerm
+    def nonEmpty = !isEmpty
   }
 
   trait MTermImpl { self: MTerm =>
@@ -26,8 +28,6 @@ trait MTermImpls { self: ChicalaAst =>
     override def replaced(replaceMap: Map[String, MStatement]): MTerm = {
       replaceMap.get(this.toString()).getOrElse(this).asInstanceOf[MTerm]
     }
-
-    def isEmpty = this == EmptyMTerm
   }
   object MTerm {
     def empty = EmptyMTerm

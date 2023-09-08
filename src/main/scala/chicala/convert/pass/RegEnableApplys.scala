@@ -27,7 +27,7 @@ trait RegEnableApplys extends ChicalaPasss { self: ChicalaAst =>
             val connect   = Connect(signalRef, someNext.get)
             List(
               r.copy(someNext = None, someEnable = None),
-              When(cond, List(connect), List.empty, false)
+              When(cond, connect, EmptyMTerm, false)
             )
           case x => List(x)
         })

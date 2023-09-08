@@ -66,8 +66,8 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             vertexs += Vertex(id)
             last
           case w: When =>
-            val whenLast  = getVertexAndLastConnectDependcyFromList(id :+ 1, w.whenBody, last)
-            val otherLast = getVertexAndLastConnectDependcyFromList(id :+ 2, w.otherBody, last)
+            val whenLast  = getVertexAndLastConnectDependcy(id :+ 1, w.whenp, last)
+            val otherLast = getVertexAndLastConnectDependcy(id :+ 2, w.otherp, last)
             mergedTwoBranchLast(whenLast, otherLast)
           case switch: Switch =>
             switch.branchs
@@ -127,8 +127,8 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             }
           case w: When =>
             val newDependency = dependency ++ w.cond.relatedIdents.dependency
-            getConnectDependcyFromList(id :+ 1, w.whenBody, lastConnect, newDependency)
-            getConnectDependcyFromList(id :+ 2, w.otherBody, lastConnect, newDependency)
+            getConnectDependcy(id :+ 1, w.whenp, lastConnect, newDependency)
+            getConnectDependcy(id :+ 2, w.otherp, lastConnect, newDependency)
           case sIf: SIf =>
             getConnectDependcy(id :+ 1, sIf.thenp, lastConnect, dependency)
             getConnectDependcy(id :+ 2, sIf.elsep, lastConnect, dependency)
@@ -142,6 +142,8 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
               .foreach { case ((v, body), idPrefix) =>
                 getConnectDependcyFromList(idPrefix, body, lastConnect, newDependency)
               }
+          case sBlock: SBlock =>
+            getConnectDependcyFromList(id, sBlock.body, lastConnect, dependency)
           case EmptyMTerm =>
           case s =>
             edges ++= (dependency ++ s.relatedIdents.dependency)
@@ -218,16 +220,16 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
                 val merged = mergeId(restList)
                 val parts  = splitParts(merged, 2)
                 parts.map(_.toMap).map { mergedOne =>
-                  val whenBody =
-                    if (mergedOne.contains(1)) doReorderList(w.whenBody, mergedOne(1))
-                    else List.empty
-                  val otherBody =
-                    if (mergedOne.contains(2)) doReorderList(w.otherBody, mergedOne(2))
-                    else List.empty
+                  val whenp =
+                    if (mergedOne.contains(1)) doReorder(w.whenp, mergedOne(1)).head
+                    else EmptyMTerm
+                  val otherp =
+                    if (mergedOne.contains(2)) doReorder(w.otherp, mergedOne(2)).head
+                    else EmptyMTerm
                   val hasElseWhen =
-                    if (w.hasElseWhen && otherBody.nonEmpty) true
+                    if (w.hasElseWhen && otherp.nonEmpty) true
                     else false
-                  When(w.cond, whenBody, otherBody, hasElseWhen)
+                  When(w.cond, whenp, otherp, hasElseWhen)
                 }
               case sIf: SIf =>
                 val merged = mergeId(restList)
@@ -255,7 +257,11 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
                 }
 
               case sBlock: SBlock =>
-                doReorderList(sBlock.body, restList)
+                doReorderList(sBlock.body, restList) match {
+                  case Nil         => List(EmptyMTerm)
+                  case head :: Nil => List(head)
+                  case ls          => List(SBlock(ls, sBlock.tpe))
+                }
               case s =>
                 reporter.error(
                   NoPosition,
@@ -279,10 +285,10 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
           .fold("")(_ + _)
       )
 
-      val dependencyGraph  = getDependencyGraph(moduleDef)
-      val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
-
+      val dependencyGraph = getDependencyGraph(moduleDef)
       Format.saveToFile(s"${pathPrefix}.dot", dependencyGraph.toDot)
+
+      val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
       Format.saveToFile(s"${pathPrefix}.order.scala", topologicalOrder.toString())
 
       reorder(moduleDef, topologicalOrder)

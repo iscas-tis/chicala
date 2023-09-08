@@ -273,26 +273,20 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           when: When,
           isElseWhen: Boolean
       ): CodeLines = {
-        val keyword = if (isElseWhen) " else if" else "if"
-        val whenPart = CodeLines.warpToNewLine(
-          CodeLines.warpToOneLine(s"${keyword} (when(", when.cond.toCodeLines, ")) {"),
-          when.whenBody.map(_.toCodeLines).foldLeft(CodeLines.empty)(_ ++ _).indented,
-          "}"
-        )
+        val ifword = if (isElseWhen) " else if" else "if"
+        val whenPart = CodeLines
+          .warpToOneLine(s"${ifword} (when(", when.cond.toCodeLines, ")) ")
+          .concatLastLine(when.whenp.toCodeLines)
         val otherPart: CodeLines = {
           if (when.hasElseWhen) {
-            val elseWhen = when.otherBody.head.asInstanceOf[When]
+            val elseWhen = when.otherp.asInstanceOf[When]
             whenCL(elseWhen, true)
           } else {
-            val other = when.otherBody.map(_.toCodeLines).foldLeft(CodeLines.empty)(_ ++ _)
+            val other = when.otherp.toCodeLines
             if (other.isEmpty)
               CodeLines.empty
             else
-              CodeLines.warpToNewLine(
-                " else {",
-                other.indented,
-                "}"
-              )
+              CodeLines(" else ").concatLastLine(other)
           }
         }
         whenPart.concatLastLine(otherPart)

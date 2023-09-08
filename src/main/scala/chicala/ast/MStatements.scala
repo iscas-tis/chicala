@@ -25,8 +25,8 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
 
   case class When(
       val cond: MTerm,
-      val whenBody: List[MStatement],
-      val otherBody: List[MStatement],
+      val whenp: MStatement,
+      val otherp: MStatement,
       val hasElseWhen: Boolean = false
   ) extends CTerm
       with WhenImpl

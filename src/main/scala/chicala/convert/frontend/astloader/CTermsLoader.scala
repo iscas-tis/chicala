@@ -65,34 +65,34 @@ trait CTermsLoader { self: Scala2Reader =>
         StatementReader.fromListTree(cInfo, treeBody)._2
       }
       def pushBackElseWhen(when: When, elseWhen: When): When = when match {
-        case When(cond, whenBody, otherBody, true) =>
+        case When(cond, whenp, otherp, true) =>
           When(
             cond,
-            whenBody,
-            List(pushBackElseWhen(otherBody.head.asInstanceOf[When], elseWhen)),
+            whenp,
+            pushBackElseWhen(otherp.asInstanceOf[When], elseWhen),
             true
           )
-        case When(cond, whenBody, otherBody, false) =>
-          When(cond, whenBody, List(elseWhen), true)
+        case When(cond, whenp, otherp, false) =>
+          When(cond, whenp, elseWhen, true)
       }
 
       val (tree, _) = passThrough(tr)
       tree match {
         case Apply(Apply(cwa, condArgs), args) if isChisel3WhenApply(cwa) => {
-          val cond     = MTermLoader(cInfo, condArgs.head).get._2.get
-          val whenBody = bodyFromTree(cInfo, args.head)
-          Some((cInfo, Some(When(cond, whenBody, List.empty))))
+          val cond  = MTermLoader(cInfo, condArgs.head).get._2.get
+          val whenp = StatementReader(cInfo, args.head).get._2.get
+          Some((cInfo, Some(When(cond, whenp, EmptyMTerm))))
         }
         case Apply(Select(qualifier, TermName("otherwise")), args) => {
           val Some((newCInfo, Some(when))) = WhenLoader(cInfo, qualifier)
-          val otherBody                    = bodyFromTree(cInfo, args.head)
-          Some((cInfo, Some(When(when.cond, when.whenBody, otherBody))))
+          val otherp                       = StatementReader(cInfo, args.head).get._2.get
+          Some((cInfo, Some(When(when.cond, when.whenp, otherp))))
         }
         case Apply(Apply(Select(qualifier, TermName("elsewhen")), condArgs), args) => {
           val Some((newCInfo, Some(when))) = WhenLoader(cInfo, qualifier)
 
           val elseCond     = MTermLoader(cInfo, condArgs.head).get._2.get
-          val elseWhen     = When(elseCond, bodyFromTree(cInfo, args.head), List.empty)
+          val elseWhen     = When(elseCond, StatementReader(cInfo, args.head).get._2.get, EmptyMTerm)
           val whenElseWhen = pushBackElseWhen(when, elseWhen)
 
           Some((cInfo, Some(whenElseWhen)))

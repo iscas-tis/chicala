@@ -102,7 +102,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   case class EnumDef(names: List[TermName], tpe: UInt)                    extends MUnapplyDef with EnumDefImpl
   case class SUnapplyDef(names: List[TermName], rhs: MTerm, tpe: StTuple) extends MUnapplyDef with SUnapplyDefImpl
 
-  case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, body: SBlock)
+  case class SDefDef(name: TermName, vparamss: List[List[MValDef]], tpe: MType, defp: MStatement)
       extends MDef
       with SDefDefImpl
 }

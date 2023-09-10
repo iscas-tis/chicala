@@ -74,12 +74,9 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
           s"(${vps})"
         }.mkString
         val returnType: String = sDefDef.tpe.toCode
-        val body: CodeLines    = sDefDef.body.body.map(_.toCodeLines).reduce(_ ++ _)
-        CodeLines(
-          s"def ${funcName}${params}: ${returnType} = {",
-          body.indented,
-          "}"
-        )
+        val body: CodeLines    = sDefDef.defp.toCodeLines
+        CodeLines(s"def ${funcName}${params}: ${returnType} = ")
+          .concatLastLine(body)
       }
     }
     implicit class MValDefEmitter(mValDef: MValDef) {

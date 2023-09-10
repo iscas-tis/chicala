@@ -31,15 +31,10 @@ trait DefDefsReader { self: Scala2Reader =>
             Some((cInfo.updatedParams(vps), None))
           } else {
             // function
-            val body = passThrough(rhs)._1 match {
-              case Block(stats, expr) => BlockReader(newCInfo, rhs).get._2.get
-              case _ =>
-                val mTerm = MTermLoader(newCInfo, rhs).get._2.get
-                SBlock(List(mTerm), mTerm.tpe)
-            }
-            assertError(body.body.nonEmpty, rhs.pos, s"function $name should have body")
+            val defp = StatementReader(newCInfo, rhs).get._2.get
+            assertError(defp.nonEmpty, rhs.pos, s"function $name should have body")
             val tpe = MTypeLoader.fromTpt(tpt).get
-            Some((cInfo.updatedFunc(name, tpe), Some(SDefDef(name, vpss, tpe, body))))
+            Some((cInfo.updatedFunc(name, tpe), Some(SDefDef(name, vpss, tpe, defp))))
           }
         }
         case _ =>

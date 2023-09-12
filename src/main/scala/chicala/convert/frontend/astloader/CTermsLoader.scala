@@ -111,12 +111,9 @@ trait CTermsLoader { self: Scala2Reader =>
         case Apply(Apply(Select(qualifier, TermName("is")), vArgs), bodyArgs) =>
           val switch = SwitchLoader(cInfo, qualifier).get._2.get
 
-          val v = MTermLoader(cInfo, vArgs.head).get._2.get
-          val body = MTermLoader(cInfo, bodyArgs.head).get._2.get match {
-            case SBlock(body, _) => body
-            case x               => List(x)
-          }
-          Some((cInfo, Some(switch.appended(v, body))))
+          val v       = MTermLoader(cInfo, vArgs.head).get._2.get
+          val branchp = MTermLoader(cInfo, bodyArgs.head).get._2.get
+          Some((cInfo, Some(switch.appended(v, branchp))))
         case Apply(Select(New(t), termNames.CONSTRUCTOR), args) if isChisel3UtilSwitchContextType(t) =>
           val cond = MTermLoader(cInfo, args.head).get._2.get
           Some((cInfo, Some(Switch(cond, List.empty))))

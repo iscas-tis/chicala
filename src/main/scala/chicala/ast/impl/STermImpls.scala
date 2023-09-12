@@ -40,9 +40,6 @@ trait STermImpls { self: ChicalaAst =>
       else body.map(_.relatedIdents).reduce(_ ++ _)
   }
 
-  trait SForImpl { self: SFor =>
-    val tpe: MType = EmptyMType
-  }
   trait SIfImpl { self: SIf =>
     override val relatedIdents = {
       val thenRS     = thenp.relatedIdents
@@ -73,5 +70,7 @@ trait STermImpls { self: ChicalaAst =>
   }
   trait SAssignImpl { self: SAssign =>
     val tpe = lhs.tpe
+    override val relatedIdents =
+      RelatedIdents(lhs.relatedIdents.dependency, Set.empty, rhs.relatedIdents.dependency)
   }
 }

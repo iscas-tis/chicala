@@ -293,15 +293,11 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       }
       private def switchCL(switch: Switch): CodeLines = {
         val signal = switch.cond.toCode
-        val branchs = switch.branchs.map { case (value, statments) =>
-          CodeLines.warpToOneLine(
-            s"if (${signal} == ${value.toCode}) {",
-            statments.map(_.toCodeLines).toCodeLines.indented,
-            "}"
-          )
+        val branchs = switch.branchs.map { case (value, branchp) =>
+          CodeLines(s"if (${signal} == ${value.toCode}) ")
+            .concatLastLine(branchp.toCodeLines)
         }
-        (branchs.head :: branchs.tail.map(" else ".concatLastLine(_)))
-          .reduce(_.concatLastLine(_))
+        branchs.reduceRight((a, b) => a.concatLastLine(" else ".concatLastLine(b)))
       }
       private def subModuleRunCL(subModuleRun: SubModuleRun): CodeLines = {
         val Select(t, n)   = subModuleRun.name.asInstanceOf[Select]
@@ -351,10 +347,10 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         )
       }
       private def sFunctionCL(sFunction: SFunction): CodeLines = {
-        sFunction.body match {
+        sFunction.funcp match {
           case SMatch(selector, head :: Nil, tpe) =>
             val tuple = head.tupleNames.map(_._1.toString()).mkString(", ")
-            val body  = head.body.toCodeLines
+            val body  = head.casep.toCodeLines
             if (body.lines.head == "{")
               CodeLines(
                 s"{ case (${tuple}) => {",

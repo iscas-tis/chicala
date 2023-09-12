@@ -250,6 +250,7 @@ trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst 
                 val parts  = splitParts(merged, 2)
 
                 parts.map(_.toMap).map { mergedOne =>
+                  // FIXME: use MTerm, use SBlock wrap SDef
                   val thenp =
                     if (mergedOne.contains(1)) doReorder(sIf.thenp, mergedOne(1)).head.asInstanceOf[MTerm]
                     else EmptyMTerm

@@ -39,7 +39,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SBlock       => sBlockCL(s)
         case s: SFunction    => sFunctionCL(s)
         case s: SAssign      => sAssignCL(s)
-        case EmptyMTerm      => CodeLines.empty
+        case EmptyMTerm      => CodeLines("()")
         case _               => CodeLines(s"TODO(CL ${mTerm})")
       }
 
@@ -283,10 +283,8 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
             whenCL(elseWhen, true)
           } else {
             val other = when.otherp.toCodeLines
-            if (other.isEmpty)
-              CodeLines.empty
-            else
-              CodeLines(" else ").concatLastLine(other)
+            if (when.otherp.isEmpty) CodeLines.empty
+            else CodeLines(" else ").concatLastLine(other)
           }
         }
         whenPart.concatLastLine(otherPart)
@@ -335,7 +333,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           .warpToOneLine("if (", cond, ") ")
           .concatLastLine(thenp)
           .concatLastLine({
-            if (elsep.isEmpty) CodeLines.empty
+            if (sIf.elsep.isEmpty) CodeLines.empty
             else CodeLines(" else ").concatLastLine(elsep)
           })
       }

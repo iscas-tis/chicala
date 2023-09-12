@@ -112,7 +112,7 @@ trait ValDefsReader { self: Scala2Reader =>
           case Some((_, Some(value))) => value
           case _                      => EmptyMTerm
         }
-        val sValDef = SValDef(name, tpe, r)
+        val sValDef = SValDef(name, tpe, r, mods.isMutable)
         if (mods.isParamAccessor) {
           if (mods.isParameter)
             Some((newCInfo, Some(sValDef)))
@@ -169,7 +169,6 @@ trait ValDefsReader { self: Scala2Reader =>
         val init    = MTermLoader(cInfo, args.head).get._2.get
         val sigType = init.tpe.asInstanceOf[SignalType].updatedPhysical(Wire)
         val newInfo = cInfo.updatedVal(name, sigType)
-        // isVar onlay support WireInit now
         val wireDef = WireDef(name, sigType, Some(init), isVar)
         (newInfo, Some(wireDef))
       } else if (isChisel3VecInitDoApply(func)) {

@@ -192,7 +192,11 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case "chisel3.util.log2Floor.apply" => s"log2Floor(${args})"
 
               case "scala.`package`.Range.apply" => s"Range(${args})"
-              case "scala.`package`.Seq.apply"   => s"List(${args})"
+              case "scala.`package`.Seq.apply" =>
+                sApply.args match {
+                  case Nil          => s"List[${sApply.tpe.asInstanceOf[StSeq].tparam.toCode}]()"
+                  case head :: next => s"List(${args})"
+                }
 
               case "scala.Array.fill" => s"List.fill(${args})"
 
@@ -211,16 +215,19 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         val from = sSelect.from.toCode
         val name = sSelect.name.toString()
 
-        Map(
-          "getWidth"     -> "width",
-          "head"         -> "head",
-          "tail"         -> "tail",
-          "last"         -> "last",
-          "zipWithIndex" -> "zipWithIndex",
-          "size"         -> "size",
-          "length"       -> "length",
-          "reverse"      -> "reverse",
-          "nonEmpty"     -> "nonEmpty"
+        (
+          Map(
+            "getWidth"     -> "width",
+            "head"         -> "head",
+            "tail"         -> "tail",
+            "last"         -> "last",
+            "zipWithIndex" -> "zipWithIndex",
+            "size"         -> "size",
+            "length"       -> "length",
+            "reverse"      -> "reverse",
+            "nonEmpty"     -> "nonEmpty"
+          ) ++
+            ((1 until 22).map(i => s"_${i}" -> s"_${i}"))
         ).get(name)
           .map(func => s"${from}.${func}")
           .getOrElse(
@@ -228,7 +235,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case "bitLength"    => s"bitLength(${from})"
               case "indices"      => s"(0 until ${from}.length)"
               case "toIndexedSeq" => s"${from}"
-              case _              => s"TODO(SSelect ${sSelect})"
+              case _              => s"TODO(SSelect ${name} ${sSelect})"
             }
           )
       }

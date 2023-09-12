@@ -35,6 +35,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
             repMap = repMap ++ newRepMap
             List(s) ++ ioSigDefs
           case x =>
+            // FIXME: Use Transformer to replace
             List(x.replaced(repMap))
         })
         .flatten

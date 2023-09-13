@@ -85,8 +85,9 @@ class Div(
   val eOutPos     = ~(dividendMSB - divisorMSB)
   val eOut        = count === 0.U && !divby0 && eOutPos >= align.U       // 35
 
+  var unrolls = Seq[UInt]()
   if (divUnroll != 0) when(state === s_div) { // 36
-    val unrolls = ((0 until divUnroll) scanLeft remainder) { case (rem, i) =>
+    unrolls = ((0 until divUnroll) scanLeft remainder) { case (rem, i) =>
       // the special case for iteration 0 is to save HW, not for correctness
       val difference = if (i == 0) subtractor else rem(2 * w, w) - divisor(w - 1, 0)
       val less       = difference(w)

@@ -120,6 +120,14 @@ class ArrayMulDataModule(len: Int) extends Module {
     var sum   = Seq[Bool]()
     var cout1 = Seq[Bool]()
     var cout2 = Seq[Bool]()
+
+    val cin_1 = if (cin.nonEmpty) Seq(cin.head) else Nil
+    val cin_2 = if (cin.nonEmpty) cin.drop(1) else Nil
+
+    var s_1, c_1_1, c_1_2 = Seq[Bool]()
+    var s_2, c_2_1, c_2_2 = Seq[Bool]()
+    var tmp1, tmp2        = (Seq[Bool](), Seq[Bool](), Seq[Bool]())
+
     if (col.size == 1) {
       // do nothing
       sum = col ++ cin
@@ -140,10 +148,17 @@ class ArrayMulDataModule(len: Int) extends Module {
       cout1 = Seq(c53.io.out(1).asBool())
       cout2 = Seq(c53.io.out(2).asBool())
     } else {
-      val cin_1               = if (cin.nonEmpty) Seq(cin.head) else Nil
-      val cin_2               = if (cin.nonEmpty) cin.drop(1) else Nil
-      val (s_1, c_1_1, c_1_2) = addOneColumn(col take 4, cin_1)
-      val (s_2, c_2_1, c_2_2) = addOneColumn(col drop 4, cin_2)
+      tmp1 = addOneColumn(col take 4, cin_1)
+      tmp2 = addOneColumn(col drop 4, cin_2)
+
+      s_1 = tmp1._1
+      c_1_1 = tmp1._2
+      c_1_2 = tmp1._3
+
+      s_2 = tmp2._1
+      c_2_1 = tmp2._2
+      c_2_2 = tmp2._3
+
       sum = s_1 ++ s_2
       cout1 = c_1_1 ++ c_2_1
       cout2 = c_1_2 ++ c_2_2
@@ -153,17 +168,20 @@ class ArrayMulDataModule(len: Int) extends Module {
   }
 
   def addAll(cols: Array[Seq[Bool]], depth: Int): (UInt, UInt) = {
+    var k = 0
+
+    val columns_next = Array.fill(2 * len)(Seq[Bool]())
+    var cout1, cout2 = Seq[Bool]()
+
     if (cols.forall(_.size <= 2)) {
-      val sum = Cat(cols.map(_(0)).toIndexedSeq.reverse)
-      var k   = 0
       for (i <- 0 until cols.size) {
         if (cols(i).size == 1) k = i + 1
       }
-      val carry = Cat(cols.drop(k).map(_(1)).toIndexedSeq.reverse)
-      (sum, Cat(carry, 0.U(k.W)))
+      (
+        Cat(cols.map(_(0)).toIndexedSeq.reverse),
+        Cat(Cat(cols.drop(k).map(_(1)).toIndexedSeq.reverse), 0.U(k.W))
+      )
     } else {
-      val columns_next = Array.fill(2 * len)(Seq[Bool]())
-      var cout1, cout2 = Seq[Bool]()
       for (i <- cols.indices) {
         val (s, c1, c2) = addOneColumn(cols(i), cout1)
         columns_next(i) = s ++ cout2
@@ -171,9 +189,7 @@ class ArrayMulDataModule(len: Int) extends Module {
         cout2 = c2
       }
 
-      val toNextLayer = columns_next
-
-      addAll(toNextLayer, depth + 1)
+      addAll(columns_next, depth + 1)
     }
   }
 

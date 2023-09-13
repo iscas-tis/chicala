@@ -328,7 +328,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           ")"
         ) ++ (
           subModuleRun.outputSignals
-            .map({ case (name, _) => s"val ${n}_${name} = ${outputName}.${name}" })
+            .map({ case (name, _) => s"${n}_${name} = ${outputName}.${name}" })
             .toCodeLines
         )
       }

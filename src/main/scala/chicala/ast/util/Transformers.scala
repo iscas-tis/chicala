@@ -61,7 +61,7 @@ trait Transformers { self: ChicalaAst =>
             someNext.map(transformMTerm(_)),
             someEnable.map(transformMTerm(_))
           )
-        case NodeDef(name, tpe, rhs) => NodeDef(name, transformSignalType(tpe), transformMTerm(rhs))
+        case NodeDef(name, tpe, rhs, isVar) => NodeDef(name, transformSignalType(tpe), transformMTerm(rhs), isVar)
 
         // SValDef
         case SValDef(name, tpe, rhs, isVar) => SValDef(name, transformSType(tpe), transformMTerm(rhs), isVar)

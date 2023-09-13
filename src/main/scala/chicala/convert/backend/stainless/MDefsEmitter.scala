@@ -37,9 +37,10 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         CodeLines(s"var ${name} = ").concatLastLine(init)
       }
       private def nodeDefCL(nodeDef: NodeDef): CodeLines = {
+        val valW = if (nodeDef.isVar) "var" else "val"
         val name = nodeDef.name.toString()
         val rhs  = nodeDef.rhs.toCodeLines
-        CodeLines(s"val ${name} = ").concatLastLine(rhs)
+        CodeLines(s"${valW} ${name} = ").concatLastLine(rhs)
       }
       private def enumDefCL(enumDef: EnumDef): CodeLines = {
         val left  = enumDef.names.map(_.toString()).mkString(", ")
@@ -85,7 +86,7 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         val tpe  = mValDef.tpe.toCode
         val someInit = (mValDef match {
           case SValDef(_, _, rhs, _) => rhs
-          case NodeDef(_, _, rhs)    => rhs
+          case NodeDef(_, _, rhs, _) => rhs
           case _                     => EmptyMTerm
         }) match {
           case EmptyMTerm => ""

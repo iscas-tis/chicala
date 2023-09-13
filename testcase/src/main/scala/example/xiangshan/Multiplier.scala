@@ -72,7 +72,7 @@ class ArrayMulDataModule(len: Int) extends Module {
 
   val columns: Array[Seq[Bool]] = Array.fill(2 * len)(Seq())
 
-  var last_x = WireInit(0.U(3.W))
+  var last_x = 0.U(3.W)
   for (i <- Range(0, len, 2)) {
     val x =
       if (i == 0) Cat(a(1, 0), 0.U(1.W))

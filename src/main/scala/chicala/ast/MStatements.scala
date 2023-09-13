@@ -91,7 +91,9 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
       someEnable: Option[MTerm] = None
   ) extends SignalDef
       with RegDefImpl
-  case class NodeDef(name: TermName, tpe: SignalType, rhs: MTerm) extends SignalDef with NodeDefImpl
+  case class NodeDef(name: TermName, tpe: SignalType, rhs: MTerm, isVar: Boolean = false)
+      extends SignalDef
+      with NodeDefImpl
 
   case class SValDef(name: TermName, tpe: SType, rhs: MTerm, isVar: Boolean = false) extends MValDef
 

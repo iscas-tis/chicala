@@ -5,8 +5,9 @@ import scala.tools.nsc.Global
 
 import chicala.util.Format
 import chicala.ast.ChicalaAst
+import chicala.ast.util.Replacers
 
-trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
+trait SubModuleCalls extends ChicalaPasss with Replacers { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -25,9 +26,9 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
 
     private def processMStatements(
         body: List[MStatement],
-        replaceMap: Map[String, MStatement]
+        replaceMap: Map[MStatement, MStatement]
     )(implicit moduleName: TypeName): List[MStatement] = {
-      var repMap = Map.empty[String, MStatement]
+      var repMap = Map.empty[MStatement, MStatement]
       body
         .map({
           case s @ SubModuleDef(name, tpe, args) =>
@@ -35,8 +36,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
             repMap = repMap ++ newRepMap
             List(s) ++ ioSigDefs
           case x =>
-            // FIXME: Use Transformer to replace
-            List(x.replaced(repMap))
+            List(Replacer(repMap).transform(x))
         })
         .flatten
     }
@@ -46,7 +46,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
         subModuleType: SubModule,
         ioName: TermName,
         ioType: SignalType
-    )(implicit moduleName: TypeName): (List[MStatement], Map[String, MStatement]) = {
+    )(implicit moduleName: TypeName): (List[MStatement], Map[MStatement, MStatement]) = {
       def flattenName(name: String) = s"${subModuleName}_${name}"
 
       val signals       = ioType.flatten(ioName.toString())
@@ -90,7 +90,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
         val flattenName = selectPath.mkString("_")
         (selects, flattenName)
       }
-      def getReplaceMap(tpe: SignalType, prefixs: List[TermName]): Map[String, MStatement] = {
+      def getReplaceMap(tpe: SignalType, prefixs: List[TermName]): Map[MStatement, MStatement] = {
         tpe match {
           case _: GroundType | _: Vec =>
             val (selects, flattenName) = selectIt(prefixs)
@@ -99,7 +99,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
               else tpe.updatedPhysical(Node).updatedDriction(Undirect)
             selects
               .map(x =>
-                SignalRef(x, tpe).toString()
+                SignalRef(x, tpe)
                   -> SignalRef(Select(This(moduleName), flattenName), newType)
               )
               .toMap

@@ -27,6 +27,12 @@ trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst 
       val vertexs = mutable.Set.empty[Vertex]
       val edges   = mutable.Set.empty[DirectedEdge]
 
+      def mergedMapSet[T1, T2](a: Map[T1, Set[T2]], b: Map[T1, Set[T2]]): Map[T1, Set[T2]] = {
+        b.foldLeft(a) { case (m, (key, set)) =>
+          m.updated(key, m.getOrElse(key, Set.empty) ++ set)
+        }
+      }
+
       def getVertexAndLastConnectDependcy(
           id: Id,
           statement: MStatement,
@@ -37,10 +43,7 @@ trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst 
             lastMapOne: Map[String, Set[Id]],
             lastMapTwo: Map[String, Set[Id]]
         ): Map[String, Set[Id]] = {
-          lastMapTwo.foldLeft(lastMapOne) { case (m, (key, set)) =>
-            if (m.contains(key)) m.updated(key, m(key) ++ set)
-            else m.updated(key, set)
-          }
+          mergedMapSet(lastMapOne, lastMapTwo)
         }
         def updatedLast(
             last: Map[String, Set[Id]],
@@ -110,7 +113,6 @@ trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst 
             last
         }
       }
-
       def getVertexAndLastConnectDependcyFromList(
           idPrefix: Id,
           statements: List[MStatement],
@@ -165,7 +167,6 @@ trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst 
               .map(x => DirectedEdge(Vertex(id), Vertex(x)))
         }
       }
-
       def getConnectDependcyFromList(
           idPrefix: Id,
           statements: List[MStatement],
@@ -179,9 +180,79 @@ trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst 
           }
       }
 
+      case class Previous(updated: Map[String, Set[Id]], used: Map[String, Set[Id]])
+      object Previous { def empty = Previous(Map.empty, Map.empty) }
+      def mergedTwoBranchPrevious(previous1: Previous, previous2: Previous): Previous = {
+        val updated = mergedMapSet(previous1.updated, previous2.updated)
+        val used    = mergedMapSet(previous1.used, previous2.used)
+        Previous(updated, used)
+      }
+      def getScalaValDependcy(
+          id: Id,
+          statement: MStatement,
+          previous: Previous,
+          used: Set[String]
+      ): Previous = {
+        def addDependcy(relatedIdents: RelatedIdents) = {
+          edges ++= (
+            // write after read
+            relatedIdents.updated
+              .map(previous.used.getOrElse(_, Set.empty)) ++
+              // write after write
+              relatedIdents.updated
+                .map(previous.updated.getOrElse(_, Set.empty)) ++
+              // read after write
+              relatedIdents.usedAll
+                .map(previous.updated.getOrElse(_, Set.empty))
+          ).flatten
+            .map(x => DirectedEdge(Vertex(id), Vertex(x)))
+        }
+        def updatePrevious(relatedIdents: RelatedIdents): Previous = {
+          Previous(
+            relatedIdents.updated
+              .foldLeft(previous.updated)((p, n) => p.updated(n, Set(id))),
+            relatedIdents.usedAll
+              .foldLeft(previous.used)((p, n) => p.updated(n, p.getOrElse(n, Set.empty) ++ Set(id)))
+          )
+        }
+
+        statement match {
+          case sIf: SIf =>
+            val ud           = used ++ sIf.cond.relatedIdents.usedAll
+            val thenPrevious = getScalaValDependcy(id :+ 1, sIf.thenp, previous, ud)
+            val elsePrevious = getScalaValDependcy(id :+ 2, sIf.elsep, previous, ud)
+            mergedTwoBranchPrevious(thenPrevious, elsePrevious)
+          case sBlock: SBlock =>
+            getScalaValDependcyFromList(id, sBlock.body, previous, used)
+          case when: When =>
+            val ud           = used ++ when.cond.relatedIdents.usedAll
+            val whenPrevious = getScalaValDependcy(id :+ 1, when.whenp, previous, ud)
+            val elsePrevious = getScalaValDependcy(id :+ 2, when.otherp, whenPrevious, ud)
+            elsePrevious
+          case EmptyMTerm =>
+            previous
+          case x =>
+            val relatedIdents = x.relatedIdents ++ RelatedIdents.used(used)
+            addDependcy(relatedIdents)
+            updatePrevious(relatedIdents)
+        }
+      }
+      def getScalaValDependcyFromList(
+          idPrefix: Id,
+          statements: List[MStatement],
+          previous: Previous,
+          used: Set[String]
+      ): Previous = {
+        idPrefix
+          .asPrefixZipWith(statements)
+          .foldLeft(previous)({ case (pre, (id, statement)) =>
+            getScalaValDependcy(id, statement, pre, used)
+          })
+      }
+
       val lastConnect = getVertexAndLastConnectDependcyFromList(Id.empty, body, Map.empty)
       getConnectDependcyFromList(Id.empty, body, lastConnect, Set.empty)
-      // getValVarDependcy
+      getScalaValDependcyFromList(Id.empty, body, Previous.empty, Set.empty)
 
       DirectedGraph(vertexs.toSet, edges.toSet)
     }

@@ -16,12 +16,11 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // CTerm
   sealed abstract class CTerm extends MTerm
 
-  case class Lit(litExp: STerm, tpe: GroundType)                     extends CTerm
+  case class Lit(litExp: STerm, tpe: GroundType)                     extends CTerm with LitImpl
   case class SignalRef(name: Tree, tpe: SignalType)                  extends CTerm with SignalRefImpl
   case class CApply(op: COp, tpe: SignalType, operands: List[MTerm]) extends CTerm with CApplyImpl
 
   case class Connect(left: MTerm, expr: MTerm) extends CTerm with ConnectImpl
-  case class BulkConnect()                     extends CTerm with BulkConnectImpl
 
   case class When(
       val cond: MTerm,
@@ -49,19 +48,19 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
   // STerm
   sealed abstract class STerm                                                        extends MTerm with STermImpl
   case class SApply(fun: STerm, args: List[MTerm], tpe: MType)                       extends STerm with SApplyImpl
-  case class SSelect(from: MTerm, name: TermName, tpe: MType)                        extends STerm
+  case class SSelect(from: MTerm, name: TermName, tpe: MType)                        extends STerm with SSelectImpl
   case class SBlock(body: List[MStatement], tpe: MType)                              extends STerm with SBlockImpl
-  case class SLiteral(value: Any, tpe: MType)                                        extends STerm
-  case class SIdent(name: TermName, tpe: MType)                                      extends STerm
+  case class SLiteral(value: Any, tpe: MType)                                        extends STerm with SLiteralImpl
+  case class SIdent(name: TermName, tpe: MType)                                      extends STerm with SIdentImpl
   case class SIf(cond: STerm, thenp: MTerm, elsep: MTerm, tpe: MType)                extends STerm with SIfImpl
-  case class SMatch(selector: MTerm, cases: List[SCaseDef], tpe: MType)              extends STerm
-  case class SCaseDef(tupleNames: List[(TermName, MType)], casep: MTerm, tpe: MType) extends STerm
+  case class SMatch(selector: MTerm, cases: List[SCaseDef], tpe: MType)              extends STerm with SMatchImpl
+  case class SCaseDef(tupleNames: List[(TermName, MType)], casep: MTerm, tpe: MType) extends STerm with SCaseDefImpl
   case class STuple(args: List[MTerm], tpe: StTuple)                                 extends STerm with STupleImpl
-  case class SLib(name: String, tpe: SType)                                          extends STerm
+  case class SLib(name: String, tpe: SType)                                          extends STerm with SLibImpl
   case class SFunction(vparams: List[MValDef], funcp: MTerm)                         extends STerm with SFunctionImpl
   case class SAssign(lhs: MTerm, rhs: MTerm)                                         extends STerm with SAssignImpl
 
-  case object EmptyMTerm extends MTerm { val tpe = EmptyMType }
+  case object EmptyMTerm extends MTerm with EmptyMTermImpl
 
   // MDef
   sealed abstract class MDef extends MStatement
@@ -95,7 +94,7 @@ trait MStatements extends MTermImpls with CTermImpls with STermImpls with MDefIm
       extends SignalDef
       with NodeDefImpl
 
-  case class SValDef(name: TermName, tpe: SType, rhs: MTerm, isVar: Boolean = false) extends MValDef
+  case class SValDef(name: TermName, tpe: SType, rhs: MTerm, isVar: Boolean = false) extends MValDef with SValDefImpl
 
   // other Def
   sealed abstract class MUnapplyDef extends MDef

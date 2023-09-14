@@ -18,7 +18,6 @@ trait Transformers { self: ChicalaAst =>
         case CApply(op, tpe, operands) => CApply(op, transformSignalType(tpe), operands.map(transformMTerm(_)))
 
         case Connect(left, expr) => Connect(transformMTerm(left), transformMTerm(expr))
-        case BulkConnect()       => BulkConnect()
 
         case When(cond, whenp, otherp, hasElseWhen) =>
           When(transformMTerm(cond), transform(whenp), transform(otherp), hasElseWhen)

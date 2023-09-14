@@ -38,6 +38,8 @@ trait CTypeImpls { self: ChicalaAst =>
     /** Use "_" flatten all signals in Bundle structure
       */
     def flatten(name: String): List[(String, SignalType)] = List(name -> this)
+
+    def usedVal: Set[String]
   }
   trait GroundTypeImpl { self: GroundType =>
     def direction: CDirection
@@ -68,6 +70,10 @@ trait CTypeImpls { self: ChicalaAst =>
     override def setInferredWidth = copy(width = InferredSize)
     override def replaced(r: Map[String, MStatement]): UInt =
       this.copy(width = width.replaced(r))
+    def usedVal: Set[String] = width match {
+      case KnownSize(width) => width.relatedIdents.used
+      case _                => Set.empty
+    }
   }
   trait SIntImpl { self: SInt =>
     def updatedWidth(newWidth: CSize): SInt           = copy(width = newWidth)
@@ -81,7 +87,10 @@ trait CTypeImpls { self: ChicalaAst =>
     override def setInferredWidth = copy(width = InferredSize)
     override def replaced(r: Map[String, MStatement]): SInt =
       this.copy(width = width.replaced(r))
-
+    def usedVal: Set[String] = width match {
+      case KnownSize(width) => width.relatedIdents.used
+      case _                => Set.empty
+    }
   }
   trait BoolImpl { self: Bool =>
     def updatedPhysical(newPhysical: CPhysical): Bool = copy(physical = newPhysical)
@@ -92,6 +101,8 @@ trait CTypeImpls { self: ChicalaAst =>
       case Undirect => copy(direction = Undirect)
     }
     override def replaced(r: Map[String, MStatement]): Bool = this
+
+    def usedVal: Set[String] = Set.empty
   }
 
   trait VecImpl { self: Vec =>
@@ -105,6 +116,11 @@ trait CTypeImpls { self: ChicalaAst =>
 
     def isInput  = tparam.isInput
     def isOutput = tparam.isOutput
+
+    def usedVal: Set[String] = (size match {
+      case KnownSize(width) => width.relatedIdents.used
+      case _                => Set.empty
+    }) ++ tparam.usedVal
   }
   trait BundleImpl { self: Bundle =>
     def updatedPhysical(newPhysical: CPhysical): Bundle = copy(
@@ -147,6 +163,8 @@ trait CTypeImpls { self: ChicalaAst =>
         cDataType.flatten(s"${name}_${termName}")
       }
       .reduce(_ ++ _)
+
+    def usedVal: Set[String] = signals.map(_._2.usedVal).reduce(_ ++ _)
   }
 
   trait RegImpl {

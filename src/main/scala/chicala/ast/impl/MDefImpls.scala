@@ -15,9 +15,11 @@ trait MDefImpls { self: ChicalaAst =>
   }
 
   trait SubModuleDefImpl { self: SubModuleDef =>
-    override val relatedIdents = RelatedIdents(
+    val relatedIdents = RelatedIdents(
       Set(name.toString()),
       Set.empty,
+      Set.empty,
+      Set(name.toString()),
       Set.empty
     )
   }
@@ -28,19 +30,26 @@ trait MDefImpls { self: ChicalaAst =>
   }
 
   trait IoDefImpl { self: IoDef =>
-    override val relatedIdents = RelatedIdents(
-      tpe match {
-        case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
-        case _         => Set(name.toString())
-      },
-      Set.empty,
-      Set.empty
-    )
+    val relatedIdents = {
+      val newVals =
+        tpe match {
+          case b: Bundle => b.subSignals.map(s => s"${name.toString()}.${s}")
+          case _         => Set(name.toString())
+        }
+      RelatedIdents(
+        newVals,
+        Set.empty,
+        Set.empty,
+        newVals,
+        tpe.usedVal
+      )
+    }
   }
   trait WireDefImpl { self: WireDef =>
-    override val relatedIdents =
-      RelatedIdents(tpe.allSignals(name.toString(), false), Set.empty, Set.empty) ++
-        someInit.map(_.relatedIdents).getOrElse(RelatedIdents.empty)
+    val relatedIdents = {
+      val newVals = tpe.allSignals(name.toString(), false)
+      RelatedIdents(newVals, Set.empty, Set.empty, newVals, Set.empty)
+    } ++ someInit.map(_.relatedIdents).getOrElse(RelatedIdents.empty)
 
     override def replaced(r: Map[String, MStatement]): WireDef = {
       replacedThis(r) match {
@@ -53,28 +62,30 @@ trait MDefImpls { self: ChicalaAst =>
     }
   }
   trait RegDefImpl { self: RegDef =>
-    override val relatedIdents = {
-      val fully = tpe.allSignals(name.toString(), false) ++ tpe.allSignals(name.toString(), true)
-      val nextRS = someNext match {
-        case None        => RelatedIdents.empty
-        case Some(value) => value.relatedIdents
-      }
-      val enableRS = someEnable match {
-        case None        => RelatedIdents.empty
-        case Some(value) => value.relatedIdents
-      }
-      RelatedIdents(fully, Set.empty, Set.empty) ++ nextRS ++ enableRS
+    val relatedIdents = {
+      val fully    = tpe.allSignals(name.toString(), false) ++ tpe.allSignals(name.toString(), true)
+      val nextRI   = someNext.map(_.relatedIdents).getOrElse(RelatedIdents.empty)
+      val enableRI = someEnable.map(_.relatedIdents).getOrElse(RelatedIdents.empty)
+      RelatedIdents(fully, Set.empty, Set.empty, fully, Set.empty) ++ nextRI ++ enableRI
     }
 
   }
   trait NodeDefImpl { self: NodeDef =>
-    override val relatedIdents =
-      RelatedIdents(Set(name.toString()), Set.empty, Set.empty) ++ rhs.relatedIdents
+    val relatedIdents =
+      RelatedIdents(Set(name.toString()), Set.empty, Set.empty, Set(name.toString()), Set.empty) ++
+        rhs.relatedIdents
+  }
+
+  trait SValDefImpl { self: SValDef =>
+    val relatedIdents = RelatedIdents.updated(Set(name.toString()))
+
   }
 
   trait EnumDefImpl { self: EnumDef =>
-    override val relatedIdents =
-      RelatedIdents(names.map(_.toString()).toSet, Set.empty, Set.empty)
+    val relatedIdents = {
+      val newVals = names.map(_.toString()).toSet
+      RelatedIdents(newVals, Set.empty, Set.empty, newVals, Set.empty)
+    }
     def inner: List[SignalDef] = names
       .zip(0 until names.size)
       .map { case (name, i) =>
@@ -83,13 +94,18 @@ trait MDefImpls { self: ChicalaAst =>
   }
 
   trait SUnapplyDefImpl { self: SUnapplyDef =>
-    override val relatedIdents =
-      RelatedIdents(names.map(_.toString()).toSet, Set.empty, Set.empty) ++
+    val relatedIdents = {
+      val nameAndType = names.map(_.toString()).zip(tpe.tparams)
+      val signals     = nameAndType.collect({ case (name, tpe) if !tpe.isSType => name }).toSet
+      val vals        = nameAndType.collect({ case (name, tpe) if tpe.isSType => name }).toSet
+
+      RelatedIdents(signals, Set.empty, Set.empty, vals ++ signals, Set.empty) ++
         rhs.relatedIdents
+    }
   }
 
   trait SDefDefImpl { self: SDefDef =>
-    override val relatedIdents = RelatedIdents.empty
+    val relatedIdents = RelatedIdents.empty
   }
 
 }

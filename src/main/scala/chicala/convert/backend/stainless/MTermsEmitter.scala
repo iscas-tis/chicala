@@ -39,7 +39,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SBlock       => sBlockCL(s)
         case s: SFunction    => sFunctionCL(s)
         case s: SAssign      => sAssignCL(s)
-        case EmptyMTerm      => CodeLines.empty
+        case EmptyMTerm      => CodeLines("()")
         case _               => CodeLines(s"TODO(CL ${mTerm})")
       }
 
@@ -192,7 +192,11 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case "chisel3.util.log2Floor.apply" => s"log2Floor(${args})"
 
               case "scala.`package`.Range.apply" => s"Range(${args})"
-              case "scala.`package`.Seq.apply"   => s"List(${args})"
+              case "scala.`package`.Seq.apply" =>
+                sApply.args match {
+                  case Nil          => s"List[${sApply.tpe.asInstanceOf[StSeq].tparam.toCode}]()"
+                  case head :: next => s"List(${args})"
+                }
 
               case "scala.Array.fill" => s"List.fill(${args})"
 
@@ -211,16 +215,19 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         val from = sSelect.from.toCode
         val name = sSelect.name.toString()
 
-        Map(
-          "getWidth"     -> "width",
-          "head"         -> "head",
-          "tail"         -> "tail",
-          "last"         -> "last",
-          "zipWithIndex" -> "zipWithIndex",
-          "size"         -> "size",
-          "length"       -> "length",
-          "reverse"      -> "reverse",
-          "nonEmpty"     -> "nonEmpty"
+        (
+          Map(
+            "getWidth"     -> "width",
+            "head"         -> "head",
+            "tail"         -> "tail",
+            "last"         -> "last",
+            "zipWithIndex" -> "zipWithIndex",
+            "size"         -> "size",
+            "length"       -> "length",
+            "reverse"      -> "reverse",
+            "nonEmpty"     -> "nonEmpty"
+          ) ++
+            ((1 until 22).map(i => s"_${i}" -> s"_${i}"))
         ).get(name)
           .map(func => s"${from}.${func}")
           .getOrElse(
@@ -228,7 +235,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case "bitLength"    => s"bitLength(${from})"
               case "indices"      => s"(0 until ${from}.length)"
               case "toIndexedSeq" => s"${from}"
-              case _              => s"TODO(SSelect ${sSelect})"
+              case _              => s"TODO(SSelect ${name} ${sSelect})"
             }
           )
       }
@@ -273,41 +280,29 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           when: When,
           isElseWhen: Boolean
       ): CodeLines = {
-        val keyword = if (isElseWhen) " else if" else "if"
-        val whenPart = CodeLines.warpToNewLine(
-          CodeLines.warpToOneLine(s"${keyword} (when(", when.cond.toCodeLines, ")) {"),
-          when.whenBody.map(_.toCodeLines).foldLeft(CodeLines.empty)(_ ++ _).indented,
-          "}"
-        )
+        val ifword = if (isElseWhen) " else if" else "if"
+        val whenPart = CodeLines
+          .warpToOneLine(s"${ifword} (when(", when.cond.toCodeLines, ")) ")
+          .concatLastLine(when.whenp.toCodeLines)
         val otherPart: CodeLines = {
           if (when.hasElseWhen) {
-            val elseWhen = when.otherBody.head.asInstanceOf[When]
+            val elseWhen = when.otherp.asInstanceOf[When]
             whenCL(elseWhen, true)
           } else {
-            val other = when.otherBody.map(_.toCodeLines).foldLeft(CodeLines.empty)(_ ++ _)
-            if (other.isEmpty)
-              CodeLines.empty
-            else
-              CodeLines.warpToNewLine(
-                " else {",
-                other.indented,
-                "}"
-              )
+            val other = when.otherp.toCodeLines
+            if (when.otherp.isEmpty) CodeLines.empty
+            else CodeLines(" else ").concatLastLine(other)
           }
         }
         whenPart.concatLastLine(otherPart)
       }
       private def switchCL(switch: Switch): CodeLines = {
         val signal = switch.cond.toCode
-        val branchs = switch.branchs.map { case (value, statments) =>
-          CodeLines.warpToOneLine(
-            s"if (${signal} == ${value.toCode}) {",
-            statments.map(_.toCodeLines).toCodeLines.indented,
-            "}"
-          )
+        val branchs = switch.branchs.map { case (value, branchp) =>
+          CodeLines(s"if (${signal} == ${value.toCode}) ")
+            .concatLastLine(branchp.toCodeLines)
         }
-        (branchs.head :: branchs.tail.map(" else ".concatLastLine(_)))
-          .reduce(_.concatLastLine(_))
+        branchs.reduceRight((a, b) => a.concatLastLine(" else ".concatLastLine(b)))
       }
       private def subModuleRunCL(subModuleRun: SubModuleRun): CodeLines = {
         val Select(t, n)   = subModuleRun.name.asInstanceOf[Select]
@@ -333,7 +328,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           ")"
         ) ++ (
           subModuleRun.outputSignals
-            .map({ case (name, _) => s"val ${n}_${name} = ${outputName}.${name}" })
+            .map({ case (name, _) => s"${n}_${name} = ${outputName}.${name}" })
             .toCodeLines
         )
       }
@@ -345,7 +340,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           .warpToOneLine("if (", cond, ") ")
           .concatLastLine(thenp)
           .concatLastLine({
-            if (elsep.isEmpty) CodeLines.empty
+            if (sIf.elsep.isEmpty) CodeLines.empty
             else CodeLines(" else ").concatLastLine(elsep)
           })
       }
@@ -357,10 +352,10 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         )
       }
       private def sFunctionCL(sFunction: SFunction): CodeLines = {
-        sFunction.body match {
+        sFunction.funcp match {
           case SMatch(selector, head :: Nil, tpe) =>
             val tuple = head.tupleNames.map(_._1.toString()).mkString(", ")
-            val body  = head.body.toCodeLines
+            val body  = head.casep.toCodeLines
             if (body.lines.head == "{")
               CodeLines(
                 s"{ case (${tuple}) => {",

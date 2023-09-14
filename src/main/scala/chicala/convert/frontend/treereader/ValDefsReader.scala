@@ -77,9 +77,9 @@ trait ValDefsReader { self: Scala2Reader =>
             else
               Some((newCInfo.updatedSUnapplyDefTmp(num, Some(tn), Some(sUnapplyDef)), None))
           } else
-            Some(loadNodeDef(cInfo, name, rhs))
+            Some(loadNodeDef(cInfo, name, rhs, mods.isMutable))
         } else
-          Some(loadNodeDef(cInfo, name, rhs))
+          Some(loadNodeDef(cInfo, name, rhs, mods.isMutable))
 
       } else if (isChiselSignalType(tpt) || isChiselModuleType(tpt)) { // SignalDef and SubModuleDef
         passThrough(rhs)._1 match {
@@ -94,15 +94,15 @@ trait ValDefsReader { self: Scala2Reader =>
             } else if (isChisel3ModuleDoApply(func)) { // SubModuleDef
               Some(loadSubModuleDef(cInfo, name, args))
             } else { // NodeDef called function or operator
-              Some(loadNodeDef(cInfo, name, rhs))
+              Some(loadNodeDef(cInfo, name, rhs, mods.isMutable))
             }
           case EmptyTree =>
             val tpe      = SignalTypeLoader.fromTpt(tpt).get
             val newCInfo = cInfo.updatedVal(name, tpe)
-            val nodeDef  = NodeDef(name, tpe, EmptyMTerm)
+            val nodeDef  = NodeDef(name, tpe, EmptyMTerm, mods.isMutable)
             Some((newCInfo, Some(nodeDef)))
           case _ =>
-            Some(loadNodeDef(cInfo, name, rhs))
+            Some(loadNodeDef(cInfo, name, rhs, mods.isMutable))
         }
       } else { // SValDef
         val name     = nameTmp.stripSuffix(" ")
@@ -112,7 +112,7 @@ trait ValDefsReader { self: Scala2Reader =>
           case Some((_, Some(value))) => value
           case _                      => EmptyMTerm
         }
-        val sValDef = SValDef(name, tpe, r)
+        val sValDef = SValDef(name, tpe, r, mods.isMutable)
         if (mods.isParamAccessor) {
           if (mods.isParameter)
             Some((newCInfo, Some(sValDef)))
@@ -169,7 +169,6 @@ trait ValDefsReader { self: Scala2Reader =>
         val init    = MTermLoader(cInfo, args.head).get._2.get
         val sigType = init.tpe.asInstanceOf[SignalType].updatedPhysical(Wire)
         val newInfo = cInfo.updatedVal(name, sigType)
-        // isVar onlay support WireInit now
         val wireDef = WireDef(name, sigType, Some(init), isVar)
         (newInfo, Some(wireDef))
       } else if (isChisel3VecInitDoApply(func)) {
@@ -229,12 +228,13 @@ trait ValDefsReader { self: Scala2Reader =>
     def loadNodeDef(
         cInfo: CircuitInfo,
         name: TermName,
-        rhs: Tree
+        rhs: Tree,
+        isVar: Boolean
     ): (CircuitInfo, Option[NodeDef]) = {
       val cExp       = MTermLoader(cInfo, rhs).get._2.get
       val signalInfo = cExp.tpe.asInstanceOf[SignalType].updatedPhysical(Node)
       val newInfo    = cInfo.updatedVal(name, signalInfo)
-      (newInfo, Some(NodeDef(name, signalInfo, cExp)))
+      (newInfo, Some(NodeDef(name, signalInfo, cExp, isVar)))
     }
 
     def loadSubModuleDef(

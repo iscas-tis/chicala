@@ -5,8 +5,9 @@ import scala.tools.nsc.Global
 
 import chicala.util.Format
 import chicala.ast.ChicalaAst
+import chicala.ast.util._
 
-trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
+trait SubModuleCalls extends ChicalaPasss with Transformers with Replacers { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -19,46 +20,50 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
     }
 
     def subModuleCall(moduleDef: ModuleDef): ModuleDef = {
-      val newBody = processMStatements(moduleDef.body, Map.empty)(moduleDef.name)
-      moduleDef.copy(body = newBody)
+      moduleDef.copy(body = expandTopList(moduleDef.body)(moduleDef.name))
     }
 
-    private def processMStatements(
-        body: List[MStatement],
-        replaceMap: Map[String, MStatement]
-    )(implicit moduleName: TypeName): List[MStatement] = {
-      var repMap = Map.empty[String, MStatement]
+    def expandTopList(body: List[MStatement])(implicit moduleName: TypeName): List[MStatement] = {
+      var repMap = Map.empty[MStatement, MStatement]
       body
         .map({
-          case s @ SubModuleDef(name, tpe, args) =>
-            val (ioSigDefs, newRepMap) = ioSignalDefs(name, tpe, tpe.ioDef.name, tpe.ioDef.tpe)
-            repMap = repMap ++ newRepMap
-            List(s) ++ ioSigDefs
-          case x =>
-            List(x.replaced(repMap))
+          Replacer(repMap)(_) match {
+            case s @ SubModuleDef(name, tpe, args) =>
+              val (ioSigDefs, subModuleRun, newRepMap) = expand(s)
+              repMap = repMap ++ newRepMap
+              (s :: ioSigDefs) :+ subModuleRun
+            case x =>
+              val subModuleExpander = new SubModuleExpander()
+              val newStatement      = subModuleExpander(Replacer(repMap)(x))
+              subModuleExpander.pullOutDefs :+ newStatement
+          }
         })
         .flatten
     }
 
-    private def ioSignalDefs(
-        subModuleName: TermName,
-        subModuleType: SubModule,
-        ioName: TermName,
-        ioType: SignalType
-    )(implicit moduleName: TypeName): (List[MStatement], Map[String, MStatement]) = {
+    private def expand(
+        subModuleDef: SubModuleDef
+    )(implicit moduleName: TypeName): (List[MStatement], SubModuleRun, Map[MStatement, MStatement]) = {
+      val SubModuleDef(name, tpe, args) = subModuleDef
+      val subModuleName                 = name
+      val subModuleType                 = tpe
+      val ioName                        = tpe.ioDef.name
+      val ioType                        = tpe.ioDef.tpe
+
       def flattenName(name: String) = s"${subModuleName}_${name}"
 
       val signals       = ioType.flatten(ioName.toString())
       val inputSignals  = signals.filter({ case (name, tpe) => tpe.isInput })
       val outputSignals = signals.filter({ case (name, tpe) => tpe.isOutput })
 
-      val inputDefs = inputSignals.map({ case (name, tpe) =>
+      val ioSigDefs = signals.map({ case (name, tpe) =>
         WireDef(
           TermName(s"${subModuleName}_${name}"),
           tpe.updatedPhysical(Wire).updatedDriction(Undirect),
           None
         )
       })
+
       val inputRefs = inputSignals.map({ case (name, tpe) =>
         SignalRef(
           Select(This(moduleName), flattenName(name)),
@@ -89,7 +94,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
         val flattenName = selectPath.mkString("_")
         (selects, flattenName)
       }
-      def getReplaceMap(tpe: SignalType, prefixs: List[TermName]): Map[String, MStatement] = {
+      def getReplaceMap(tpe: SignalType, prefixs: List[TermName]): Map[MStatement, MStatement] = {
         tpe match {
           case _: GroundType | _: Vec =>
             val (selects, flattenName) = selectIt(prefixs)
@@ -98,7 +103,7 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
               else tpe.updatedPhysical(Node).updatedDriction(Undirect)
             selects
               .map(x =>
-                SignalRef(x, tpe).toString()
+                SignalRef(x, tpe)
                   -> SignalRef(Select(This(moduleName), flattenName), newType)
               )
               .toMap
@@ -110,7 +115,40 @@ trait SubModuleCalls extends ChicalaPasss { self: ChicalaAst =>
       }
       val replaceMap = getReplaceMap(ioType, List(subModuleName, ioName))
 
-      (inputDefs ++ List(subModuleRun), replaceMap)
+      (ioSigDefs, subModuleRun, replaceMap)
+    }
+
+    class SubModuleExpander()(implicit moduleName: TypeName) extends Transformer {
+      var pullOutDefs: List[MStatement] = List.empty
+
+      override def transform(mStatement: MStatement): MStatement = mStatement match {
+        case d @ SDefDef(_, _, _, defp) => d.copy(defp = expandTopSBlockOrOther(defp))
+        case f @ SFunction(_, funcp)    => f.copy(funcp = expandTopSBlockOrOther(funcp).asInstanceOf[MTerm])
+        case b @ SBlock(body, tpe)      => b.copy(body = expandSubList(body))
+        case x                          => super.transform(x)
+      }
+
+      private def expandTopSBlockOrOther(bodyp: MStatement): MStatement = {
+        bodyp match {
+          case SBlock(body, tpe) => SBlock(expandTopList(body), tpe)
+          case x                 => transform(x)
+        }
+      }
+
+      private def expandSubList(body: List[MStatement]): List[MStatement] = {
+        var repMap = Map.empty[MStatement, MStatement]
+        body.map({
+          Replacer(repMap)(_) match {
+            case s @ SubModuleDef(name, tpe, args) =>
+              val (ioSigDefs, subModuleRun, newRepMap) = expand(s)
+              pullOutDefs = pullOutDefs ++ (s :: ioSigDefs)
+              repMap = repMap ++ newRepMap
+              subModuleRun
+            case x => super.transform(x)
+          }
+        })
+      }
+
     }
 
   }

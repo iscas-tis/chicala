@@ -5,8 +5,9 @@ import scala.tools.nsc.Global
 
 import chicala.util.Format
 import chicala.ast.ChicalaAst
+import chicala.ast.util.Transformers
 
-trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
+trait DependencySorts extends ChicalaPasss with Transformers { self: ChicalaAst =>
   val global: Global
   import global._
 
@@ -18,11 +19,19 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
       }
     }
 
-    def getDependencyGraph(moduleDef: ModuleDef): DirectedGraph = {
+    def getDependencyGraph(body: List[MStatement], isModuleTop: Boolean = false)(implicit
+        moduleName: String
+    ): DirectedGraph = {
       import scala.collection.mutable
 
       val vertexs = mutable.Set.empty[Vertex]
       val edges   = mutable.Set.empty[DirectedEdge]
+
+      def mergedMapSet[T1, T2](a: Map[T1, Set[T2]], b: Map[T1, Set[T2]]): Map[T1, Set[T2]] = {
+        b.foldLeft(a) { case (m, (key, set)) =>
+          m.updated(key, m.getOrElse(key, Set.empty) ++ set)
+        }
+      }
 
       def getVertexAndLastConnectDependcy(
           id: Id,
@@ -34,10 +43,7 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             lastMapOne: Map[String, Set[Id]],
             lastMapTwo: Map[String, Set[Id]]
         ): Map[String, Set[Id]] = {
-          lastMapTwo.foldLeft(lastMapOne) { case (m, (key, set)) =>
-            if (m.contains(key)) m.updated(key, m(key) ++ set)
-            else m.updated(key, set)
-          }
+          mergedMapSet(lastMapOne, lastMapTwo)
         }
         def updatedLast(
             last: Map[String, Set[Id]],
@@ -51,6 +57,9 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
         }
 
         statement match {
+          case _: Assert | _: CApply =>
+            vertexs += Vertex(id)
+            last
           case c: Connect =>
             vertexs += Vertex(id)
             updatedLast(last, id, c.relatedIdents.fully)
@@ -59,23 +68,26 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             updatedLast(
               last,
               id,
-              statement.relatedIdents.fully
-                .map(moduleDef.name.toString() + ".this." + _)
+              if (isModuleTop)
+                statement.relatedIdents.fully
+                  .map(moduleName + ".this." + _)
+              else
+                statement.relatedIdents.fully
             )
-          case a: Assert =>
-            vertexs += Vertex(id)
-            last
           case w: When =>
-            val whenLast  = getVertexAndLastConnectDependcyFromList(id :+ 1, w.whenBody, last)
-            val otherLast = getVertexAndLastConnectDependcyFromList(id :+ 2, w.otherBody, last)
+            val whenLast  = getVertexAndLastConnectDependcy(id :+ 1, w.whenp, last)
+            val otherLast = getVertexAndLastConnectDependcy(id :+ 2, w.otherp, last)
             mergedTwoBranchLast(whenLast, otherLast)
           case switch: Switch =>
-            switch.branchs
-              .map(_._2)
-              .zip((1 to switch.branchs.size).map(id :+ _))
-              .map({ case (body, subId) => getVertexAndLastConnectDependcyFromList(subId, body, last) })
+            id.asPrefixZipWith(
+              switch.branchs
+                .map(_._2)
+            ).map({ case (subId, branchp) => getVertexAndLastConnectDependcy(subId, branchp, last) })
               .foldLeft(last)(mergedTwoBranchLast(_, _))
 
+          case _: STuple =>
+            vertexs += Vertex(id)
+            last
           case sApply: SApply =>
             vertexs += Vertex(id)
             updatedLast(last, id, sApply.relatedIdents.fully)
@@ -85,27 +97,30 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             mergedTwoBranchLast(thenLast, elseLast)
           case sBlock: SBlock =>
             getVertexAndLastConnectDependcyFromList(id, sBlock.body, last)
+          case sAssign: SAssign =>
+            vertexs += Vertex(id)
+            last
+
           case EmptyMTerm =>
             last
           case _ =>
             reporter.error(
               NoPosition,
-              s"Not processed ${moduleDef.name} statement in " +
+              s"Not processed ${moduleName} statement in " +
                 "ToplogicalSort.getDependencyGraph.getVertexAndLastConnectDependcy:\n" +
                 s"  ${statement.toString()}"
             )
             last
         }
       }
-
       def getVertexAndLastConnectDependcyFromList(
           idPrefix: Id,
           statements: List[MStatement],
           lastConnect: Map[String, Set[Id]]
       ): Map[String, Set[Id]] = {
-        statements
-          .zip((1 to statements.length).map(idPrefix :+ _))
-          .foldLeft(lastConnect)({ case (last, (statement, id)) =>
+        idPrefix
+          .asPrefixZipWith(statements)
+          .foldLeft(lastConnect)({ case (last, (id, statement)) =>
             getVertexAndLastConnectDependcy(id, statement, last)
           })
       }
@@ -127,8 +142,8 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
             }
           case w: When =>
             val newDependency = dependency ++ w.cond.relatedIdents.dependency
-            getConnectDependcyFromList(id :+ 1, w.whenBody, lastConnect, newDependency)
-            getConnectDependcyFromList(id :+ 2, w.otherBody, lastConnect, newDependency)
+            getConnectDependcy(id :+ 1, w.whenp, lastConnect, newDependency)
+            getConnectDependcy(id :+ 2, w.otherp, lastConnect, newDependency)
           case sIf: SIf =>
             getConnectDependcy(id :+ 1, sIf.thenp, lastConnect, dependency)
             getConnectDependcy(id :+ 2, sIf.elsep, lastConnect, dependency)
@@ -137,40 +152,112 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
               * `Lit` that has no dependency
               */
             val newDependency = dependency ++ switch.cond.relatedIdents.dependency
-            switch.branchs
-              .zip((1 to switch.branchs.size).map(id :+ _))
-              .foreach { case ((v, body), idPrefix) =>
-                getConnectDependcyFromList(idPrefix, body, lastConnect, newDependency)
-              }
+            id.asPrefixZipWith(
+              switch.branchs
+            ).foreach { case (subId, (v, branchp)) =>
+              getConnectDependcy(subId, branchp, lastConnect, newDependency)
+            }
+          case sBlock: SBlock =>
+            getConnectDependcyFromList(id, sBlock.body, lastConnect, dependency)
           case EmptyMTerm =>
           case s =>
             edges ++= (dependency ++ s.relatedIdents.dependency)
-              .map(lastConnect(_))
+              .map(lastConnect.getOrElse(_, Set.empty))
               .flatten
               .map(x => DirectedEdge(Vertex(id), Vertex(x)))
         }
       }
-
       def getConnectDependcyFromList(
           idPrefix: Id,
           statements: List[MStatement],
           lastConnect: Map[String, Set[Id]],
           dependency: Set[String]
       ): Unit = {
-        statements
-          .zip((1 to statements.length).map(idPrefix :+ _))
-          .foreach { case (statement, id) =>
+        idPrefix
+          .asPrefixZipWith(statements)
+          .foreach { case (id, statement) =>
             getConnectDependcy(id, statement, lastConnect, dependency)
           }
       }
 
-      val lastConnect = getVertexAndLastConnectDependcyFromList(Id.empty, moduleDef.body, Map.empty)
-      getConnectDependcyFromList(Id.empty, moduleDef.body, lastConnect, Set.empty)
+      case class Previous(updated: Map[String, Set[Id]], used: Map[String, Set[Id]])
+      object Previous { def empty = Previous(Map.empty, Map.empty) }
+      def mergedTwoBranchPrevious(previous1: Previous, previous2: Previous): Previous = {
+        val updated = mergedMapSet(previous1.updated, previous2.updated)
+        val used    = mergedMapSet(previous1.used, previous2.used)
+        Previous(updated, used)
+      }
+      def getScalaValDependcy(
+          id: Id,
+          statement: MStatement,
+          previous: Previous,
+          used: Set[String]
+      ): Previous = {
+        def addDependcy(relatedIdents: RelatedIdents) = {
+          edges ++= (
+            // write after read
+            relatedIdents.updated
+              .map(previous.used.getOrElse(_, Set.empty)) ++
+              // write after write
+              relatedIdents.updated
+                .map(previous.updated.getOrElse(_, Set.empty)) ++
+              // read after write
+              relatedIdents.usedAll
+                .map(previous.updated.getOrElse(_, Set.empty))
+          ).flatten
+            .map(x => DirectedEdge(Vertex(id), Vertex(x)))
+        }
+        def updatePrevious(relatedIdents: RelatedIdents): Previous = {
+          Previous(
+            relatedIdents.updated
+              .foldLeft(previous.updated)((p, n) => p.updated(n, Set(id))),
+            relatedIdents.usedAll
+              .foldLeft(previous.used)((p, n) => p.updated(n, p.getOrElse(n, Set.empty) ++ Set(id)))
+          )
+        }
+
+        statement match {
+          case sIf: SIf =>
+            val ud           = used ++ sIf.cond.relatedIdents.usedAll
+            val thenPrevious = getScalaValDependcy(id :+ 1, sIf.thenp, previous, ud)
+            val elsePrevious = getScalaValDependcy(id :+ 2, sIf.elsep, previous, ud)
+            mergedTwoBranchPrevious(thenPrevious, elsePrevious)
+          case sBlock: SBlock =>
+            getScalaValDependcyFromList(id, sBlock.body, previous, used)
+          case when: When =>
+            val ud           = used ++ when.cond.relatedIdents.usedAll
+            val whenPrevious = getScalaValDependcy(id :+ 1, when.whenp, previous, ud)
+            val elsePrevious = getScalaValDependcy(id :+ 2, when.otherp, whenPrevious, ud)
+            elsePrevious
+          case EmptyMTerm =>
+            previous
+          case x =>
+            val relatedIdents = x.relatedIdents ++ RelatedIdents.used(used)
+            addDependcy(relatedIdents)
+            updatePrevious(relatedIdents)
+        }
+      }
+      def getScalaValDependcyFromList(
+          idPrefix: Id,
+          statements: List[MStatement],
+          previous: Previous,
+          used: Set[String]
+      ): Previous = {
+        idPrefix
+          .asPrefixZipWith(statements)
+          .foldLeft(previous)({ case (pre, (id, statement)) =>
+            getScalaValDependcy(id, statement, pre, used)
+          })
+      }
+
+      val lastConnect = getVertexAndLastConnectDependcyFromList(Id.empty, body, Map.empty)
+      getConnectDependcyFromList(Id.empty, body, lastConnect, Set.empty)
+      getScalaValDependcyFromList(Id.empty, body, Previous.empty, Set.empty)
 
       DirectedGraph(vertexs.toSet, edges.toSet)
     }
 
-    def reorder(moduleDef: ModuleDef, topologicalOrder: List[Id]) = {
+    def reorder(body: List[MStatement], topologicalOrder: List[Id]) = {
 
       def mergeId(idList: List[Id]): List[(Int, List[Id])] = {
         // merge adjacent IDs have same first-level index
@@ -218,22 +305,23 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
                 val merged = mergeId(restList)
                 val parts  = splitParts(merged, 2)
                 parts.map(_.toMap).map { mergedOne =>
-                  val whenBody =
-                    if (mergedOne.contains(1)) doReorderList(w.whenBody, mergedOne(1))
-                    else List.empty
-                  val otherBody =
-                    if (mergedOne.contains(2)) doReorderList(w.otherBody, mergedOne(2))
-                    else List.empty
+                  val whenp =
+                    if (mergedOne.contains(1)) doReorder(w.whenp, mergedOne(1)).head
+                    else EmptyMTerm
+                  val otherp =
+                    if (mergedOne.contains(2)) doReorder(w.otherp, mergedOne(2)).head
+                    else EmptyMTerm
                   val hasElseWhen =
-                    if (w.hasElseWhen && otherBody.nonEmpty) true
+                    if (w.hasElseWhen && otherp.nonEmpty) true
                     else false
-                  When(w.cond, whenBody, otherBody, hasElseWhen)
+                  When(w.cond, whenp, otherp, hasElseWhen)
                 }
               case sIf: SIf =>
                 val merged = mergeId(restList)
                 val parts  = splitParts(merged, 2)
 
                 parts.map(_.toMap).map { mergedOne =>
+                  // FIXME: use MTerm, use SBlock wrap SDef
                   val thenp =
                     if (mergedOne.contains(1)) doReorder(sIf.thenp, mergedOne(1)).head.asInstanceOf[MTerm]
                     else EmptyMTerm
@@ -248,14 +336,19 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
                 val branchsArr = switch.branchs.toIndexedSeq
                 parts.map { ls =>
                   val branchs = ls.map { case (index, rest) =>
-                    val body = doReorderList(branchsArr(index - 1)._2, rest)
-                    (branchsArr(index - 1)._1, body)
+                    val body = doReorder(branchsArr(index - 1)._2, rest)
+                    assert(body.size == 1, "should have only one statement") // FIXME
+                    (branchsArr(index - 1)._1, body.head)
                   }
                   Switch(switch.cond, branchs)
                 }
 
               case sBlock: SBlock =>
-                doReorderList(sBlock.body, restList)
+                doReorderList(sBlock.body, restList) match {
+                  case Nil         => List(EmptyMTerm)
+                  case head :: Nil => List(head)
+                  case ls          => List(SBlock(ls, sBlock.tpe))
+                }
               case s =>
                 reporter.error(
                   NoPosition,
@@ -266,26 +359,38 @@ trait DependencySorts extends ChicalaPasss { self: ChicalaAst =>
         }
       }
 
-      moduleDef.copy(body = doReorderList(moduleDef.body, topologicalOrder))
+      doReorderList(body, topologicalOrder)
+    }
+
+    class ReorderSubFieldTransFormer(implicit moduleName: String) extends Transformer {
+      def reorderTopSBlockOrOther(bodyp: MStatement): MStatement = {
+        bodyp match {
+          case SBlock(body, tpe) => SBlock(reorderTopList(body), tpe)
+          case x                 => transform(x)
+        }
+      }
+      override def transform(mStatement: MStatement): MStatement = mStatement match {
+        case s @ SDefDef(_, _, _, defp) =>
+          s.copy(defp = reorderTopSBlockOrOther(defp))
+        case f @ SFunction(_, funcp) =>
+          f.copy(funcp = reorderTopSBlockOrOther(funcp).asInstanceOf[MTerm])
+
+        case x => super.transform(x)
+      }
+    }
+
+    def reorderTopList(body: List[MStatement], isModuleTop: Boolean = false)(implicit
+        moduleName: String
+    ): List[MStatement] = {
+      val reorderSubField  = new ReorderSubFieldTransFormer
+      val newBody          = body.map(reorderSubField(_))
+      val dependencyGraph  = getDependencyGraph(newBody, isModuleTop)
+      val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
+      reorder(newBody, topologicalOrder)
     }
 
     def dependencySort(moduleDef: ModuleDef): ModuleDef = {
-      val pathPrefix = s"./test_run_dir/chiselToScala/test/${moduleDef.fullName.replace('.', '/')}"
-
-      Format.saveToFile(
-        s"${pathPrefix}.related.scala",
-        moduleDef.body
-          .map(s => s.toString() + "\n" + s.relatedIdents + "\n\n")
-          .fold("")(_ + _)
-      )
-
-      val dependencyGraph  = getDependencyGraph(moduleDef)
-      val topologicalOrder = dependencyGraph.toplogicalSort(layer = false)
-
-      Format.saveToFile(s"${pathPrefix}.dot", dependencyGraph.toDot)
-      Format.saveToFile(s"${pathPrefix}.order.scala", topologicalOrder.toString())
-
-      reorder(moduleDef, topologicalOrder)
+      moduleDef.copy(body = reorderTopList(moduleDef.body, true)(moduleDef.name.toString()))
     }
   }
 }
@@ -315,6 +420,10 @@ case class Id(val seq: List[Int]) extends Ordered[Id] {
   }
   def toNameString: String = {
     s"p${toPointString.replace(".", "x")}"
+  }
+
+  def asPrefixZipWith[T](seq: Seq[T]): Seq[(Id, T)] = {
+    seq.zipWithIndex.map({ case (t, i) => (this :+ (i + 1), t) })
   }
 
   def :+(number: Int): Id = Id(seq :+ number)

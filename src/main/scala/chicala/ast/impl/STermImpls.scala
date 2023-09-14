@@ -15,13 +15,8 @@ trait STermImpls { self: ChicalaAst =>
   }
 
   trait SApplyImpl { self: SApply =>
-    override val relatedIdents = {
-      val argsDependency = args
-        .filter(_.tpe.isSignalType)
-        .map(_.relatedIdents.dependency)
-        .foldLeft(Set.empty[String])(_ ++ _)
-      // FIXME: inner block dependency
-      RelatedIdents(Set.empty, Set.empty, argsDependency)
+    val relatedIdents = {
+      args.map(_.relatedIdents).foldLeft(RelatedIdents.empty)(_ ++ _) ++ fun.relatedIdents
     }
 
     override def replaced(r: Map[String, MStatement]): SApply = {
@@ -33,28 +28,60 @@ trait STermImpls { self: ChicalaAst =>
       }
     }
   }
+  trait SSelectImpl { self: SSelect =>
+    // FIXME
+    val relatedIdents = RelatedIdents.empty
+  }
 
   trait SBlockImpl { self: SBlock =>
-    override val relatedIdents =
-      if (body.isEmpty) RelatedIdents.empty
-      else body.map(_.relatedIdents).reduce(_ ++ _)
-  }
+    val relatedIdents = {
+      val newIdent = body
+        .filter({
+          case _: MDef => true
+          case _       => false
+        })
+        .map(x => x.relatedIdents.updated ++ x.relatedIdents.fully)
+        .foldLeft(Set.empty[String])(_ ++ _)
 
-  trait SForImpl { self: SFor =>
-    val tpe: MType = EmptyMType
-  }
-  trait SIfImpl { self: SIf =>
-    override val relatedIdents = {
-      val thenRS     = thenp.relatedIdents
-      val elseRS     = elsep.relatedIdents
-      val fully      = thenRS.fully.intersect(elseRS.fully)
-      val partially  = thenRS.partially ++ elseRS.partially ++ (thenRS.fully ++ elseRS.fully -- fully)
-      val dependency = thenRS.dependency ++ elseRS.dependency ++ cond.relatedIdents.dependency
-      RelatedIdents(fully, partially, dependency)
+      body
+        .map(_.relatedIdents)
+        .foldLeft(RelatedIdents.empty)(_ ++ _)
+        .removedAll(newIdent)
     }
   }
+
+  trait SLiteralImpl { self: SLiteral =>
+    val relatedIdents = RelatedIdents.empty
+  }
+  trait SIdentImpl { self: SIdent =>
+    val relatedIdents = RelatedIdents.used(Set(name.toString()))
+  }
+
+  trait SIfImpl { self: SIf =>
+    val relatedIdents = {
+      val thenRI = thenp.relatedIdents
+      val elseRI = elsep.relatedIdents
+      val condRI = cond.relatedIdents
+      val sum    = thenRI ++ elseRI ++ condRI
+
+      val fully     = thenRI.fully.intersect(elseRI.fully)
+      val partially = thenRI.partially ++ elseRI.partially ++ (thenRI.fully ++ elseRI.fully -- fully)
+
+      sum.copy(fully = fully, partially = partially)
+    }
+  }
+
+  trait SMatchImpl { self: SMatch =>
+    // FIXME
+    val relatedIdents = RelatedIdents.empty
+  }
+  trait SCaseDefImpl { self: SCaseDef =>
+    // FIXME
+    val relatedIdents = RelatedIdents.empty
+  }
+
   trait STupleImpl { self: STuple =>
-    override val relatedIdents = args.map(_.relatedIdents).reduce(_ ++ _)
+    val relatedIdents = args.map(_.relatedIdents).reduce(_ ++ _)
 
     override def replaced(r: Map[String, MStatement]): STuple = {
       replacedThis(r) match {
@@ -68,10 +95,16 @@ trait STermImpls { self: ChicalaAst =>
 
     def size = args.size
   }
+  trait SLibImpl { self: SLib =>
+    val relatedIdents = RelatedIdents.empty
+  }
   trait SFunctionImpl { self: SFunction =>
-    val tpe = StFunc
+    val tpe           = StFunc
+    val relatedIdents = funcp.relatedIdents
   }
   trait SAssignImpl { self: SAssign =>
     val tpe = lhs.tpe
+    val relatedIdents =
+      RelatedIdents(Set.empty, Set.empty, Set.empty, lhs.relatedIdents.usedAll, rhs.relatedIdents.usedAll)
   }
 }

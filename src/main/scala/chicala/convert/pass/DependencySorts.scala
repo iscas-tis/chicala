@@ -492,6 +492,8 @@ case class DirectedGraph(val vertexs: Set[Vertex], edges: Set[DirectedEdge]) {
       }
     }
 
+    assert(revList.size == vertexs.size, "Toplogical sort failed")
+
     revList.reverse
   }
 }

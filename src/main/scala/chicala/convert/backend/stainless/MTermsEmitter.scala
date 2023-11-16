@@ -14,19 +14,19 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
     implicit class MTermEmitter(mTerm: MTerm) {
       def toCode: String = toCode(false)
       def toCode(isLeftSide: Boolean): String = mTerm match {
-        case s: SignalRef       => signalRefCode(s, isLeftSide)
-        case c: CApply          => cApplyCode(c)
-        case l: Lit             => litCode(l)
-        case a: Assert          => assertCode(a)
-        case s: SApply          => sApplyCode(s)
-        case s: SSelect         => sSelectCode(s)
-        case s: STuple          => sTupleCode(s)
-        case s: SLib            => sLibCode(s)
-        case s: SFunction       => s.toCodeLines.toCode
-        case s: SIf             => s"(${s.toCodeLines.toCode})"
-        case SIdent(name, _)    => name.toString()
-        case SLiteral(value, _) => value.toString()
-        case _                  => s"TODO(Code ${mTerm})"
+        case s: SignalRef    => signalRefCode(s, isLeftSide)
+        case c: CApply       => cApplyCode(c)
+        case l: Lit          => litCode(l)
+        case a: Assert       => assertCode(a)
+        case s: SApply       => sApplyCode(s)
+        case s: SSelect      => sSelectCode(s)
+        case s: STuple       => sTupleCode(s)
+        case s: SLib         => sLibCode(s)
+        case s: SLiteral     => sLiteralCode(s)
+        case s: SFunction    => s.toCodeLines.toCode
+        case s: SIf          => s"(${s.toCodeLines.toCode})"
+        case SIdent(name, _) => name.toString()
+        case _               => s"TODO(Code ${mTerm})"
       }
       def toCodeLines: CodeLines = mTerm match {
         case _: SignalRef | _: CApply | _: Assert | _: STuple | _: SLiteral | _: SApply | _: SIdent | _: SSelect |
@@ -249,6 +249,14 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
           case "scala.`package`.Nil" => "Nil"
 
           case _ => s"TODO(sLibCode ${sLib})"
+        }
+      }
+      private def sLiteralCode(sLiteral: SLiteral): String = {
+        sLiteral.tpe match {
+          case StString =>
+            s"\"${sLiteral.value.toString()}\""
+          case _ =>
+            sLiteral.value.toString()
         }
       }
       private def connectCL(cnt: Connect): CodeLines = {

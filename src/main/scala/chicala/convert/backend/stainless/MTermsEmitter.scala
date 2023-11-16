@@ -4,6 +4,7 @@ import scala.tools.nsc.Global
 
 import chicala.ast.ChicalaAst
 import chicala.convert.backend.util._
+import chicala.ChicalaConfig
 
 trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
   val global: Global
@@ -193,9 +194,10 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
 
               case "scala.`package`.Range.apply" => s"Range(${args})"
               case "scala.`package`.Seq.apply" =>
+                val SeqTpe = if (ChicalaConfig.simulation) "Seq" else "List"
                 sApply.args match {
-                  case Nil          => s"List[${sApply.tpe.asInstanceOf[StSeq].tparam.toCode}]()"
-                  case head :: next => s"List(${args})"
+                  case Nil          => s"${SeqTpe}[${sApply.tpe.asInstanceOf[StSeq].tparam.toCode}]()"
+                  case head :: next => s"${SeqTpe}(${args})"
                 }
 
               case "scala.Array.fill" => s"List.fill(${args})"

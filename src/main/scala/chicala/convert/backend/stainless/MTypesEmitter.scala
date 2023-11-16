@@ -4,6 +4,7 @@ import scala.tools.nsc.Global
 
 import chicala.ast.ChicalaAst
 import chicala.convert.backend.util._
+import chicala.ChicalaConfig
 
 trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
   val global: Global
@@ -22,7 +23,7 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
           }
         case sType: SType =>
           sType match {
-            case StInt            => "BigInt"
+            case StInt            => if (ChicalaConfig.simulation) "Int" else "BigInt"
             case StBigInt         => "BigInt"
             case StBoolean        => "Boolean"
             case StTuple(tparams) => s"(${tparams.map(_.toCode).mkString(", ")})"

@@ -12,6 +12,7 @@ import chicala.convert.frontend.Scala2Reader
 import chicala.util.Printer
 import chicala.convert.backend.stainless.StainlessEmitter
 import chicala.convert.pass._
+import chicala.ChicalaConfig
 
 object ChiselToScalaComponent {
   val phaseName = "chiselToScala"
@@ -128,10 +129,16 @@ class ChiselToScalaComponent(val global: Global) extends PluginComponent {
 
               sortedCClassDef match {
                 case m: ModuleDef =>
-                  Format.saveToFile(
-                    outputDir + s"/${name}.stainless.scala",
-                    EmitStainless(m)
-                  )
+                  if (ChicalaConfig.simulation == false)
+                    Format.saveToFile(
+                      outputDir + s"/${name}.stainless.scala",
+                      EmitStainless(m)
+                    )
+                  else
+                    Format.saveToFile(
+                      outputDir + s"/${name}.simscala.scala",
+                      EmitStainless(m)
+                    )
                 case _ =>
               }
 

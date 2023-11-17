@@ -200,7 +200,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
                   case head :: next => s"${SeqTpe}(${args})"
                 }
 
-              case "scala.Array.fill" => s"List.fill(${args})"
+              case "scala.Array.fill" => if (ChicalaConfig.simulation) s"Seq.fill(${args})" else s"List.fill(${args})"
 
               case _ => s"TODO(sApplyCode SLib ${name}(${args}))"
             }

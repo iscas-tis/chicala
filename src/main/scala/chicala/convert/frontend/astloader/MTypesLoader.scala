@@ -122,8 +122,13 @@ trait MTypesLoader { self: Scala2Reader =>
       val typeStr = tpe.toString()
       List(
         "IndexedSeq",
-        "Array",
         "Seq"
+      ).exists(typeStr.startsWith(_))
+    }
+    private def isArray(tpe: Type): Boolean = {
+      val typeStr = tpe.toString()
+      List(
+        "Array"
       ).exists(typeStr.startsWith(_))
     }
 
@@ -141,6 +146,12 @@ trait MTypesLoader { self: Scala2Reader =>
           case Nil          => StAny
         }
         Some(StSeq(tparam))
+      } else if (isArray(tpe)) {
+        val tparam = tpe.typeArgs match {
+          case head :: next => MTypeLoader.fromTpt(TypeTree(head)).get
+          case Nil          => StAny
+        }
+        Some(StArray(tparam))
       } else if (wrappedTypes.exists(tpe.toString().startsWith(_))) {
         Some(StWrapped(tpe.toString()))
       } else {

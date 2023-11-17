@@ -27,8 +27,13 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
             case StBigInt         => "BigInt"
             case StBoolean        => "Boolean"
             case StTuple(tparams) => s"(${tparams.map(_.toCode).mkString(", ")})"
-            case StSeq(tparam)    => s"List[${tparam.toCode}]"
-            case StUnit           => "Unit"
+            case StSeq(tparam) =>
+              if (ChicalaConfig.simulation) s"Seq[${tparam.toCode}]"
+              else s"List[${tparam.toCode}]"
+            case StArray(tparam) =>
+              if (ChicalaConfig.simulation) s"Seq[${tparam.toCode}]"
+              else s"List[${tparam.toCode}]"
+            case StUnit => "Unit"
 
             case StWrapped("Nothing") => "Nothing"
             case x                    => s"TODO(SType $x)"

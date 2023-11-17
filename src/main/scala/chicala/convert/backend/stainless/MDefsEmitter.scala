@@ -57,11 +57,15 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         CodeLines(s"val ${name} = ${moduleName}()")
       }
       private def sValDefCL(sValDef: SValDef): CodeLines = {
-        val name    = sValDef.name.toString()
-        val rhs     = sValDef.rhs.toCodeLines
-        val keyword = if (sValDef.isVar) "var" else "val"
-
-        CodeLines(s"${keyword} ${name} = ").concatLastLine(rhs)
+        val name = sValDef.name.toString()
+        val rhs  = sValDef.rhs.toCodeLines
+        val keyword =
+          if (sValDef.isVar || sValDef.tpe.isInstanceOf[StArray]) "var"
+          else "val"
+        if (rhs.toCode.contains("Nothing"))
+          CodeLines(s"${keyword} ${name}: ${sValDef.tpe.toCode} = ").concatLastLine(rhs)
+        else
+          CodeLines(s"${keyword} ${name} = ").concatLastLine(rhs)
       }
       private def sUnapplyDefCL(sUnapplyDef: SUnapplyDef): CodeLines = {
         val left  = sUnapplyDef.names.map(_.toString()).mkString(", ")

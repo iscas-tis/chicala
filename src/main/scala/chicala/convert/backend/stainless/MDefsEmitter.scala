@@ -12,8 +12,10 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
   trait MDefEmitterImplicit { self: StainlessEmitterImplicit =>
     implicit class MDefEmitter(mDef: MDef) {
       def toCode: String = mDef match {
-        case _: IoDef => s"DONOTCALLME(Code ${mDef})"
-        case _        => s"TODO(Code ${mDef})"
+        case _: IoDef =>
+          reporter.error(NoPosition, s"DONOTCALLME(Code ${mDef})")
+          s"DONOTCALLME(Code ${mDef})"
+        case _ => TODO(s"Code ${mDef}")
       }
 
       def toCodeLines: CodeLines = mDef match {
@@ -25,7 +27,7 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SValDef           => sValDefCL(s)
         case s: SUnapplyDef       => sUnapplyDefCL(s)
         case s: SDefDef           => sDefDefCL(s)
-        case _                    => CodeLines(s"TODO(CL ${mDef})")
+        case _                    => CodeLines(TODO(s"CL ${mDef}"))
       }
 
       private def wireDefCL(wireDef: WireDef): CodeLines = {

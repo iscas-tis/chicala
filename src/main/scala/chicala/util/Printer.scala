@@ -62,4 +62,12 @@ trait Printer extends Format {
     reporter.error(pos, msg)
     stackTraces.drop(3 + tracesExtDrop).map(println(_))
   }
+
+  object TODO {
+    def apply(msg: String): String = {
+      val m = s"TODO(${msg})"
+      reportWaining(NoPosition, m)
+      m
+    }
+  }
 }

@@ -341,7 +341,9 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         )
         val regs = s"${moduelFullName}Regs()"
 
-        val outputName = s"${n}TransOutputs"
+        // `outputName` used in `val (outputName, _) = ...`, can not start with
+        // upper case. Add `t$` to avoid
+        val outputName = s"t$$${n}TransOutputs"
 
         CodeLines(
           s"val (${outputName}, _) = ${n}.trans(",

@@ -15,11 +15,13 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
       def toCode: String = tpe match {
         case cType: CType =>
           cType match {
-            case _: UInt           => "UInt"
-            case _: SInt           => "SInt"
-            case _: Bool           => "Bool"
-            case Vec(_, _, tparam) => s"List[${tparam.toCode}]"
-            case x                 => TODO(s"$x")
+            case _: UInt => "UInt"
+            case _: SInt => "SInt"
+            case _: Bool => "Bool"
+            case Vec(_, _, tparam) =>
+              if (ChicalaConfig.simulation) s"Seq[${tparam.toCode}]"
+              else s"List[${tparam.toCode}]"
+            case x => TODO(s"$x")
           }
         case sType: SType =>
           sType match {
@@ -47,8 +49,12 @@ trait MTypesEmitter { self: StainlessEmitter with ChicalaAst =>
         case Bool(physical, direction)                   => s"${tpe.toCode}.empty()"
         case UInt(width: KnownSize, physical, direction) => s"${tpe.toCode}.empty(${width.width.toCode})"
         case SInt(width: KnownSize, physical, direction) => s"${tpe.toCode}.empty(${width.width.toCode})"
-        case Vec(size: KnownSize, physical, tparam)      => s"List.fill(${size.width.toCode})(${tparam.toCode_empty})"
-        case _                                           => TODO(s"$tpe")
+        case Vec(size: KnownSize, physical, tparam) =>
+          if (ChicalaConfig.simulation)
+            s"Seq.fill(${size.width.toCode})(${tparam.toCode_empty})"
+          else
+            s"List.fill(${size.width.toCode})(${tparam.toCode_empty})"
+        case _ => TODO(s"$tpe")
       }
       def toCode_regNextInit(name: String): String = s"var ${name}_next = regs.${name}"
     }

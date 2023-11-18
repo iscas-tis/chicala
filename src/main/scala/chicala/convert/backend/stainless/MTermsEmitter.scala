@@ -261,28 +261,42 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       }
       private def connectCL(cnt: Connect): CodeLines = {
         cnt.expands
-          .map(connect =>
+          .map[CodeLines](connect =>
             connect.left match {
-              case CApply(VecSelect, tpe, operands) =>
+              case CApply(VecSelect, t, operands) =>
+                val tpe  = operands.head.tpe
                 val left = operands.head.toCode(true)
                 val idx  = operands.tail.head.toCode
                 val expr = connect.expr.toCodeLines
                 CodeLines.warpToOneLine(
-                  s"${left} = ${left}.updated(${idx}, ",
-                  expr.indented,
+                  s"${left} = ${left}.updated[${t.toCode}, ${tpe.toCode}](${idx}, ",
+                  CodeLines(s"${left}(${idx}) := ").concatLastLine(expr).indented,
                   ")"
                 )
-              case SignalRef(_, _) =>
+              case SignalRef(_, tpe) =>
                 val left = connect.left.toCode(true)
                 val expr = connect.expr.toCodeLines
-                if (expr.lines.head.startsWith("if"))
-                  CodeLines.warpToOneLine(
-                    s"${left} = ${left} := (",
-                    expr.indented,
-                    ")"
-                  )
-                else
-                  s"${left} = ${left} := ".concatLastLine(expr)
+                tpe match {
+                  case Vec(_, _, t) =>
+                    // s"${left} = ".concatLastLine(expr).concatLastLine(s": ${tpe.toCode}")
+                    CodeLines(
+                      s"(0 until ${left}.length)",
+                      s"  .zip(${expr.toCode})",
+                      if (ChicalaConfig.simulation)
+                        s"  .foreach { case (i, s) => ${left} = ${left}.updated[${t.toCode}, Seq[${t.toCode}]](i, ${left}(i) := s)}"
+                      else
+                        s"  .foreach { case (i, s) => ${left} = ${left}.updated[${t.toCode}, List[${t.toCode}]](i, ${left}(i) := s)}"
+                    )
+                  case _ =>
+                    if (expr.lines.head.startsWith("if"))
+                      CodeLines.warpToOneLine(
+                        s"${left} = ${left} := (",
+                        expr.indented,
+                        ")"
+                      )
+                    else
+                      s"${left} = ${left} := ".concatLastLine(expr)
+                }
               case _ =>
                 CodeLines(s"Unsupport(${connect})")
             }

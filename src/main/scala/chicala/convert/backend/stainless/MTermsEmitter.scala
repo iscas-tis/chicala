@@ -323,7 +323,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       private def switchCL(switch: Switch): CodeLines = {
         val signal = switch.cond.toCode
         val branchs = switch.branchs.map { case (value, branchp) =>
-          CodeLines(s"if (${signal} == ${value.toCode}) ")
+          CodeLines(s"if ((${signal} === ${value.toCode}).value) ")
             .concatLastLine(branchp.toCodeLines)
         }
         branchs.reduceRight((a, b) => a.concatLastLine(" else ".concatLastLine(b)))

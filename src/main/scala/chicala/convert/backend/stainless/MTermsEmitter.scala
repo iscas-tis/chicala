@@ -184,8 +184,12 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
             }
           case SLib(name, tpe) =>
             name match {
-              case "scala.`package`.BigInt.apply" | "scala.Predef.intWrapper" | "math.this.BigInt.int2bigInt" |
-                  "scala.Predef.ArrowAssoc" | "scala.Predef.refArrayOps" =>
+              case "scala.`package`.BigInt.apply" =>
+                if (ChicalaConfig.simulation) s"BigInt($args)"
+                else args
+              case "scala.Predef.intWrapper" | "math.this.BigInt.int2bigInt" =>
+                args
+              case "scala.Predef.ArrowAssoc" | "scala.Predef.refArrayOps" =>
                 args
 
               case "chisel3.util.log2Up.apply"    => s"log2Up(${args})"

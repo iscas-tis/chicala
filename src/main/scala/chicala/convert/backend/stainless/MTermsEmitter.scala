@@ -4,6 +4,7 @@ import scala.tools.nsc.Global
 
 import chicala.ast.ChicalaAst
 import chicala.convert.backend.util._
+import chicala.ChicalaConfig
 
 trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
   val global: Global
@@ -13,19 +14,19 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
     implicit class MTermEmitter(mTerm: MTerm) {
       def toCode: String = toCode(false)
       def toCode(isLeftSide: Boolean): String = mTerm match {
-        case s: SignalRef       => signalRefCode(s, isLeftSide)
-        case c: CApply          => cApplyCode(c)
-        case l: Lit             => litCode(l)
-        case a: Assert          => assertCode(a)
-        case s: SApply          => sApplyCode(s)
-        case s: SSelect         => sSelectCode(s)
-        case s: STuple          => sTupleCode(s)
-        case s: SLib            => sLibCode(s)
-        case s: SFunction       => s.toCodeLines.toCode
-        case s: SIf             => s"(${s.toCodeLines.toCode})"
-        case SIdent(name, _)    => name.toString()
-        case SLiteral(value, _) => value.toString()
-        case _                  => s"TODO(Code ${mTerm})"
+        case s: SignalRef    => signalRefCode(s, isLeftSide)
+        case c: CApply       => cApplyCode(c)
+        case l: Lit          => litCode(l)
+        case a: Assert       => assertCode(a)
+        case s: SApply       => sApplyCode(s)
+        case s: SSelect      => sSelectCode(s)
+        case s: STuple       => sTupleCode(s)
+        case s: SLib         => sLibCode(s)
+        case s: SLiteral     => sLiteralCode(s)
+        case s: SFunction    => s.toCodeLines.toCode
+        case s: SIf          => s"(${s.toCodeLines.toCode})"
+        case SIdent(name, _) => name.toString()
+        case _               => TODO(s"Code ${mTerm}")
       }
       def toCodeLines: CodeLines = mTerm match {
         case _: SignalRef | _: CApply | _: Assert | _: STuple | _: SLiteral | _: SApply | _: SIdent | _: SSelect |
@@ -40,7 +41,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SFunction    => sFunctionCL(s)
         case s: SAssign      => sAssignCL(s)
         case EmptyMTerm      => CodeLines("()")
-        case _               => CodeLines(s"TODO(CL ${mTerm})")
+        case _               => CodeLines(TODO(s"CL ${mTerm}"))
       }
 
       private def signalRefCode(signalRef: SignalRef, isLeftSide: Boolean = false): String = {
@@ -49,7 +50,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
             case Ident(name)             => name.toString()
             case Select(This(_), name)   => name.toString()
             case Select(qualifier, name) => s"${getNameFromTree(qualifier)}_${name}"
-            case _                       => s"TODO(signalRefCode ${tree})"
+            case _                       => TODO(s"signalRefCode ${tree}")
           }
         }
         val baseName = getNameFromTree(signalRef.name)
@@ -113,7 +114,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               s"${op}(List(${operands.mkString(", ")}))"
             else
               s"${op}(${operands.mkString(", ")})"
-          case _ => s"TODO(${cApply})"
+          case _ => TODO(s"${cApply}")
         }
       }
       private def litCode(lit: Lit): String = {
@@ -183,8 +184,12 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
             }
           case SLib(name, tpe) =>
             name match {
-              case "scala.`package`.BigInt.apply" | "scala.Predef.intWrapper" | "math.this.BigInt.int2bigInt" |
-                  "scala.Predef.ArrowAssoc" | "scala.Predef.refArrayOps" =>
+              case "scala.`package`.BigInt.apply" =>
+                if (ChicalaConfig.simulation) s"BigInt($args)"
+                else args
+              case "scala.Predef.intWrapper" | "math.this.BigInt.int2bigInt" =>
+                args
+              case "scala.Predef.ArrowAssoc" | "scala.Predef.refArrayOps" =>
                 args
 
               case "chisel3.util.log2Up.apply"    => s"log2Up(${args})"
@@ -193,21 +198,22 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
 
               case "scala.`package`.Range.apply" => s"Range(${args})"
               case "scala.`package`.Seq.apply" =>
+                val SeqTpe = if (ChicalaConfig.simulation) "Seq" else "List"
                 sApply.args match {
-                  case Nil          => s"List[${sApply.tpe.asInstanceOf[StSeq].tparam.toCode}]()"
-                  case head :: next => s"List(${args})"
+                  case Nil          => s"${SeqTpe}[${sApply.tpe.asInstanceOf[StSeq].tparam.toCode}]()"
+                  case head :: next => s"${SeqTpe}(${args})"
                 }
 
-              case "scala.Array.fill" => s"List.fill(${args})"
+              case "scala.Array.fill" => if (ChicalaConfig.simulation) s"Seq.fill(${args})" else s"List.fill(${args})"
 
-              case _ => s"TODO(sApplyCode SLib ${name}(${args}))"
+              case _ => TODO(s"sApplyCode SLib ${name}(${args})")
             }
           case SIdent(name, tpe) =>
             s"${name.toString()}(${args})"
           case s: SApply =>
             if (args.startsWith("ClassTag")) s"${s.toCode}"
             else s"${s.toCode}(${args})"
-          case _ => s"TODO(sApplyCode ${sApply.fun.toCode}(${args}))"
+          case _ => TODO(s"sApplyCode ${sApply.fun.toCode}(${args})")
         }
 
       }
@@ -235,7 +241,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
               case "bitLength"    => s"bitLength(${from})"
               case "indices"      => s"(0 until ${from}.length)"
               case "toIndexedSeq" => s"${from}"
-              case _              => s"TODO(SSelect ${name} ${sSelect})"
+              case _              => TODO(s"SSelect ${name} ${sSelect}")
             }
           )
       }
@@ -246,40 +252,62 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         sLib.name match {
           case "scala.`package`.Nil" => "Nil"
 
-          case _ => s"TODO(sLibCode ${sLib})"
+          case _ => TODO(s"sLibCode ${sLib}")
         }
       }
-      private def connectCL(connect: Connect): CodeLines = {
-        connect.left match {
-          case CApply(VecSelect, tpe, operands) =>
-            val left = operands.head.toCode(true)
-            val idx  = operands.tail.head.toCode
-            val expr = connect.expr.toCodeLines
-            CodeLines.warpToOneLine(
-              s"${left} = ${left}.updated(${idx}, ",
-              expr.indented,
-              ")"
-            )
-          case SignalRef(_, _) =>
-            val left = connect.left.toCode(true)
-            val expr = connect.expr.toCodeLines
-            if (expr.lines.head.startsWith("if"))
-              CodeLines.warpToOneLine(
-                s"${left} = ${left} := (",
-                expr.indented,
-                ")"
-              )
-            else
-              s"${left} = ${left} := ".concatLastLine(expr)
+      private def sLiteralCode(sLiteral: SLiteral): String = {
+        sLiteral.tpe match {
+          case StString =>
+            s"\"${sLiteral.value.toString()}\""
           case _ =>
-            CodeLines(s"Unsupport(${connect})")
+            sLiteral.value.toString()
         }
-
       }
-      private def whenCL(
-          when: When,
-          isElseWhen: Boolean
-      ): CodeLines = {
+      private def connectCL(cnt: Connect): CodeLines = {
+        cnt.expands
+          .map[CodeLines](connect =>
+            connect.left match {
+              case CApply(VecSelect, t, operands) =>
+                val tpe  = operands.head.tpe
+                val left = operands.head.toCode(true)
+                val idx  = operands.tail.head.toCode
+                val expr = connect.expr.toCodeLines
+                CodeLines.warpToOneLine(
+                  s"${left} = ${left}.updated[${t.toCode}, ${tpe.toCode}](${idx}, ",
+                  CodeLines(s"${left}(${idx}) := ").concatLastLine(expr).indented,
+                  ")"
+                )
+              case SignalRef(_, tpe) =>
+                val left = connect.left.toCode(true)
+                val expr = connect.expr.toCodeLines
+                tpe match {
+                  case Vec(_, _, t) =>
+                    // s"${left} = ".concatLastLine(expr).concatLastLine(s": ${tpe.toCode}")
+                    CodeLines(
+                      s"(0 until ${left}.length)",
+                      s"  .zip(${expr.toCode})",
+                      if (ChicalaConfig.simulation)
+                        s"  .foreach { case (i, s) => ${left} = ${left}.updated[${t.toCode}, Seq[${t.toCode}]](i, ${left}(i) := s)}"
+                      else
+                        s"  .foreach { case (i, s) => ${left} = ${left}.updated[${t.toCode}, List[${t.toCode}]](i, ${left}(i) := s)}"
+                    )
+                  case _ =>
+                    if (expr.lines.head.startsWith("if"))
+                      CodeLines.warpToOneLine(
+                        s"${left} = ${left} := (",
+                        expr.indented,
+                        ")"
+                      )
+                    else
+                      s"${left} = ${left} := ".concatLastLine(expr)
+                }
+              case _ =>
+                CodeLines(s"Unsupport(${connect})")
+            }
+          )
+          .toCodeLines
+      }
+      private def whenCL(when: When, isElseWhen: Boolean): CodeLines = {
         val ifword = if (isElseWhen) " else if" else "if"
         val whenPart = CodeLines
           .warpToOneLine(s"${ifword} (when(", when.cond.toCodeLines, ")) ")
@@ -299,7 +327,7 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
       private def switchCL(switch: Switch): CodeLines = {
         val signal = switch.cond.toCode
         val branchs = switch.branchs.map { case (value, branchp) =>
-          CodeLines(s"if (${signal} == ${value.toCode}) ")
+          CodeLines(s"if ((${signal} === ${value.toCode}).value) ")
             .concatLastLine(branchp.toCodeLines)
         }
         branchs.reduceRight((a, b) => a.concatLastLine(" else ".concatLastLine(b)))
@@ -317,10 +345,12 @@ trait MTermsEmitter { self: StainlessEmitter with ChicalaAst =>
         )
         val regs = s"${moduelFullName}Regs()"
 
-        val outputName = s"${n}TransOutputs"
+        // `outputName` used in `val (outputName, _) = ...`, can not start with
+        // upper case. Add `t$` to avoid
+        val outputName = s"t$$${n}TransOutputs"
 
         CodeLines(
-          s"val (${outputName}, _) = ${subModuleRun.name}.trans(",
+          s"val (${outputName}, _) = ${n}.trans(",
           CodeLines(
             inputs.concatLastLine(","),
             regs

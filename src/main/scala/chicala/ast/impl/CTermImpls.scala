@@ -48,6 +48,22 @@ trait CTermImpls { self: ChicalaAst =>
       val tmpb = Connect(tmp.left.replaced(replaceMap), tmp.expr.replaced(replaceMap))
       tmpb
     }
+
+    def expands: List[Connect] = {
+      (left, expr) match {
+        case (SignalRef(ln, lt: Bundle), SignalRef(rn, rt: Bundle)) =>
+          val subNames = lt.signals.keySet.intersect(rt.signals.keySet).toList
+          subNames
+            .map(n =>
+              Connect(
+                SignalRef(Select(ln, n), lt.signals(n)),
+                SignalRef(Select(rn, n), rt.signals(n))
+              ).expands
+            )
+            .flatten
+        case _ => List(this)
+      }
+    }
   }
 
   trait WhenImpl { self: When =>

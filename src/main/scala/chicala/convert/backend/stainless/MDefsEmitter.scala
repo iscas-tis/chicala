@@ -12,8 +12,10 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
   trait MDefEmitterImplicit { self: StainlessEmitterImplicit =>
     implicit class MDefEmitter(mDef: MDef) {
       def toCode: String = mDef match {
-        case _: IoDef => s"DONOTCALLME(Code ${mDef})"
-        case _        => s"TODO(Code ${mDef})"
+        case _: IoDef =>
+          reporter.error(NoPosition, s"DONOTCALLME(Code ${mDef})")
+          s"DONOTCALLME(Code ${mDef})"
+        case _ => TODO(s"Code ${mDef}")
       }
 
       def toCodeLines: CodeLines = mDef match {
@@ -25,7 +27,7 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         case s: SValDef           => sValDefCL(s)
         case s: SUnapplyDef       => sUnapplyDefCL(s)
         case s: SDefDef           => sDefDefCL(s)
-        case _                    => CodeLines(s"TODO(CL ${mDef})")
+        case _                    => CodeLines(TODO(s"CL ${mDef}"))
       }
 
       private def wireDefCL(wireDef: WireDef): CodeLines = {
@@ -57,11 +59,15 @@ trait MDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         CodeLines(s"val ${name} = ${moduleName}()")
       }
       private def sValDefCL(sValDef: SValDef): CodeLines = {
-        val name    = sValDef.name.toString()
-        val rhs     = sValDef.rhs.toCodeLines
-        val keyword = if (sValDef.isVar) "var" else "val"
-
-        CodeLines(s"${keyword} ${name} = ").concatLastLine(rhs)
+        val name = sValDef.name.toString()
+        val rhs  = sValDef.rhs.toCodeLines
+        val keyword =
+          if (sValDef.isVar || sValDef.tpe.isInstanceOf[StArray]) "var"
+          else "val"
+        if (rhs.toCode.contains("Nothing"))
+          CodeLines(s"${keyword} ${name}: ${sValDef.tpe.toCode} = ").concatLastLine(rhs)
+        else
+          CodeLines(s"${keyword} ${name} = ").concatLastLine(rhs)
       }
       private def sUnapplyDefCL(sUnapplyDef: SUnapplyDef): CodeLines = {
         val left  = sUnapplyDef.names.map(_.toString()).mkString(", ")

@@ -5,6 +5,8 @@ import scala.tools.nsc.Global
 import chicala.ast.ChicalaAst
 import chicala.convert.backend.util._
 
+import chicala.ChicalaConfig
+
 trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
   val global: Global
   import global._
@@ -16,17 +18,25 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
       def toCode: String = toCodeLines.toCode
 
       def toCodeLines: CodeLines = {
-        val head = CodeLines(
-          s"""package ${moduleDef.pkg}
-         |
-         |import stainless.lang._
-         |import stainless.collection._
-         |import stainless.equations._
-         |import stainless.annotation._
-         |import stainless.proof.check
-         |
-         |import libraryUInt._""".stripMargin
-        )
+        val head =
+          if (!ChicalaConfig.simulation)
+            CodeLines(
+              s"""package ${moduleDef.pkg}
+                 |
+                 |import stainless.lang._
+                 |import stainless.collection._
+                 |import stainless.equations._
+                 |import stainless.annotation._
+                 |import stainless.proof.check
+                 |
+                 |import libraryUInt._""".stripMargin
+            )
+          else
+            CodeLines(
+              s"""package ${moduleDef.pkg}
+                 |
+                 |import librarySimUInt._""".stripMargin
+            )
 
         val inputsCaseClass  = signalsClassCL(inputsClassName, inputSignals)
         val outputsCaseClass = signalsClassCL(outputsClassName, outputSignals)
@@ -154,19 +164,25 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
         val regsRequire    = signalsRequireCL("regs", regsClassName, regSignals)
 
         val trans = transCL
-        val moduleRun = CodeLines(
-          s"""def ${moduleRunName}(timeout: Int, inputs: ${inputsClassName}, regInit: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {
-             |  require(timeout >= 1 && inputsRequire(inputs) && regsRequire(regInit))
-             |  val (newOutputs, newRegs) = trans(inputs, regInit)
-             |  if (timeout > 1) {
-             |    ${moduleRunName}(timeout - 1, inputs, newRegs)
-             |  } else {
-             |    (newOutputs, newRegs)
-             |  }
-             |} ensuring { case (outputs, regNexts) =>
-             |  outputsRequire(outputs) && regsRequire(regNexts)
-             |}""".stripMargin
-        )
+        val moduleRun = {
+          val ensuring =
+            if (ChicalaConfig.simulation) ""
+            else
+              """| ensuring { case (outputs, regNexts) =>
+                 |  outputsRequire(outputs) && regsRequire(regNexts)
+                 |}""".stripMargin
+          CodeLines(
+            s"""|def ${moduleRunName}(timeout: Int, inputs: ${inputsClassName}, regInit: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {
+                |  require(timeout >= 1 && inputsRequire(inputs) && regsRequire(regInit))
+                |  val (newOutputs, newRegs) = trans(inputs, regInit)
+                |  if (timeout > 1) {
+                |    ${moduleRunName}(timeout - 1, inputs, newRegs)
+                |  } else {
+                |    (newOutputs, newRegs)
+                |  }
+                |}${ensuring}""".stripMargin
+          )
+        }
         val run = {
           val regInit: String = {
             val inits: CodeLines = regSignals
@@ -186,14 +202,18 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
               )
               .toCode
           }
+          val ensuring =
+            if (ChicalaConfig.simulation) ""
+            else """| ensuring { case (outputs, regNexts) =>
+                    |  outputsRequire(outputs) && regsRequire(regNexts)
+                    |}""".stripMargin
+
           CodeLines(
-            s"""def run(inputs: ${inputsClassName}, randomInitValue: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {
-               |  require(inputsRequire(inputs) && regsRequire(randomInitValue))""".stripMargin,
+            s"""|def run(inputs: ${inputsClassName}, randomInitValue: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {
+                |  require(inputsRequire(inputs) && regsRequire(randomInitValue))""".stripMargin,
             regInit.indented,
-            s"""  ${moduleRunName}(100, inputs, regInit)
-               |} ensuring { case (outputs, regNexts) =>
-               |  outputsRequire(outputs) && regsRequire(regNexts)
-               |}""".stripMargin
+            s"""|  ${moduleRunName}(100, inputs, regInit)
+                |}${ensuring}""".stripMargin
           )
         }
 
@@ -259,6 +279,13 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
           ")"
         )
 
+        val ensuring =
+          if (ChicalaConfig.simulation) ""
+          else
+            s"""| ensuring { case (outputs, regNexts) =>
+                |  outputsRequire(outputs) && regsRequire(regNexts)
+                |}""".stripMargin
+
         CodeLines(
           s"def trans(inputs: ${inputsClassName}, regs: ${regsClassName}): (${outputsClassName}, ${regsClassName}) = {",
           CodeLines(
@@ -271,9 +298,7 @@ trait ModuleDefsEmitter { self: StainlessEmitter with ChicalaAst =>
             CodeLines.blank,
             returnValue
           ).indented,
-          s"""} ensuring { case (outputs, regNexts) =>
-             |  outputsRequire(outputs) && regsRequire(regNexts)
-             |}""".stripMargin
+          s"}${ensuring}"
         )
       }
     }

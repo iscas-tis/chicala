@@ -21,6 +21,10 @@ trait STypeImpls { self: ChicalaAst =>
     override def replaced(r: Map[String, MStatement]): StSeq =
       StSeq(tparam.replaced(r))
   }
+  trait StArrayImpl { self: StArray =>
+    override def replaced(r: Map[String, MStatement]): StArray =
+      StArray(tparam.replaced(r))
+  }
 
   trait StWrappedImpl { self: StWrapped =>
     override def toString(): String = s"StWrapped(\"${str}\")"

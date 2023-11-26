@@ -47,7 +47,7 @@ class Mul(
   val mulw     = if (mulUnroll == 0) w else (w + mulUnroll - 1) / mulUnroll * mulUnroll
   val fastMulW = if (mulUnroll == 0) false else w / 2 > mulUnroll && w % (2 * mulUnroll) == 0 // 5
 
-  val s_ready :: s_mul :: s_done_mul :: Nil = Enum(3)
+  val s_ready :: s_neg_inputs :: s_mul :: s_div :: s_dummy :: s_neg_output :: s_done_mul :: s_done_div :: Nil = Enum(8)
 
   val state = RegInit(s_ready)
 
@@ -138,7 +138,7 @@ class Mul(
     req       := io.req.bits
   }
 
-  val outMul = (state & (s_done_mul)) === (s_done_mul)
+  val outMul = (state & (s_done_mul ^ s_done_div)) === (s_done_mul & ~s_done_div)
   val loOut  = Mux(fastMulW.B && halfWidth(req.dw) && outMul, result(w - 1, w / 2), result(w / 2 - 1, 0))
   val hiOut  = Mux(halfWidth(req.dw), Fill(w / 2, loOut(w / 2 - 1)), result(w - 1, w / 2))
   io.resp.bits.tag := req.tag // 45

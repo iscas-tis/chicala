@@ -1,5 +1,5 @@
 ThisBuild / version      := "0.1.0-SNAPSHOT"
-ThisBuild / organization := "com.liuyic00"
+ThisBuild / organization := "cn.ac.ios.tis"
 ThisBuild / scalaVersion := "2.13.10"
 
 lazy val root = (project in file("."))
@@ -31,5 +31,5 @@ lazy val testcase = (project in file("testcase"))
       "-feature",
       "-Xcheckinit"
     ),
-    addCompilerPlugin("com.liuyic00" %% "chicala" % "0.1.0-SNAPSHOT")
+    addCompilerPlugin("cn.ac.ios.tis" %% "chicala" % "0.1.0-SNAPSHOT")
   )

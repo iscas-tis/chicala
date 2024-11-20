@@ -69,3 +69,12 @@ For verification with Stainless, see
 For simulation, see the [project](https://github.com/liuyic00/chicala-soundness)
 where we compare the simulation results of our Scala code and
 [ChiselTest](https://github.com/ucb-bar/chiseltest).
+
+## Publications
+
+**DAC 2024: Formally Verifying Arithmetic Chisel Designs for All Bit Widths at Once**
+
+Efficient verification of ALUs has always been a challenge. Traditionally, they are verified at a low level, leading to state space explosion for larger bit widths. We symbolically can verify ALUs for all bit widths at once.
+Chisel is a hardware description language embedded in Scala. Our key idea is to transform arithmetic Chisel designs into Scala software programs that simulate their behavior, then apply Stainless, a deductive formal verification tool for Scala. We validate the effectiveness by verifying dividers and multipliers in two open-source RISC-V processors, and conclude that our approach requires less manual guidance than others.
+
+[ACM Digital Library](https://dl.acm.org/doi/10.1145/3649329.3657311) | [BibTex](https://dblp.org/rec/conf/dac/FengL0J0W24.html?view=bibtex&param=1)

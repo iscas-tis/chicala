@@ -1,11 +1,18 @@
 # Chicala
 
-Chicala is a **Chi**sel to S**cala** Translator.
+Chicala is a high-level Chisel verification project, 
+consisting of the translation part and the verification part.
+
+- **Chi**sel to S**cala** Translator.
 It uses a Scala compiler plugin to translate Chisel hardware design code to
 Scala simulation code.
 This translation alows us to use software verification technology on the Scala
 code to varify the Chisel hardware design, and use Chisel level information to
 improve the verification, such as parameter and structure information.
+- Scala Deductive Verification.
+Scala code generated from our translator is annotated with proper pre-/post-conditions,
+assertions and invariants, and verified by Stainless.
+We have implemented lemma libraries that help reason about programs with hardware backgrounds.
 
 We [verified arithmetic Chisel
 designs](https://github.com/fengwz17/divider-stainless) through this translation

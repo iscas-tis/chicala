@@ -1,8 +1,8 @@
-# Chicala 
-
 ![Static Badge](https://img.shields.io/badge/-sel-gray?label=chi&labelColor=blue&link=https%3A%2F%2Fgithub.com%2Fchipsalliance%2Fchisel) 
 ![Static Badge](https://img.shields.io/badge/s-cala-blue?link=https%3A%2F%2Fgithub.com%2Fscala%2Fscala)
 ![Static Badge](https://img.shields.io/badge/chicala-blue?link=https%3A%2F%2Fgithub.com%2Ffengwz17%2Fchiikawa-pic%2Fraw%2Fmain%2FWechatIMG51.jpg) 
+
+# Chicala 
 
 Chicala is a high-level Chisel verification project, 
 consisting of translation and the verification parts.
